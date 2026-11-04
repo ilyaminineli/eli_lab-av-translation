@@ -323,22 +323,24 @@ class AutomationDirector:
                 kind = layer.generator_type
                 values = normalize_settings(kind, layer.generator_settings)
                 updated = False
-                if (
-                    kind == "text"
-                    and self.settings.randomize_text
-                    and bool(values.get("text_auto_regenerate", True))
-                ):
+
+                if kind == "text" and self.settings.randomize_text:
+                    if bool(values.get("text_auto_regenerate", True)):
+                        values.update({
+                            "text": random_text_sample(
+                                str(values.get("text_pool_language", self.settings.text_language)),
+                                str(values.get("text_pool_theme", self.settings.text_theme)),
+                                int(values.get("text_pool_count", self.settings.text_fragments)),
+                                seed=self.rng.randrange(0, 2 ** 31 - 1),
+                                use_dictionary=bool(values.get("text_pool_dictionary", True)),
+                            ),
+                            "text_layout": self.rng.choice(("single", "collage")),
+                            "collage_seed": self.rng.randrange(0, 2 ** 31 - 1),
+                            "text_color_mode": self.rng.choice(("single", "alternate")),
+                        })
+                        updated = True
+                    # Motion evolves on its own schedule even when the phrase is held.
                     values.update({
-                        "text": random_text_sample(
-                            str(values.get("text_pool_language", self.settings.text_language)),
-                            str(values.get("text_pool_theme", self.settings.text_theme)),
-                            int(values.get("text_pool_count", self.settings.text_fragments)),
-                            seed=self.rng.randrange(0, 2 ** 31 - 1),
-                            use_dictionary=bool(values.get("text_pool_dictionary", True)),
-                        ),
-                        "text_layout": self.rng.choice(("single", "collage")),
-                        "collage_seed": self.rng.randrange(0, 2 ** 31 - 1),
-                        "text_color_mode": self.rng.choice(("single", "alternate")),
                         "text_animation": self.rng.choice(
                             ("type_on", "word_reveal", "line_wave", "jitter", "crawl", "glitch")
                         ),
@@ -374,6 +376,7 @@ class AutomationDirector:
                         "mode": self.rng.choice(("drift", "rise", "fall", "orbit")),
                     })
                     updated = True
+
                 if updated:
                     layer.generator_settings = normalize_settings(kind, values)
                     changed += 1
@@ -391,6 +394,7 @@ class AutomationDirector:
         return changed
 
     def tick(self, now: float | None = None) -> bool:
+
         if not self.running:
             return False
         current = time.monotonic() if now is None else float(now)
