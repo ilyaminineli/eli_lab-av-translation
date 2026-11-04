@@ -300,6 +300,7 @@ class MainWindow(QMainWindow):
             self._refresh_automation_status()
         except Exception as exc:
             _LOG.exception("Could not start automation")
+            self.automation_panel.set_running(False, f"Could not start · {exc}")
             QMessageBox.warning(self, "Automation could not start", str(exc))
 
     def stop_automation(self) -> None:
