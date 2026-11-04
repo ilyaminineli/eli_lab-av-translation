@@ -668,3 +668,4 @@ class LayerPanel(QWidget):
         layer = self._selected_layer()
         if layer:
             self.application.layer_manager.update_layer(layer.id, rotation=float(value))
+            self.layer_properties_changed.emit(layer.id)
