@@ -97,7 +97,9 @@ class MainWindow(QMainWindow):
         toolbar.addWidget(self.transport_bar)
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, toolbar)
 
-        self.control_status_label = QLabel(self.application.performance_control.status_text())
+        self.control_status_label = QLabel(
+            self.application.performance_control.status_text()
+        )
         self.control_status_label.setToolTip(
             "M3 control state · normalized transport, scene and macro events"
         )
