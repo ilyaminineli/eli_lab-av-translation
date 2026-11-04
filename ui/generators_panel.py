@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 
 from core.application import Application
 from generators.catalog import normalize_settings
+from generators.palettes import palette_names, palette_look
 from generators.text_pools import random_text_sample
 
 
@@ -254,9 +255,13 @@ class GeneratorsPanel(QWidget):
         self.secondary_color = QLineEdit("#8678A8")
         style_form.addRow("PRIMARY COLOUR", self.primary_color)
         style_form.addRow("ACCENT COLOUR", self.secondary_color)
+        self.palette_combo = QComboBox()
+        self.palette_combo.addItem("Manual colours", "")
+        self.palette_combo.addItems(palette_names())
+        style_form.addRow("JAPANESE PALETTE LOOK", self.palette_combo)
 
         self.animation_combo = QComboBox()
-        self.animation_combo.addItems(["none", "pulse", "rotate", "drift", "flicker"])
+        self.animation_combo.addItems(["none", "pulse", "rotate", "drift", "flicker", "warp"])
         style_form.addRow("ANIMATION", self.animation_combo)
         self.speed_slider, self.speed_value = self._slider(
             style_form, "ANIMATION SPEED", 0, 800, 18
@@ -288,6 +293,7 @@ class GeneratorsPanel(QWidget):
         self.add_overlay_button.clicked.connect(self.add_overlay_media)
         self.remove_button.clicked.connect(self.remove_selected)
         self.layer_combo.currentIndexChanged.connect(self.load_selected)
+        self.palette_combo.currentTextChanged.connect(self._palette_changed)
         self.apply_button.clicked.connect(self.apply_settings)
         self.random_text_button.clicked.connect(self.randomize_text)
         self._collage_seed = 211
@@ -541,6 +547,13 @@ class GeneratorsPanel(QWidget):
             amount_value = round(min(100.0, amount / 0.45 * 100.0))
         self.amount_slider.setValue(amount_value)
         self._loading = False
+
+    def _palette_changed(self, name: str) -> None:
+        if not name or name == "Manual colours":
+            return
+        look = palette_look(name)
+        self.primary_color.setText(str(look["primary_color"]))
+        self.secondary_color.setText(str(look["secondary_color"]))
 
     def apply_settings(self) -> None:
         layer = self._selected_layer()
