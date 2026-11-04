@@ -476,3 +476,28 @@ def test_automation_varies_enabled_layer_fx(tmp_path) -> None:
     before = dict(layer.layer_effects)
     assert director.tick(now=4.0) is True
     assert layer.layer_effects != before
+
+
+def test_layer_fx_automation_respects_manual_cooldown(tmp_path) -> None:
+    import time
+
+    asset = make_asset(tmp_path, "layer-fx-cooldown.mp4")
+    deck = FakeDeck("deck_a")
+    layer = Layer(
+        id="manual-fx",
+        layer_effects={"enabled": True, "monochrome": 1.0},
+        fx_manual_override_until=time.time() + 120.0,
+    )
+    director = AutomationDirector(seed=22)
+    director.start(
+        [asset], [deck], [layer], EffectSettings(),
+        settings=AutomationSettings(
+            randomize_layout=False, randomize_effects=False,
+            randomize_generators=False, randomize_layer_effects=True,
+            min_generator_interval=2.0, max_generator_interval=2.0,
+        ),
+        duration_seconds=None, now=1.0,
+    )
+    original = dict(layer.layer_effects)
+    assert director.tick(now=4.0) is False
+    assert layer.layer_effects == original
