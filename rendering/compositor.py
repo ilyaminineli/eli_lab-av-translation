@@ -89,6 +89,9 @@ vec4 particle_field(vec2 uv) {
                 point.y = fract(point.y - phase / 6.28318);
             } else if (u_particle_mode == 2) {
                 point.y = fract(point.y + phase / 6.28318);
+            } else if (u_particle_mode == 3) {
+                point += vec2(cos(phase), sin(phase)) * u_particle_spread * 0.09;
+                point = fract(point);
             } else {
                 point.y = fract(point.y + sin(phase) * u_particle_spread * 0.08);
                 point.x = fract(point.x + cos(phase * 0.7) * u_particle_spread * 0.08);
@@ -439,6 +442,14 @@ class Compositor:
         self.composite_program["u_particle_mode"].value = 0
         self.composite_program["u_layer_fx_enabled"].value = 0
         self.post_program["u_texture"].value = 0
+        self.particle_stub = context.texture(
+            (1, 1),
+            4,
+            bytes((0, 0, 0, 0)),
+            alignment=1,
+            dtype="f1",
+        )
+        self.particle_stub.filter = (moderngl.NEAREST, moderngl.NEAREST)
 
         self.source_textures: dict[str, moderngl.Texture] = {}
         self.targets: list[moderngl.Texture] = []
@@ -582,6 +593,8 @@ class Compositor:
             self.targets[current].use(location=0)
             if layer_texture is not None:
                 layer_texture.use(location=1)
+            else:
+                self.particle_stub.use(location=1)
 
             self.composite_program["u_position"].value = tuple(layer.position)
             self.composite_program["u_scale"].value = tuple(layer.scale)
@@ -685,3 +698,4 @@ class Compositor:
         self.vertex_buffer.release()
         self.composite_program.release()
         self.post_program.release()
+        self.particle_stub.release()
