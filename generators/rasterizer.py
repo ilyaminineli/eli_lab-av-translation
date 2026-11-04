@@ -194,7 +194,8 @@ class GeneratorRasterizer:
         family = str(settings.get("font_family", "Arial"))
         font = QFont(family)
         font.setPixelSize(int(settings["font_size"]))
-        font.setWeight(int(settings["font_weight"]))
+        # PySide6 6.7+ requires the QFont.Weight enum rather than a plain int.
+        font.setWeight(QFont.Weight(int(settings["font_weight"])))
         font.setLetterSpacing(
             QFont.SpacingType.AbsoluteSpacing,
             float(settings["letter_spacing"]),
