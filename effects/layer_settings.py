@@ -3,7 +3,6 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
-
 LAYER_EFFECT_DEFAULTS: dict[str, Any] = {
     "enabled": False,
     "mix": 1.0,
