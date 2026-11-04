@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -42,6 +42,8 @@ _SLIDERS = (
 
 class EffectsPanel(QWidget):
     """Master video look controls; all outputs render the same settings."""
+
+    manual_parameter_changed = Signal(str)
 
     def __init__(self, settings: EffectSettings, parent=None) -> None:
         super().__init__(parent)
@@ -96,6 +98,7 @@ class EffectsPanel(QWidget):
             return
         self.settings.apply_preset(name)
         self.sync_from_settings()
+        self.manual_parameter_changed.emit("master.*")
 
     def _enabled_changed(self, enabled: bool) -> None:
         self.settings.enabled = bool(enabled)
@@ -108,6 +111,7 @@ class EffectsPanel(QWidget):
             label: QLabel,
     ) -> None:
         setattr(self.settings, field, value / scale)
+        self.manual_parameter_changed.emit(f"master.{field}")
         if not self.settings.enabled:
             self.settings.enabled = True
             self.enabled_check.blockSignals(True)
@@ -123,6 +127,7 @@ class EffectsPanel(QWidget):
     def _reset(self) -> None:
         self.settings.reset()
         self.sync_from_settings()
+        self.manual_parameter_changed.emit("master.*")
 
     def sync_from_settings(self) -> None:
         self.preset_combo.blockSignals(True)
