@@ -5,6 +5,7 @@ import numpy as np
 
 from core.composition import Layer
 from effects.settings import EffectSettings
+from generators.catalog import animation_code
 
 _VERTEX_SHADER = """#version 330
 in vec2 in_position;
@@ -317,13 +318,7 @@ class Compositor:
             self.composite_program["u_time"].value = float(time_seconds)
             animation = layer.generator_settings if layer.source_type == "generator" else {}
             animation_name = str(animation.get("animation", "none"))
-            self.composite_program["u_animation"].value = {
-                "none": 0,
-                "pulse": 1,
-                "rotate": 2,
-                "drift": 3,
-                "flicker": 4,
-            }.get(animation_name, 0)
+            self.composite_program["u_animation"].value = animation_code(animation)
             self.composite_program["u_animation_speed"].value = float(
                 animation.get("animation_speed", 0.0)
             )
