@@ -90,3 +90,15 @@ def test_ordered_fx_stages_and_track_matte_are_in_shared_shader() -> None:
     assert "u_fx_stage_type[i]" in _COMPOSITE_FRAGMENT
     assert "u_mask_enabled" in _COMPOSITE_FRAGMENT
     assert "u_mask_mode == 2" in _COMPOSITE_FRAGMENT
+
+
+def test_all_layer_effect_stages_are_editable_and_composed_with_legacy_controls() -> None:
+    from effects.layer_settings import EFFECT_STAGE_TYPES
+    from rendering.compositor import _COMPOSITE_FRAGMENT
+
+    assert {"contrast", "saturation", "brightness"}.issubset(EFFECT_STAGE_TYPES)
+    for stage_code in (7, 8, 9):
+        assert f"stage_type == {stage_code}" in _COMPOSITE_FRAGMENT
+    chain_end = _COMPOSITE_FRAGMENT.index("if (stage_type == 1)")
+    legacy_controls = _COMPOSITE_FRAGMENT.index("u_layer_fx_contrast", chain_end)
+    assert legacy_controls > chain_end
