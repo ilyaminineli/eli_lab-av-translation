@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from PySide6.QtCore import QTimer, Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QAction, QGuiApplication, QKeySequence
 from PySide6.QtWidgets import (
     QDockWidget,
@@ -180,7 +180,10 @@ class MainWindow(QMainWindow):
         try:
             self.output_manager.open_on_screen(screen)
             self.statusBar().showMessage(
-                f"Projector output opened on {screen.name()}. Press Escape on the output to close it.",
+                (
+                    f"Projector output opened on {screen.name()}. "
+                    "Press Escape on the output to close it."
+                ),
                 6000,
             )
         except Exception as exc:
@@ -265,7 +268,10 @@ class MainWindow(QMainWindow):
 
     def stop_automation(self) -> None:
         self.application.stop_automation()
-        self.automation_panel.set_running(False, "Stopped · video decks keep their current playback.")
+        self.automation_panel.set_running(
+            False,
+            "Stopped · video decks keep their current playback.",
+        )
 
     def _runtime_tick(self) -> None:
         self.application.refresh_frames()
