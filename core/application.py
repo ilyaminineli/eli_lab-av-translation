@@ -326,6 +326,7 @@ class Application:
     def load_project(self, path: str | Path) -> None:
         composition, deck_states = self.project_manager.load(path)
         self.automation.stop()
+        self._clear_overlays()
         for deck in self.decks.values():
             deck.close()
             deck.locked = False
