@@ -80,6 +80,10 @@ Launch:
 
 The deck and layer lock controls are respected by automation. Lock anything that should remain untouched.
 
+## Media library cleanup
+
+Use the **LIBRARY** menu in the Media Library panel to remove a selected imported folder from the index, prune missing source files, clear the entire index, or delete unused cached thumbnails. These operations never delete the original video files. Clips already loaded into decks continue playing when their folder is removed from the index.
+
 ## Effects and overlays
 
 The EFFECTS + OVERLAYS panel controls the master output. Presets are starting looks; every parameter can be adjusted manually. Automated look changes use the same presets and affect the preview and projector output together.
