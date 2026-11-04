@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtGui import QImage
+from PySide6.QtGui import QColor, QImage
 
 from core.application import Application
 from core.composition import Composition
@@ -13,7 +13,7 @@ from core.layer_manager import LayerManager
 def make_image(path: Path) -> None:
     image = QImage(8, 4, QImage.Format.Format_RGBA8888)
     image.fill(0)
-    image.setPixelColor(2, 1, __import__("PySide6").QtGui.QColor(255, 255, 255, 255))
+    image.setPixelColor(2, 1, QColor(255, 255, 255, 255))
     assert image.save(str(path))
 
 
