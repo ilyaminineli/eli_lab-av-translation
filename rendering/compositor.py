@@ -230,6 +230,14 @@ void main() {
 
     vec2 sample_local = local;
     float text_mask = 1.0;
+    // Warp deforms the geometry texture itself, not just its layer transform.
+    if (u_generator_type == 3 && u_animation == 5) {
+        float warp_phase = u_time * u_animation_speed;
+        sample_local.x += sin(local.y * 31.0 + warp_phase * 1.7)
+            * u_animation_amount * 0.12;
+        sample_local.y += cos(local.x * 27.0 - warp_phase)
+            * u_animation_amount * 0.12;
+    }
     float text_phase = u_time * u_text_animation_speed;
     if (u_generator_type == 2) {
         if (u_text_animation == 1) {
@@ -670,6 +678,7 @@ class Compositor:
             self.composite_program["u_generator_type"].value = {
                 "particles": 1,
                 "text": 2,
+                "geometry": 3,
             }.get(generator_kind, 0)
             self.composite_program["u_text_animation"].value = (
                 text_animation_code(animation) if generator_kind == "text" else 0
