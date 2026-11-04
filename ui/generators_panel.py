@@ -94,7 +94,9 @@ class GeneratorsPanel(QWidget):
         text_form = QFormLayout(self.text_group)
         self.text_edit = QPlainTextEdit()
         self.text_edit.setMaximumBlockCount(32)
-        self.text_edit.setPlaceholderText("Enter multiline text or regenerate from the bilingual pool…")
+        self.text_edit.setPlaceholderText(
+            "Enter multiline text or regenerate from the bilingual pool…"
+        )
         self.text_edit.setMinimumHeight(84)
         self.text_edit.setMaximumHeight(120)
         text_form.addRow("CONTENT", self.text_edit)
