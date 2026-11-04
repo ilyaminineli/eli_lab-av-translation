@@ -128,9 +128,15 @@ Layer settings and media references are stored in .eliav projects. Older project
 - General particle simulation with emitter shapes, lifetime/velocity curves and force fields.
 - More compact and densely packed typographic layout solvers, text paths, variable fonts and vertical CJK composition.
 - Rich text runs with multiple styles and arbitrary mixed language runs.
-- More animated overlay controls: in/out timing, playback speed, frame hold, mask/track matte and sync options.
-- Per-layer effect stage ordering and user-saveable FX chain presets.
+- [x] Overlay timing metadata, animated-image playback speed/frame hold and alpha/luma track mattes; scene-sync metadata is persisted for timeline integration.
+- [x] Per-layer effect stage ordering, reorder controls, chain save/import and project preset import/export.
 - User-defined generator presets and scene banks.
 - Auto Performance can periodically vary geometry, waveform, particle and text generator settings, regenerate bilingual dictionary-backed text, and vary enabled per-layer FX presets. Each generator/FX variation has a separate interval; locked layers are never changed. The UI exposes generator/text and layer-FX variation toggles.
 
 Audio reactivity remains M3; Sonic Pi control remains M4.
+
+## M2 effect-chain and overlay close-out
+
+Per-layer FX are stored as ordered stages (maximum eight), rendered top-to-bottom in the shared compositor. Current GPU stages are monochrome, negative, threshold, posterize, scanlines and hue shift. Stage order is project data, so preview and projector consume the same saved chain. The layer panel supports stage add/remove/reorder and saving a chain JSON file. Project preset collections can be imported into composition metadata and exported as JSON. Auto Performance skips a layer's FX for 30 seconds after a manual edit, in addition to respecting the layer lock.
+
+Overlay layers persist source in/out values, speed, frame-hold count, scene-sync intent and a matte source/mode. Animated image overlays use speed and hold settings at decode time. Alpha and luma mattes sample a referenced source texture in the compositor. Video source trimming and scene-clock scheduling remain dependent on the performance timeline introduced in M3; the saved fields provide the compatibility contract.
