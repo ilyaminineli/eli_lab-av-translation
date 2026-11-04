@@ -146,7 +146,7 @@ class Application:
             self._overlay_videos[layer.id] = deck
             self._overlay_frames.pop(layer.id, None)
         else:
-            player = ImageOverlayPlayer(source)
+            player = ImageOverlayPlayer(source, speed=layer.overlay_speed, frame_hold=layer.overlay_frame_hold)
             self._overlay_images[layer.id] = player
             self._overlay_frames[layer.id] = FrameSnapshot(
                 player.revision,
