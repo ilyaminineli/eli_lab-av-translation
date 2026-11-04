@@ -203,13 +203,14 @@ class InternalTransport:
                 if item.due_beat is None or item.due_beat <= self.total_beats
             ]
             for item in due_items:
+                new_bar_index = self.total_beats // self.beats_per_bar + 1
                 events.append(ControlEvent(
                     "scene.select",
                     self.source,
                     {
                         "scene_id": item.scene_id,
                         "intensity": item.intensity,
-                        "bar_index": bar_index,
+                        "bar_index": new_bar_index,
                     },
                     received_at=beat_time,
                 ))
