@@ -5,18 +5,18 @@ import time
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
-    QDoubleSpinBox,
     QComboBox,
-    QGroupBox,
-    QInputDialog,
-    QFormLayout,
+    QDoubleSpinBox,
     QFileDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QInputDialog,
+    QLabel,
     QListWidget,
     QListWidgetItem,
     QMessageBox,
-    QHBoxLayout,
-    QHeaderView,
-    QLabel,
     QPushButton,
     QScrollArea,
     QSlider,
@@ -29,8 +29,8 @@ from PySide6.QtWidgets import (
 
 from core.application import Application
 from effects.layer_settings import (
-    LAYER_EFFECT_PRESETS,
     EFFECT_STAGE_TYPES,
+    LAYER_EFFECT_PRESETS,
     apply_effect_chain_preset,
     normalize_layer_effects,
 )
@@ -126,7 +126,10 @@ class LayerPanel(QWidget):
         self.fx_stage_remove = QPushButton("REMOVE")
         self.fx_stage_up = QPushButton("↑")
         self.fx_stage_down = QPushButton("↓")
-        for button in (self.fx_stage_add, self.fx_stage_remove, self.fx_stage_up, self.fx_stage_down):
+        for button in (
+            self.fx_stage_add, self.fx_stage_remove,
+            self.fx_stage_up, self.fx_stage_down,
+        ):
             stage_row.addWidget(button)
         layer_fx_layout.addLayout(stage_row)
         chain_row = QHBoxLayout()
@@ -338,7 +341,9 @@ class LayerPanel(QWidget):
             self.overlay_speed_spin.setValue(layer.overlay_speed)
             self.overlay_frame_hold_spin.setValue(layer.overlay_frame_hold)
             self.overlay_scene_sync_check.setChecked(layer.overlay_scene_sync)
-            self.overlay_mask_mode.setCurrentIndex(max(0, self.overlay_mask_mode.findData(layer.overlay_mask_mode)))
+            self.overlay_mask_mode.setCurrentIndex(
+                max(0, self.overlay_mask_mode.findData(layer.overlay_mask_mode))
+            )
             self.overlay_mask_source.clear()
             self.overlay_mask_source.addItem("No source", "")
             for candidate in self.application.composition.layers:
@@ -377,8 +382,13 @@ class LayerPanel(QWidget):
             label.setText(f"{title}  {value}")
         self.layer_fx_preset.blockSignals(True)
         imported = self.application.composition.metadata.get("layer_fx_presets", {})
-        known_names = list(LAYER_EFFECT_PRESETS) + ["Xerox Stack", "Negative Print", "Signal Scan"] + (
-            list(imported) if isinstance(imported, dict) else [])
+        known_names = (
+            list(LAYER_EFFECT_PRESETS)
+            + ["Xerox Stack", "Negative Print", "Signal Scan"]
+            + (
+                list(imported) if isinstance(imported, dict) else []
+            )
+        )
         self.layer_fx_preset.clear()
         self.layer_fx_preset.addItems(list(dict.fromkeys(known_names)) + ["Custom"])
         self.layer_fx_preset.setCurrentText("Custom")
@@ -405,7 +415,9 @@ class LayerPanel(QWidget):
             item = QListWidgetItem(f'{title} · {stage["amount"]:.2f}')
             item.setData(Qt.ItemDataRole.UserRole, dict(stage))
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-            item.setCheckState(Qt.CheckState.Checked if stage["enabled"] else Qt.CheckState.Unchecked)
+            item.setCheckState(
+                Qt.CheckState.Checked if stage["enabled"] else Qt.CheckState.Unchecked
+            )
             self.fx_stage_list.addItem(item)
         self._loading = False
 
@@ -476,21 +488,34 @@ class LayerPanel(QWidget):
         layer = self._selected_layer()
         if layer is None:
             return
-        path, _ = QFileDialog.getSaveFileName(self, "Save layer FX chain", "layer-fx-chain.json", "JSON (*.json)")
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save layer FX chain", "layer-fx-chain.json", "JSON (*.json)"
+        )
         if not path:
             return
         import json
-        payload = {"format": "eli_lab_layer_fx_chain", "version": 1,
-                   "name": layer.name, "chain": normalize_layer_effects(layer.layer_effects)["stages"]}
+        payload = {
+            "format": "eli_lab_layer_fx_chain",
+            "version": 1,
+            "name": layer.name,
+            "chain": normalize_layer_effects(layer.layer_effects)["stages"],
+        }
         try:
             from pathlib import Path
-            Path(path).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            Path(path).write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
         except OSError as exc:
             QMessageBox.warning(self, "FX chain", str(exc))
 
     def _export_fx_presets(self) -> None:
-        path, _ = QFileDialog.getSaveFileName(self, "Export project FX presets", "layer-fx-presets.json",
-                                              "JSON (*.json)")
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export project FX presets",
+            "layer-fx-presets.json",
+            "JSON (*.json)",
+        )
         if not path:
             return
         import json
@@ -508,13 +533,24 @@ class LayerPanel(QWidget):
         try:
             from pathlib import Path
             Path(path).write_text(
-                json.dumps({"format": "eli_lab_layer_fx_presets", "version": 1, "presets": presets}, ensure_ascii=False,
-                           indent=2), encoding="utf-8")
+                json.dumps(
+                    {
+                        "format": "eli_lab_layer_fx_presets",
+                        "version": 1,
+                        "presets": presets,
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
         except OSError as exc:
             QMessageBox.warning(self, "FX presets", str(exc))
 
     def _import_fx_presets(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, "Import layer FX chain or presets", "", "JSON (*.json)")
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Import layer FX chain or presets", "", "JSON (*.json)"
+        )
         if not path:
             return
         import json
@@ -533,7 +569,9 @@ class LayerPanel(QWidget):
                 safe = {str(name): normalize_layer_effects({"stages": stages})["stages"]
                         for name, stages in presets.items() if isinstance(stages, list)}
                 self.application.composition.metadata["layer_fx_presets"] = safe
-                QMessageBox.information(self, "FX presets", f"Imported {len(safe)} project preset(s).")
+                QMessageBox.information(
+                    self, "FX presets", f"Imported {len(safe)} project preset(s)."
+                )
             else:
                 raise ValueError("Unsupported FX preset file.")
         except (OSError, ValueError, TypeError) as exc:
