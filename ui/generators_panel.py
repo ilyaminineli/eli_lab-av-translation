@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random
+import time
 
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QFontDatabase
@@ -20,6 +21,7 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QSlider,
     QSpinBox,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -43,8 +45,8 @@ class GeneratorsPanel(QWidget):
         self._loading = False
         self.setMinimumWidth(0)
         self.setSizePolicy(
-            QWidget.SizePolicy.Policy.Expanding,
-            QWidget.SizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Expanding,
         )
 
         outer = QVBoxLayout(self)
@@ -574,6 +576,8 @@ class GeneratorsPanel(QWidget):
             bool(layer and not is_overlay and not layer.locked)
         )
         self.remove_button.setEnabled(enabled)
+        self.layer_appearance_group.setEnabled(bool(layer and not layer.locked))
+        self.overlay_group.setEnabled(bool(layer and is_overlay and not layer.locked))
         if not enabled:
             self.hint_label.setText("Add or select a generator or overlay layer.")
             return
@@ -762,6 +766,19 @@ class GeneratorsPanel(QWidget):
         self.secondary_color.setText(str(look["secondary_color"]))
         self.background_color.setText(str(look["background_color"]))
 
+    def sync_layer_appearance(self, layer_id: str) -> None:
+        layer = self._selected_layer()
+        if layer is None or layer.id != layer_id:
+            return
+        self._loading = True
+        self.blend_mode_combo.blockSignals(True)
+        self.opacity_slider.blockSignals(True)
+        self.blend_mode_combo.setCurrentText(layer.blend_mode)
+        self.opacity_slider.setValue(round(layer.opacity * 100))
+        self.blend_mode_combo.blockSignals(False)
+        self.opacity_slider.blockSignals(False)
+        self._loading = False
+
     def _apply_layer_appearance(self, *_args) -> None:
         layer = self._selected_layer()
         if layer is None or layer.locked or self._loading:
@@ -771,7 +788,7 @@ class GeneratorsPanel(QWidget):
             blend_mode=str(self.blend_mode_combo.currentText()),
             opacity=self.opacity_slider.value() / 100.0,
             overlay_manual_override_until=(
-                __import__("time").time() + 30.0
+                time.time() + 30.0
                 if layer.source_type == "overlay"
                 else layer.overlay_manual_override_until
             ),
