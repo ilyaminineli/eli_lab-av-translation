@@ -18,7 +18,7 @@ The roadmap is deliberately staged. M0–M2 establish a complete visual instrume
 | Milestone | Current state | Notes |
 |---|---|---|
 | M0 — Rendering Core | Core implemented; hardware hardening remains | PySide6 shell, OpenGL/ModernGL render contexts, canvas/layers, project persistence and fullscreen external output are present. |
-| M1 — Video Collage | Core implemented; media and playback hardening remains | Folder indexing, media browser, four decoder decks, transforms, blending and random collage behaviour are present. |
+| M1 — Video Collage | Core implemented; reliability pass in progress | Folder indexing, four decoder decks, transforms, blending and random collage behaviour are present. Safe library cleanup, bounded import workers, decoder retirement and preview output limits are now implemented in the hardening branch. |
 | M2 — Generative Visuals | Partially implemented | Master GLSL looks, shader overlays, presets, project settings and timed random automation are present. Geometry, particles, waveform visuals and typography generators remain to be delivered. |
 | M3 — Audio Reactive Engine | Planned | No audio capture or analysis engine is included in the current video-focused build. |
 | M4 — Sonic Pi Integration | Planned | No OSC receiver or Sonic Pi event mapping is included in the current build. |
@@ -28,13 +28,18 @@ The roadmap is deliberately staged. M0–M2 establish a complete visual instrume
 
 During the November 4, 2026 user test, the application rendered the collage smoothly by user report and the runtime log identified **NVIDIA GeForce RTX 4060** during OpenGL initialization. This confirms that the application initialized on that machine; it is not yet a substitute for a long-duration soak test, multi-monitor reconnect test or performance benchmark.
 
-### Known issue being addressed
+### Recent reliability and performance hardening
 
-Thumbnail generation could fail with:
+- Thumbnail conversion now makes an owned C-contiguous RGB copy before creating the Qt image; a regression test covers a strided NumPy frame.
+- The Media Library has a folder selector and a LIBRARY menu to remove one imported folder, prune missing source files, clear the index, or clean unused thumbnail files. These operations never delete the source videos.
+- Folder scans are serialized and thumbnail generation is limited to two background workers, preventing a large import from spawning an unbounded number of simultaneous decode tasks. Destructive library actions are disabled while an import is still indexing.
+- Legacy library databases recover imported root paths from the stable collection hash; intentionally imported empty folders remain visible and removable.
+- Auto Mode refreshes its eligible source pool when collections are added or removed. Current deck playback is not interrupted; an empty pool simply stops scheduling further random cuts until footage is imported again.
+- Decoder replacements use separate frame queues and retain references to workers that have not finished shutting down.
+- Preview output is capped at 30 FPS and scaled to a maximum of 1920×1080 before RGB conversion. Smaller sources are not upscaled.
+- The renderer reports rolling per-second decode and RGB-conversion cost, render CPU submission time, upload time/bandwidth, active deck count and per-second frame drops. These are diagnostic counters, not GPU timer queries.
 
-`BufferError: memoryview: underlying buffer is not C-contiguous`
-
-PyAV can return an RGB NumPy array view with non-contiguous strides. The thumbnail path must make an owned C-contiguous copy before passing its buffer to Qt's `QImage`. A regression test should keep this behaviour protected.
+The November 4 RTX 4060 screenshot showed approximately 18.9 FPS. The new counters are intended to identify whether the remaining limit is CPU conversion, texture upload or compositor submission. CPU-side timings are not GPU timer-query measurements, so hardware profiling is still required before claiming a specific bottleneck or improvement.
 
 ---
 
@@ -325,13 +330,13 @@ Package the visual, audio and external-control systems into a flexible live perf
 
 ## Immediate next implementation order
 
-1. Thumbnail contiguity fix and regression test.
-2. Media-browser resilience, thumbnail failure states and bounded background work.
-3. Decoder/deck lifecycle hardening and transport controls.
-4. Mixer ergonomics: aspect handling, layers, locks, hold and transitions.
+1. Validate the thumbnail fix, folder removal and full-library reset on Windows; add cancellation and better progress for very large imports.
+2. Measure the new CPU/upload/drop counters with the user's representative four-clip composition and compare preview-only vs projector output.
+3. Finish decoder lifecycle tests and add explicit end-of-stream, seek and variable-frame-rate fixtures.
+4. Mixer ergonomics: aspect handling, layer selection, hold/freeze and transitions.
 5. Auto Mode refinement: weighted selection, cooldowns, manual override and scene coherence.
-6. M2 geometry, particles, waveform visuals and typography.
-7. Projector / long-session soak testing and performance diagnostics.
+6. M2 geometry, particles, waveform visuals, typography and alpha-capable overlay layers.
+7. Projector / 60-minute soak testing and performance diagnostics.
 8. Declare the Video Mixer complete only after the release criterion is met; then begin M3.
 
 This order is intentional: the goal is to finish a polished, expressive and reliable video instrument—not to start the audio roadmap while the visual foundation is still being hardened.

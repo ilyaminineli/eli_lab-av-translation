@@ -33,6 +33,7 @@ class Application:
             deck_id: VideoDeck(deck_id) for deck_id in VIDEO_DECK_IDS
         }
         self._frame_snapshots: dict[str, FrameSnapshot] = {}
+        self._automation_collection_id: str | None = None
         self.composition = Composition()
         self.layer_manager = LayerManager(self.composition, self.events)
         self._create_default_layers()
@@ -100,6 +101,24 @@ class Application:
         # Each output has its own GPU context and upload revision.
         return dict(self._frame_snapshots)
 
+    def performance_snapshot(self) -> dict[str, int | float]:
+        deck_stats = [deck.performance_stats() for deck in self.decks.values()]
+        return {
+            "playing_decks": sum(bool(item["playing"]) for item in deck_stats),
+            "queue_depth": sum(int(item["queue_depth"]) for item in deck_stats),
+            "dropped_frames": sum(int(item["dropped_frames"]) for item in deck_stats),
+            "retired_workers": sum(int(item["retired_workers"]) for item in deck_stats),
+            "published_frames": sum(int(item["published_frames"]) for item in deck_stats),
+            "decoded_frames": sum(int(item["decoded_frames"]) for item in deck_stats),
+            "decode_time_ms": sum(float(item["decode_time_ms"]) for item in deck_stats),
+            "conversion_time_ms": sum(
+                float(item["conversion_time_ms"]) for item in deck_stats
+            ),
+            "skipped_output_frames": sum(
+                int(item["skipped_output_frames"]) for item in deck_stats
+            ),
+        }
+
     def start_automation(
             self,
             collection_id: str | None = None,
@@ -115,9 +134,21 @@ class Application:
             settings=settings,
             duration_seconds=duration_seconds,
         )
+        self._automation_collection_id = collection_id
         self._frame_snapshots.clear()
         self.events.publish("automation.started", decks=loaded)
         return loaded
+
+    def refresh_automation_media_pool(self) -> bool:
+        """Apply media-library changes to Auto Mode without cutting current clips."""
+        if not self.automation.running:
+            return False
+        assets = self.media_library.list_assets(
+            collection_id=self._automation_collection_id
+        )
+        self.automation.replace_assets(assets)
+        self.events.publish("automation.media_pool_changed", count=len(assets))
+        return True
 
     def tick_automation(self) -> bool:
         changed = self.automation.tick()
@@ -130,6 +161,7 @@ class Application:
 
     def stop_automation(self) -> None:
         self.automation.stop()
+        self._automation_collection_id = None
         self.events.publish("automation.stopped")
 
     def save_project(self, path: str | Path) -> Path:

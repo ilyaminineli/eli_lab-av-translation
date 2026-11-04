@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from media.frame_queue import FrameQueue, FrameSnapshot, VideoFrameData
 from media.video_decoder import VideoDecoder
+
+_LOG = logging.getLogger(__name__)
 
 
 class VideoDeck:
@@ -11,6 +14,7 @@ class VideoDeck:
         self.id = deck_id
         self.frame_queue = FrameQueue(max_size=3)
         self.decoder: VideoDecoder | None = None
+        self._retired_decoders: list[VideoDecoder] = []
         self.current_frame: VideoFrameData | None = None
         self.frame_revision = 0
         self.path: str | None = None
@@ -29,6 +33,22 @@ class VideoDeck:
     def error(self) -> str | None:
         return self.decoder.last_error if self.decoder else None
 
+    def _retire_decoder(self, decoder: VideoDecoder) -> None:
+        stopped = decoder.stop(timeout=0.2)
+        if not stopped:
+            self._retired_decoders.append(decoder)
+            _LOG.debug(
+                "%s decoder is still exiting; replacement playback is "
+                "isolated on a new frame queue",
+                self.id,
+            )
+        self._reap_retired_decoders()
+
+    def _reap_retired_decoders(self) -> None:
+        self._retired_decoders = [
+            decoder for decoder in self._retired_decoders if decoder.worker_alive
+        ]
+
     def load(
             self,
             path: str | Path,
@@ -46,10 +66,10 @@ class VideoDeck:
         if end is not None and end <= start:
             raise ValueError("Segment end must be later than segment start.")
 
-        # Give every decoder its own queue. A previous worker can finish an in-flight
-        # decode without ever publishing into the replacement deck's queue.
+        # A decoder always owns its queue. If the old worker is finishing an
+        # in-flight PyAV call, it cannot publish into the replacement deck.
         if self.decoder is not None:
-            self.decoder.stop(timeout=0.0)
+            self._retire_decoder(self.decoder)
         self.frame_queue = FrameQueue(max_size=3)
         self.decoder = None
         self.current_frame = None
@@ -70,6 +90,7 @@ class VideoDeck:
             segment_end=self.segment_end,
         )
         self.decoder.start(autoplay=True)
+        self._reap_retired_decoders()
 
     def play(self) -> None:
         if not self.path:
@@ -92,8 +113,11 @@ class VideoDeck:
 
     def stop(self) -> None:
         if self.decoder:
-            self.decoder.stop()
+            self._retire_decoder(self.decoder)
             self.decoder = None
+        for decoder in self._retired_decoders:
+            decoder.stop(timeout=0.5)
+        self._reap_retired_decoders()
         self.frame_queue.clear()
         self.current_frame = None
         self.frame_revision += 1
@@ -112,12 +136,27 @@ class VideoDeck:
         if latest is not None:
             self.current_frame = latest
             self.frame_revision += 1
+        self._reap_retired_decoders()
         return latest
 
     def snapshot_frame(self) -> FrameSnapshot | None:
         if self.current_frame is None:
             return None
         return FrameSnapshot(self.frame_revision, self.current_frame)
+
+    def performance_stats(self) -> dict[str, int | float | bool]:
+        decoder = self.decoder
+        return {
+            "playing": self.is_playing,
+            "queue_depth": len(self.frame_queue),
+            "dropped_frames": self.frame_queue.dropped_frames,
+            "decoded_frames": decoder.decoded_frames if decoder else 0,
+            "published_frames": decoder.published_frames if decoder else 0,
+            "skipped_output_frames": decoder.skipped_output_frames if decoder else 0,
+            "decode_time_ms": decoder.decode_time_ms if decoder else 0.0,
+            "conversion_time_ms": decoder.conversion_time_ms if decoder else 0.0,
+            "retired_workers": sum(item.worker_alive for item in self._retired_decoders),
+        }
 
     def close(self) -> None:
         self.stop()

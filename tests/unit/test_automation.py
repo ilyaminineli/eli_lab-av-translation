@@ -212,3 +212,78 @@ def test_one_shot_fragment_advances_when_segment_finishes(tmp_path) -> None:
     assert deck.load_count == 1
     assert director.tick(now=expected_cut + 0.1) is True
     assert deck.load_count == 2
+
+
+def test_live_media_pool_refresh_does_not_interrupt_current_clip(tmp_path) -> None:
+    first = make_asset(tmp_path, "first-pool.mp4")
+    second = make_asset(tmp_path, "second-pool.mp4")
+    deck = FakeDeck("deck_a")
+    director = AutomationDirector(seed=8)
+    settings = AutomationSettings(
+        min_segment_seconds=2.0,
+        max_segment_seconds=2.0,
+        min_cut_interval=1.0,
+        max_cut_interval=1.0,
+        clip_switch_probability=1.0,
+        randomize_layout=False,
+        randomize_effects=False,
+    )
+
+    director.start(
+        [first, second],
+        [deck],
+        [Layer(id="layer-a")],
+        EffectSettings(),
+        settings=settings,
+        duration_seconds=120.0,
+        now=10.0,
+    )
+    current_asset_id = deck.asset_id
+    assert deck.load_count == 1
+
+    director.replace_assets([second], now=10.0)
+
+    # Editing the source pool must not force a hard cut on the current frame.
+    assert deck.asset_id == current_asset_id
+    assert deck.load_count == 1
+    assert director.tick(now=12.0) is True
+    assert deck.asset_id == second.id
+    assert deck.load_count == 2
+
+    director.replace_assets([], now=13.0)
+    assert deck.asset_id == second.id
+    assert deck.load_count == 2
+    assert director.tick(now=100.0) is False
+    assert deck.asset_id == second.id
+    assert deck.load_count == 2
+
+def test_deck_unlocked_after_session_start_joins_automation(tmp_path) -> None:
+    asset = make_asset(tmp_path, "unlocked-later.mp4")
+    active = FakeDeck("deck_a")
+    locked = FakeDeck("deck_b", locked=True)
+    director = AutomationDirector(seed=5)
+    settings = AutomationSettings(
+        min_segment_seconds=2.0,
+        max_segment_seconds=2.0,
+        min_cut_interval=1.0,
+        max_cut_interval=1.0,
+        randomize_layout=False,
+        randomize_effects=False,
+    )
+
+    director.start(
+        [asset],
+        [active, locked],
+        [Layer(id="layer-a")],
+        EffectSettings(),
+        settings=settings,
+        duration_seconds=60.0,
+        now=10.0,
+    )
+    assert locked.load_count == 0
+
+    locked.locked = False
+    director.tick(now=10.5)
+    assert locked.load_count == 0
+    assert director.tick(now=12.0) is True
+    assert locked.load_count == 1

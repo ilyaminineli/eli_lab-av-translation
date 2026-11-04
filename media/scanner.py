@@ -17,11 +17,16 @@ SUPPORTED_VIDEO_EXTENSIONS = {
 class MediaScanner:
     """Find local video files and probe their basic stream metadata."""
 
+    @staticmethod
+    def collection_id_for(folder: str | Path) -> str:
+        root = Path(folder).expanduser().resolve()
+        return hashlib.sha1(str(root).casefold().encode("utf-8")).hexdigest()[:16]
+
     def scan_folder(self, folder: str | Path, recursive: bool = True) -> list[MediaAsset]:
         root = Path(folder).expanduser().resolve()
         if not root.is_dir():
             raise NotADirectoryError(f"Media folder does not exist: {root}")
-        collection_id = hashlib.sha1(str(root).casefold().encode("utf-8")).hexdigest()[:16]
+        collection_id = self.collection_id_for(root)
         paths: Iterator[Path]
         paths = root.rglob("*") if recursive else root.iterdir()
         assets: list[MediaAsset] = []

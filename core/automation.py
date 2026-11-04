@@ -157,6 +157,35 @@ class AutomationDirector:
         self.last_action = f"Automation started · {loaded} deck(s)"
         return loaded
 
+    def replace_assets(
+            self,
+            assets: Iterable[MediaAsset],
+            now: float | None = None,
+    ) -> None:
+        """Refresh the live source pool without interrupting currently loaded clips."""
+        self._assets = [
+            asset for asset in assets
+            if asset.status not in {"error", "unsupported"} and Path(asset.path).is_file()
+        ]
+        if not self.running:
+            return
+
+        current = time.monotonic() if now is None else float(now)
+        if not self._assets:
+            # Keep the current deck frames playing, but do not repeatedly schedule
+            # random cuts when the library has been emptied.
+            self._deck_due.clear()
+            self.last_action = "Source pool empty · current clips continue playing"
+            return
+
+        for deck_id in self._decks:
+            self._deck_due[deck_id] = current + self._interval(
+                self.rng,
+                self.settings.min_cut_interval,
+                self.settings.max_cut_interval,
+            )
+        self.last_action = f"Source pool refreshed · {len(self._assets)} clip(s)"
+
     def _load_random_segment(
             self,
             deck: object,
@@ -252,8 +281,17 @@ class AutomationDirector:
 
         changed = False
         for deck_id, deck in self._decks.items():
-            due = self._deck_due.get(deck_id, float("inf"))
-            if getattr(deck, "locked", False) or current < due:
+            if getattr(deck, "locked", False):
+                continue
+            due = self._deck_due.get(deck_id)
+            if due is None:
+                self._deck_due[deck_id] = current + self._interval(
+                    self.rng,
+                    self.settings.min_cut_interval,
+                    self.settings.max_cut_interval,
+                )
+                continue
+            if current < due:
                 continue
             asset_id = getattr(deck, "asset_id", None)
             self._load_random_segment(deck, asset_id, current)

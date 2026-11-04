@@ -13,7 +13,7 @@ _LOG = logging.getLogger(__name__)
 
 
 class RenderEngine:
-    """Owns per-window ModernGL resources and renders a shared composition snapshot."""
+    """Owns per-window ModernGL resources and reports CPU-side render costs."""
 
     def __init__(self) -> None:
         self.context: Any | None = None
@@ -22,6 +22,10 @@ class RenderEngine:
         self.renderer_name = "Not initialized"
         self.version_code = 0
         self._uploaded_revisions: dict[str, int] = {}
+        self.last_render_ms = 0.0
+        self.last_upload_ms = 0.0
+        self.last_composite_ms = 0.0
+        self.last_upload_bytes = 0
 
     def initialize(self) -> None:
         try:
@@ -55,6 +59,9 @@ class RenderEngine:
     ) -> None:
         if not self.initialized or self.compositor is None:
             return
+        render_started = time.perf_counter()
+        upload_started = render_started
+        uploaded_bytes = 0
         for source_id, snapshot in frames.items():
             revision = int(getattr(snapshot, "revision", -1))
             if revision >= 0 and self._uploaded_revisions.get(source_id) == revision:
@@ -63,8 +70,12 @@ class RenderEngine:
             pixels = getattr(frame, "pixels", None)
             if pixels is not None:
                 self.compositor.update_texture(source_id, pixels)
+                uploaded_bytes += int(getattr(pixels, "nbytes", 0))
                 if revision >= 0:
                     self._uploaded_revisions[source_id] = revision
+        composite_started = time.perf_counter()
+        self.last_upload_ms = (composite_started - upload_started) * 1000.0
+        self.last_upload_bytes = uploaded_bytes
         self.compositor.render(
             composition.layers,
             target_fbo,
@@ -73,6 +84,9 @@ class RenderEngine:
             effects=effects,
             time_seconds=time.perf_counter(),
         )
+        finished = time.perf_counter()
+        self.last_composite_ms = (finished - composite_started) * 1000.0
+        self.last_render_ms = (finished - render_started) * 1000.0
 
     def release(self) -> None:
         if self.compositor is not None:
