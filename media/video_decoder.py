@@ -228,8 +228,8 @@ class VideoDecoder:
                             except StopIteration:
                                 break
                             self.decode_time_ms += (
-                                time.perf_counter() - decode_started
-                            ) * 1000.0
+                                                           time.perf_counter() - decode_started
+                                                   ) * 1000.0
 
                             with self._condition:
                                 if not self._running:
@@ -270,9 +270,9 @@ class VideoDecoder:
                                 if self.max_output_fps is not None else 0.0
                             )
                             if (
-                                last_published_timestamp is not None
-                                and frame_interval > 0
-                                and timestamp - last_published_timestamp < frame_interval * 0.92
+                                    last_published_timestamp is not None
+                                    and frame_interval > 0
+                                    and timestamp - last_published_timestamp < frame_interval * 0.92
                             ):
                                 self.skipped_output_frames += 1
                                 continue
@@ -280,8 +280,8 @@ class VideoDecoder:
                             conversion_started = time.perf_counter()
                             pixels = self._preview_pixels(frame)
                             self.conversion_time_ms += (
-                                time.perf_counter() - conversion_started
-                            ) * 1000.0
+                                                               time.perf_counter() - conversion_started
+                                                       ) * 1000.0
                             height, width, _ = pixels.shape
                             self.frame_queue.push_latest(
                                 VideoFrameData(

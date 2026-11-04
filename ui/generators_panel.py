@@ -79,10 +79,10 @@ class GeneratorsPanel(QWidget):
 
         self.weight_combo = QComboBox()
         for label, value in (
-            ("Regular", 400),
-            ("Medium", 500),
-            ("Bold", 700),
-            ("Black", 900),
+                ("Regular", 400),
+                ("Medium", 500),
+                ("Bold", 700),
+                ("Black", 900),
         ):
             self.weight_combo.addItem(label, value)
         content_form.addRow("WEIGHT", self.weight_combo)
@@ -223,28 +223,28 @@ class GeneratorsPanel(QWidget):
         layer = self._selected_layer()
         enabled = layer is not None
         for widget in (
-            self.text_edit,
-            self.pattern_combo,
-            self.font_combo,
-            self.weight_combo,
-            self.alignment_combo,
-            self.vertical_alignment_combo,
-            self.size_slider,
-            self.tracking_slider,
-            self.line_spacing_slider,
-            self.shadow_check,
-            self.density_slider,
-            self.width_slider,
-            self.amplitude_slider,
-            self.frequency_slider,
-            self.primary_color,
-            self.secondary_color,
-            self.stroke_color,
-            self.animation_combo,
-            self.speed_slider,
-            self.amount_slider,
-            self.apply_button,
-            self.remove_button,
+                self.text_edit,
+                self.pattern_combo,
+                self.font_combo,
+                self.weight_combo,
+                self.alignment_combo,
+                self.vertical_alignment_combo,
+                self.size_slider,
+                self.tracking_slider,
+                self.line_spacing_slider,
+                self.shadow_check,
+                self.density_slider,
+                self.width_slider,
+                self.amplitude_slider,
+                self.frequency_slider,
+                self.primary_color,
+                self.secondary_color,
+                self.stroke_color,
+                self.animation_combo,
+                self.speed_slider,
+                self.amount_slider,
+                self.apply_button,
+                self.remove_button,
         ):
             widget.setEnabled(enabled)
         if not enabled or self._loading:

@@ -93,7 +93,7 @@ class PerformanceView(QOpenGLWidget):
             average_upload_ms = self._upload_time_sum_ms / max(1, self._frame_count)
             stats = self.application.performance_snapshot()
             upload_megabytes_per_second = (
-                self._upload_bytes_sum / max(elapsed, 0.001) / (1024.0 * 1024.0)
+                    self._upload_bytes_sum / max(elapsed, 0.001) / (1024.0 * 1024.0)
             )
             self._frame_count = 0
             self._render_time_sum_ms = 0.0

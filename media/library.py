@@ -15,9 +15,9 @@ class MediaLibrary:
     """SQLite-backed media index. Cleanup operations never delete source footage."""
 
     def __init__(
-        self,
-        database_path: str | Path | None = None,
-        thumbnail_directory: str | Path | None = None,
+            self,
+            database_path: str | Path | None = None,
+            thumbnail_directory: str | Path | None = None,
     ) -> None:
         self.database_path = Path(database_path or MEDIA_DB_PATH).expanduser()
         self.thumbnail_directory = Path(
