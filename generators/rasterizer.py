@@ -142,6 +142,59 @@ class GeneratorRasterizer:
             painter.setPen(self._pen(secondary, line_width * 0.6))
             for offset in range(-height, width + height, step * 2):
                 painter.drawLine(QPointF(offset, 0), QPointF(offset + height, height))
+        elif pattern == "hexgrid":
+            cell_height = max(16.0, min(width, height) / count)
+            cell_width = cell_height * 0.866
+            painter.setPen(self._pen(secondary, max(0.5, line_width * 0.55)))
+            rows = math.ceil(height / (cell_height * 0.75)) + 2
+            columns = math.ceil(width / cell_width) + 2
+            for row in range(-1, rows):
+                y = row * cell_height * 0.75
+                for column in range(-1, columns):
+                    x = column * cell_width + (row % 2) * cell_width * 0.5
+                    path = QPainterPath()
+                    for point in range(6):
+                        angle = math.tau * point / 6.0 - math.pi / 6.0
+                        px = x + math.cos(angle) * cell_width * 0.48
+                        py = y + math.sin(angle) * cell_height * 0.48
+                        if point == 0:
+                            path.moveTo(px, py)
+                        else:
+                            path.lineTo(px, py)
+                    path.closeSubpath()
+                    painter.drawPath(path)
+            painter.setPen(self._pen(primary, line_width))
+            painter.drawLine(QPointF(0, height / 2), QPointF(width, height / 2))
+        elif pattern == "moire":
+            radius_max = math.hypot(width, height) * 0.48
+            offsets = (-width * 0.105, width * 0.105)
+            for side, offset in enumerate(offsets):
+                moire_center = QPointF(center.x() + offset, center.y())
+                for ring in range(1, count * 2 + 1):
+                    radius = radius_max * ring / (count * 2)
+                    color = primary if (ring + side) % 2 else secondary
+                    painter.setPen(self._pen(color, line_width * 0.7))
+                    painter.drawEllipse(moire_center, radius, radius)
+        elif pattern == "spiral":
+            radius_max = min(width, height) * 0.72
+            points = max(480, count * 100)
+            for spiral_index, phase in enumerate((0.0, math.pi)):
+                path = QPainterPath()
+                for step in range(points + 1):
+                    progress = step / points
+                    angle = progress * math.tau * max(2, count // 2) + phase
+                    radius = radius_max * progress
+                    x = center.x() + math.cos(angle) * radius
+                    y = center.y() + math.sin(angle) * radius
+                    if step == 0:
+                        path.moveTo(x, y)
+                    else:
+                        path.lineTo(x, y)
+                painter.setPen(self._pen(
+                    primary if spiral_index == 0 else secondary,
+                    line_width if spiral_index == 0 else line_width * 0.7,
+                ))
+                painter.drawPath(path)
         elif pattern == "radial":
             radius = math.hypot(width, height) * 0.56
             painter.setPen(self._pen(secondary, max(0.5, line_width * 0.65)))
@@ -273,6 +326,22 @@ class GeneratorRasterizer:
                     y = height / 2.0 + math.sin(
                         angle * 1.5 + offset + phase
                     ) * height * 0.38
+                elif pattern == "radial":
+                    angle = progress * math.tau
+                    radius = min(width, height) * (
+                        0.12 + 0.30 * (
+                            0.5 + 0.5 * math.sin(angle * frequency + offset)
+                        )
+                    )
+                    x = width / 2.0 + math.cos(angle + offset) * radius
+                    y = height / 2.0 + math.sin(angle + offset) * radius
+                elif pattern == "rose":
+                    angle = progress * math.tau * max(1.0, frequency)
+                    radius = min(width, height) * (
+                        0.12 + 0.28 * (0.5 + 0.5 * math.cos(5.0 * angle + offset))
+                    )
+                    x = width / 2.0 + math.cos(angle + offset) * radius
+                    y = height / 2.0 + math.sin(angle + offset) * radius
                 elif pattern == "orbit":
                     angle = progress * math.tau
                     radius = min(width, height) * (
