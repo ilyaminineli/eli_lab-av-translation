@@ -58,7 +58,7 @@ def import_aco_palette(path: str | Path) -> list[str]:
         for index in range(count):
             if offset + 10 > len(data):
                 raise ValueError("ACO palette is truncated.")
-            colour_space, c1, c2, c3, c4 = struct.unpack_from(">5H", data, offset)
+            colour_space, c1, c2, c3, _c4 = struct.unpack_from(">5H", data, offset)
             offset += 10
             name = ""
             if version == 2:
