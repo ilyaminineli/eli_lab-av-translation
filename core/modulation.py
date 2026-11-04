@@ -1,0 +1,284 @@
+from __future__ import annotations
+
+import math
+import time
+from dataclasses import asdict, dataclass, field
+from typing import Literal
+
+CurveName = Literal["linear", "smoothstep", "exponential"]
+
+SOURCE_RANGES: dict[str, tuple[float, float]] = {
+    "audio.rms": (0.0, 1.0),
+    "audio.peak": (0.0, 1.0),
+    "audio.low": (0.0, 1.0),
+    "audio.mid": (0.0, 1.0),
+    "audio.high": (0.0, 1.0),
+    "audio.onset": (0.0, 1.0),
+    "audio.beat_confidence": (0.0, 1.0),
+    "audio.bpm_normalized": (0.0, 1.0),
+    "transport.intensity": (0.0, 1.0),
+    "transport.phase": (0.0, 1.0),
+    "macro.energy": (0.0, 1.0),
+    "macro.cutoff": (0.0, 1.0),
+}
+
+@dataclass(frozen=True)
+class ModulationTargetSpec:
+    target_id: str
+    label: str
+    minimum: float
+    maximum: float
+    category: str
+
+
+TARGET_SPECS: dict[str, ModulationTargetSpec] = {
+    "master.brightness": ModulationTargetSpec(
+        "master.brightness", "Master brightness", -0.5, 0.5, "master"
+    ),
+    "master.exposure": ModulationTargetSpec(
+        "master.exposure", "Master exposure", -2.0, 2.0, "master"
+    ),
+    "master.contrast": ModulationTargetSpec(
+        "master.contrast", "Master contrast", 0.25, 2.25, "master"
+    ),
+    "master.saturation": ModulationTargetSpec(
+        "master.saturation", "Master saturation", 0.0, 2.25, "master"
+    ),
+    "master.grain": ModulationTargetSpec(
+        "master.grain", "Master grain", 0.0, 1.0, "master"
+    ),
+    "master.glitch": ModulationTargetSpec(
+        "master.glitch", "Master glitch", 0.0, 1.0, "master"
+    ),
+    "master.vignette": ModulationTargetSpec(
+        "master.vignette", "Master vignette", 0.0, 1.0, "master"
+    ),
+    "selected_layer.opacity": ModulationTargetSpec(
+        "selected_layer.opacity", "Selected layer opacity", 0.0, 1.0, "layer"
+    ),
+    "selected_layer.rotation": ModulationTargetSpec(
+        "selected_layer.rotation", "Selected layer rotation", -180.0, 180.0, "layer"
+    ),
+    "generator.animation_amount": ModulationTargetSpec(
+        "generator.animation_amount", "Generator motion amount", 0.0, 0.45, "generator"
+    ),
+    "generator.density": ModulationTargetSpec(
+        "generator.density", "Generator density", 1.0, 120.0, "generator"
+    ),
+    "automation.loop_probability": ModulationTargetSpec(
+        "automation.loop_probability", "Auto loop probability", 0.0, 1.0, "automation"
+    ),
+    "automation.cut_interval": ModulationTargetSpec(
+        "automation.cut_interval", "Auto minimum cut interval", 1.0, 60.0, "automation"
+    ),
+}
+
+
+@dataclass
+class ModulationRoute:
+    route_id: str
+    source_id: str
+    target_id: str
+    input_min: float = 0.0
+    input_max: float = 1.0
+    output_min: float | None = None
+    output_max: float | None = None
+    curve: CurveName = "linear"
+    inverted: bool = False
+    smoothing_ms: float = 80.0
+    attack_ms: float = 25.0
+    release_ms: float = 220.0
+    hold_ms: float = 0.0
+    intensity_ceiling: float = 1.0
+    enabled: bool = True
+
+    def normalize(self) -> None:
+        if self.source_id not in SOURCE_RANGES:
+            raise ValueError(f"Unknown modulation source: {self.source_id}")
+        if self.target_id not in TARGET_SPECS:
+            raise ValueError(f"Unknown modulation target: {self.target_id}")
+        self.input_min = max(0.0, min(1.0, float(self.input_min)))
+        self.input_max = max(0.0, min(1.0, float(self.input_max)))
+        if self.input_max <= self.input_min:
+            raise ValueError("Modulation input maximum must exceed input minimum.")
+        spec = TARGET_SPECS[self.target_id]
+        self.output_min = (
+            spec.minimum if self.output_min is None
+            else float(self.output_min)
+        )
+        self.output_max = (
+            spec.maximum if self.output_max is None
+            else float(self.output_max)
+        )
+        if not (
+            spec.minimum <= self.output_min <= spec.maximum
+            and spec.minimum <= self.output_max <= spec.maximum
+        ):
+            raise ValueError(
+                f"Output range for {self.target_id} exceeds its registered safety range."
+            )
+        if self.curve not in {"linear", "smoothstep", "exponential"}:
+            self.curve = "linear"
+        self.smoothing_ms = max(0.0, min(3000.0, float(self.smoothing_ms)))
+        self.attack_ms = max(1.0, min(2000.0, float(self.attack_ms)))
+        self.release_ms = max(1.0, min(5000.0, float(self.release_ms)))
+        self.hold_ms = max(0.0, min(5000.0, float(self.hold_ms)))
+        self.intensity_ceiling = max(0.0, min(1.0, float(self.intensity_ceiling)))
+        self.enabled = bool(self.enabled)
+
+    def to_dict(self) -> dict[str, object]:
+        self.normalize()
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, values: dict[str, object]) -> ModulationRoute:
+        allowed = set(cls.__dataclass_fields__)
+        clean = {key: value for key, value in values.items() if key in allowed}
+        route = cls(**clean)
+        route.normalize()
+        return route
+
+
+@dataclass
+class _RouteRuntime:
+    current: float | None = None
+    last_output: float | None = None
+    last_seen: float = 0.0
+    last_update: float = 0.0
+
+
+@dataclass
+class ModulationMatrix:
+    routes: list[ModulationRoute] = field(default_factory=list)
+    _runtime: dict[str, _RouteRuntime] = field(default_factory=dict, repr=False)
+    _manual_until: dict[str, float] = field(default_factory=dict, repr=False)
+    _last_active_targets: set[str] = field(default_factory=set, repr=False)
+    _outputs: dict[str, float] = field(default_factory=dict, repr=False)
+
+    def add_route(self, route: ModulationRoute) -> None:
+        route.normalize()
+        if any(item.route_id == route.route_id for item in self.routes):
+            raise ValueError(f"Duplicate modulation route ID: {route.route_id}")
+        self.routes.append(route)
+        self._runtime[route.route_id] = _RouteRuntime()
+
+    def remove_route(self, route_id: str) -> None:
+        self.routes = [item for item in self.routes if item.route_id != route_id]
+        self._runtime.pop(route_id, None)
+
+    def set_route_enabled(self, route_id: str, enabled: bool) -> None:
+        for route in self.routes:
+            if route.route_id == route_id:
+                route.enabled = bool(enabled)
+                return
+
+    def manual_override(
+            self,
+            target_id: str,
+            duration_seconds: float = 3.0,
+            now: float | None = None,
+    ) -> None:
+        if target_id not in TARGET_SPECS:
+            return
+        stamp = time.monotonic() if now is None else float(now)
+        self._manual_until[target_id] = stamp + max(0.0, float(duration_seconds))
+
+    @staticmethod
+    def _map_value(route: ModulationRoute, source_value: float) -> float:
+        value = (source_value - route.input_min) / (route.input_max - route.input_min)
+        value = max(0.0, min(1.0, value))
+        if route.inverted:
+            value = 1.0 - value
+        if route.curve == "smoothstep":
+            value = value * value * (3.0 - 2.0 * value)
+        elif route.curve == "exponential":
+            value = value * value
+        value = min(route.intensity_ceiling, value)
+        assert route.output_min is not None and route.output_max is not None
+        return route.output_min + value * (route.output_max - route.output_min)
+
+    def evaluate(
+            self,
+            sources: dict[str, float],
+            now: float | None = None,
+    ) -> tuple[dict[str, float], set[str]]:
+        stamp = time.monotonic() if now is None else float(now)
+        outputs: dict[str, float] = {}
+        active_targets: set[str] = set()
+
+        for route in self.routes:
+            route.normalize()
+            if not route.enabled:
+                continue
+            manual_until = self._manual_until.get(route.target_id, 0.0)
+            if stamp < manual_until:
+                continue
+            raw = sources.get(route.source_id)
+            runtime = self._runtime.setdefault(route.route_id, _RouteRuntime())
+            if raw is None:
+                if (
+                    runtime.last_output is not None
+                    and route.hold_ms > 0
+                    and stamp - runtime.last_seen <= route.hold_ms / 1000.0
+                ):
+                    mapped = runtime.last_output
+                else:
+                    continue
+            else:
+                value = float(raw)
+                if not math.isfinite(value):
+                    continue
+                mapped = self._map_value(route, max(0.0, min(1.0, value)))
+                runtime.last_seen = stamp
+
+            if runtime.current is None:
+                smoothed = mapped
+            else:
+                previous = runtime.current
+                tau_ms = route.attack_ms if mapped > previous else route.release_ms
+                if route.smoothing_ms > 0:
+                    tau_ms = max(tau_ms, route.smoothing_ms)
+                dt = max(0.0, stamp - runtime.last_update)
+                alpha = 1.0 if tau_ms <= 0 else 1.0 - math.exp(
+                    -dt / max(0.001, tau_ms / 1000.0)
+                )
+                smoothed = previous + alpha * (mapped - previous)
+
+            runtime.current = smoothed
+            runtime.last_output = mapped
+            runtime.last_update = stamp
+            outputs[route.target_id] = smoothed
+            active_targets.add(route.target_id)
+
+        released = self._last_active_targets - active_targets
+        self._last_active_targets = active_targets
+        self._outputs = dict(outputs)
+        return outputs, released
+
+    def reset_runtime(self) -> None:
+        self._runtime.clear()
+        self._manual_until.clear()
+        self._last_active_targets.clear()
+        self._outputs.clear()
+
+    def to_dict(self) -> list[dict[str, object]]:
+        return [route.to_dict() for route in self.routes]
+
+    def load_dict(self, values: object) -> None:
+        routes: list[ModulationRoute] = []
+        if isinstance(values, list):
+            for item in values:
+                if not isinstance(item, dict):
+                    continue
+                try:
+                    routes.append(ModulationRoute.from_dict(item))
+                except (ValueError, TypeError, KeyError):
+                    continue
+        self.routes = routes
+        self.reset_runtime()
+
+    def active_targets(self) -> set[str]:
+        return set(self._last_active_targets)
+
+    def outputs(self) -> dict[str, float]:
+        return dict(self._outputs)
