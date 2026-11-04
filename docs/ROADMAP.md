@@ -142,7 +142,12 @@ Give the video mixer a distinctive visual toolkit and make automated performance
 - Typographic art with editable multiline content, installed system fonts, weight, size, tracking, line spacing, alignment, outline, shadow and alternate accent-line colours.
 - Procedural waveform visuals: sine traces, Lissajous figures, orbit patterns, radial traces and rose curves.
 - Expanded geometry patterns: spiral, moiré and hex-grid constructions.
-- Static generator content is rasterized only when settings change; pulse, rotate, drift and flicker animation run in the GPU compositing shader.
+- Text Art single-block and seeded typographic collage layouts, bilingual English/Japanese thematic text pools, and type-on, word reveal, line wave, jitter, crawl and glitch motion.
+- Debounced live Text Art updates; text motion runs in the GPU shader without re-rasterizing unchanged glyph artwork.
+- GPU procedural particle field with density, size, speed, spread, trails, colours, and drift/rise/fall/orbit modes.
+- Still, Qt-supported animated-image and video overlays as saved, reorderable composition layers.
+- Independent per-layer FX stack with bypass/mix, monochrome, threshold/Xerox, invert, posterize, hue, contrast, saturation, brightness, scanlines and RGB separation.
+- Static generator content is rasterized only when settings change; layer and text motion run in the GPU compositing shader.
 - Generator layers render independently in preview and projector contexts.
 - Brightness, exposure, contrast, saturation, gamma, temperature, tint and hue rotation.
 - Vignette, grain, scanlines, RGB split / chromatic aberration, glitch and pixelation.
@@ -165,11 +170,10 @@ Give the video mixer a distinctive visual toolkit and make automated performance
 
 ### Particles
 
-- GPU-oriented particle system with controlled count, lifetime, velocity, acceleration, size and colour.
-- Emission from points, lines, shapes and sampled image/video regions.
-- Forces such as turbulence, attraction, repulsion, orbit and drag.
-- Presets that are visually distinct but bounded in their resource use.
-- Seeded randomness so scenes can be recalled and tested.
+- Upgrade the first procedural GPU field into a general simulation with particle lifetimes, velocity/acceleration curves and bounded resource budgets.
+- Emit from points, paths, shapes and sampled image/video regions.
+- Add force fields: turbulence, attraction, repulsion, orbit and drag.
+- Add seeded emitter presets and a stable scene recall model.
 
 ### Waveform and signal visuals
 
@@ -180,29 +184,23 @@ Give the video mixer a distinctive visual toolkit and make automated performance
 ### Typography
 
 - Rich text runs with multiple styles and colours inside one text layer.
-- Text paths, vertical text, variable font axes and typographic grids.
-- Motion behaviours such as reveal, crawl, type-on, glyph-by-glyph jitter and timed entrance/exit.
+- Text paths, true packed/contour-aware layouts, vertical CJK text and variable font axes.
+- More entrance/exit behaviours, per-word timing and text motion presets.
 - Additional layout anchors, safe areas and alignment guides.
-- Project-safe font fallback and clear handling of missing fonts.
+- Project-safe font fallback and explicit missing-font handling.
 
-### Particles
+### Particle simulation extensions
 
-- GPU-oriented particle simulation with controlled count, lifetime, velocity, acceleration, size and colour.
-- Emitters from points, lines, shapes and sampled image/video regions.
-- Forces such as turbulence, attraction, repulsion, orbit and drag.
-- Presets with resource ceilings and seeded randomness.
+- Add emitter shapes, particle lifetime/velocity curves, acceleration and trail persistence.
+- Add CPU/GPU resource ceilings and deterministic seeds for saved particle scenes.
 
 ### Effect and overlay system
 
-- Keep the current master look pass as a reliable base.
-- Add a controlled stack of effect stages with documented order and parameter ranges.
-- Introduce independent per-layer effect stacks and effect bypass/solo.
-- Add user-saveable visual preset collections with import/export.
-- Support per-layer effects where practical, while keeping expensive global effects in the master pass.
-- Add reusable, saveable visual presets and user-defined preset collections.
-- Add alpha-capable still-image overlays and animated overlay media as distinct, reorderable layers.
-- Support blend, opacity, transform, in/out timing and optional automation for overlays.
-- Give users a bypass / compare control and a one-action reset to a neutral image.
+- Expand the current compact per-layer FX controls into reorderable effect-stage chains with a documented order.
+- Add user-saveable layer FX chains and project-level preset import/export.
+- Add overlay in/out timing, playback speed, frame hold, masks/track mattes and scene sync.
+- Add more animated overlay controls while preserving independent preview/projector frame snapshots.
+- Add safe automation variation for layer effects and overlays with manual override and cooldowns.
 
 **M2 exit condition:** a saved composition can combine video decks, generated geometry, particles, typography and overlays; its looks can be adjusted manually or varied by automation; the same composition renders consistently in preview and projector output.
 
