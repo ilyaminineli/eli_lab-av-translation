@@ -382,8 +382,8 @@ class MainWindow(QMainWindow):
         QMessageBox.about(
             self,
             "About eli_lab AV Translation",
-            "eli_lab AV Translation 0.2.0\n"
-            "Automated video collage, master effects and projector output.\n\n"
+            f"eli_lab AV Translation {APP_VERSION}\n"
+            "Video collage, generative visuals, text art and projector output.\n\n"
             "Audio and Sonic Pi features remain separate future milestones.",
         )
 
