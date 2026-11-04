@@ -182,6 +182,9 @@ class GeneratorsPanel(QWidget):
         self.dictionary_check = QCheckBox("Use repository dictionaries")
         self.dictionary_check.setChecked(True)
         random_form.addRow("DICTIONARY", self.dictionary_check)
+        self.auto_text_check = QCheckBox("Auto-regenerate this layer during Auto Performance")
+        self.auto_text_check.setChecked(True)
+        random_form.addRow("AUTO TEXT", self.auto_text_check)
         self.random_text_button = QPushButton("REGENERATE TEXT")
         random_form.addRow(self.random_text_button)
         text_form.addRow(random_group)
@@ -471,6 +474,7 @@ class GeneratorsPanel(QWidget):
             self.random_theme_combo.setCurrentIndex(max(0, self.random_theme_combo.findData(values.get("text_pool_theme", "random"))))
             self.random_count_combo.setCurrentIndex(max(0, self.random_count_combo.findData(int(values.get("text_pool_count", 16)))))
             self.dictionary_check.setChecked(bool(values.get("text_pool_dictionary", True)))
+            self.auto_text_check.setChecked(bool(values.get("text_auto_regenerate", True)))
             self.text_layout_combo.setCurrentIndex(
                 max(0, self.text_layout_combo.findData(values["text_layout"]))
             )
@@ -559,6 +563,7 @@ class GeneratorsPanel(QWidget):
                 "text_pool_theme": str(self.random_theme_combo.currentData()),
                 "text_pool_count": int(self.random_count_combo.currentData()),
                 "text_pool_dictionary": self.dictionary_check.isChecked(),
+                "text_auto_regenerate": self.auto_text_check.isChecked(),
                 "text_layout": str(self.text_layout_combo.currentData()),
                 "collage_seed": self._collage_seed,
                 "collage_font_variation": self.collage_variation_slider.value() / 100.0,
