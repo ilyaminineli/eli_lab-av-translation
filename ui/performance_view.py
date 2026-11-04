@@ -89,9 +89,17 @@ class PerformanceView(QOpenGLWidget):
             self._render_time_sum_ms = 0.0
             self._upload_time_sum_ms = 0.0
             self._last_fps_time = time.perf_counter()
+            decode_ms_per_frame = (
+                float(stats["decode_time_ms"]) / max(1, int(stats["decoded_frames"]))
+            )
+            convert_ms_per_frame = (
+                float(stats["conversion_time_ms"]) / max(1, int(stats["published_frames"]))
+            )
             self.render_status_changed.emit(
                 (
-                    f"{fps:0.1f} FPS · CPU {average_render_ms:0.1f} ms "
+                    f"{fps:0.1f} FPS · decode {decode_ms_per_frame:0.1f} "
+                    f"ms/f · convert {convert_ms_per_frame:0.1f} ms/f · "
+                    f"render CPU {average_render_ms:0.1f} ms "
                     f"(upload {average_upload_ms:0.1f} ms) · "
                     f"{stats['playing_decks']} decks · "
                     f"drop {stats['dropped_frames']} · "
