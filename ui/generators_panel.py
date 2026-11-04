@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPlainTextEdit,
     QPushButton,
+    QScrollArea,
     QSlider,
     QVBoxLayout,
     QWidget,
@@ -30,8 +31,16 @@ class GeneratorsPanel(QWidget):
         super().__init__(parent)
         self.application = application
         self._loading = False
+        self.setMinimumWidth(320)
 
-        root = QVBoxLayout(self)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        self.scroll = QScrollArea(self)
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll.setObjectName("generatorSettingsScroll")
+        body = QWidget()
+        root = QVBoxLayout(body)
         root.setContentsMargins(8, 8, 8, 8)
         root.setSpacing(7)
 
@@ -51,84 +60,101 @@ class GeneratorsPanel(QWidget):
         add_layout.addLayout(row_two)
         root.addWidget(add_group)
 
-        self.layer_combo = QComboBox()
         root.addWidget(QLabel("SELECTED GENERATOR"))
+        self.layer_combo = QComboBox()
         root.addWidget(self.layer_combo)
 
-        content_group = QGroupBox("GENERATOR CONTENT")
-        content_form = QFormLayout(content_group)
+        self.text_group = QGroupBox("TEXT ART")
+        text_form = QFormLayout(self.text_group)
         self.text_edit = QPlainTextEdit()
         self.text_edit.setMaximumBlockCount(32)
-        self.text_edit.setFixedHeight(104)
-        content_form.addRow("TEXT", self.text_edit)
-
-        self.pattern_combo = QComboBox()
-        self.pattern_combo.addItems(
-            [
-                "rings", "grid", "radial", "crosshatch", "polygon",
-                "sine", "lissajous", "orbit",
-            ]
-        )
-        content_form.addRow("PATTERN", self.pattern_combo)
+        self.text_edit.setFixedHeight(100)
+        text_form.addRow("CONTENT", self.text_edit)
 
         self.font_combo = QComboBox()
         self.font_combo.setEditable(True)
         families = sorted(set(QFontDatabase.families()), key=str.casefold)
         self.font_combo.addItems(families[:250])
-        content_form.addRow("TYPEFACE", self.font_combo)
+        text_form.addRow("TYPEFACE", self.font_combo)
 
         self.weight_combo = QComboBox()
         for label, value in (
-                ("Regular", 400),
-                ("Medium", 500),
-                ("Bold", 700),
-                ("Black", 900),
+            ("Regular", 400),
+            ("Medium", 500),
+            ("Bold", 700),
+            ("Black", 900),
         ):
             self.weight_combo.addItem(label, value)
-        content_form.addRow("WEIGHT", self.weight_combo)
+        text_form.addRow("WEIGHT", self.weight_combo)
+
+        self.text_size_slider, self.text_size_value = self._slider(
+            text_form, "FONT SIZE", 12, 420, 148
+        )
+        self.tracking_slider, self.tracking_value = self._slider(
+            text_form, "LETTER TRACKING", -8, 48, 10
+        )
+        self.line_spacing_slider, self.line_spacing_value = self._slider(
+            text_form, "LINE SPACING", 50, 250, 100
+        )
 
         self.alignment_combo = QComboBox()
         self.alignment_combo.addItems(["left", "center", "right"])
-        content_form.addRow("ALIGNMENT", self.alignment_combo)
+        text_form.addRow("ALIGNMENT", self.alignment_combo)
 
         self.vertical_alignment_combo = QComboBox()
         self.vertical_alignment_combo.addItems(["top", "middle", "bottom"])
-        content_form.addRow("VERTICAL ALIGNMENT", self.vertical_alignment_combo)
+        text_form.addRow("VERTICAL ALIGNMENT", self.vertical_alignment_combo)
 
-        self.size_slider, self.size_value = self._slider(
-            content_form, "FONT SIZE", 12, 420, 148
-        )
-        self.tracking_slider, self.tracking_value = self._slider(
-            content_form, "LETTER TRACKING", -8, 48, 10
-        )
-        self.line_spacing_slider, self.line_spacing_value = self._slider(
-            content_form, "LINE SPACING", 50, 250, 100
-        )
-        self.density_slider, self.density_value = self._slider(
-            content_form, "DENSITY", 1, 80, 12
-        )
-        self.width_slider, self.width_value = self._slider(
-            content_form, "LINE / STROKE", 1, 48, 4
-        )
-        self.amplitude_slider, self.amplitude_value = self._slider(
-            content_form, "WAVE AMPLITUDE", 1, 48, 22
-        )
-        self.frequency_slider, self.frequency_value = self._slider(
-            content_form, "WAVE FREQUENCY", 1, 240, 25
+        self.stroke_color = QLineEdit("#211B2A")
+        text_form.addRow("OUTLINE COLOUR", self.stroke_color)
+        self.text_outline_slider, self.text_outline_value = self._slider(
+            text_form, "OUTLINE WIDTH", 0, 48, 4
         )
         self.shadow_check = QCheckBox("Soft offset shadow")
         self.shadow_check.setChecked(True)
-        content_form.addRow("TEXT SHADOW", self.shadow_check)
-        root.addWidget(content_group)
+        text_form.addRow("SHADOW", self.shadow_check)
+        root.addWidget(self.text_group)
 
-        style_group = QGroupBox("COLOUR AND ANIMATION")
-        style_form = QFormLayout(style_group)
+        self.geometry_group = QGroupBox("GEOMETRY PATTERN")
+        geometry_form = QFormLayout(self.geometry_group)
+        self.geometry_pattern_combo = QComboBox()
+        self.geometry_pattern_combo.addItems(
+            ["rings", "grid", "radial", "crosshatch", "polygon"]
+        )
+        geometry_form.addRow("PATTERN", self.geometry_pattern_combo)
+        self.geometry_density_slider, self.geometry_density_value = self._slider(
+            geometry_form, "DENSITY", 2, 80, 12
+        )
+        self.geometry_width_slider, self.geometry_width_value = self._slider(
+            geometry_form, "LINE WIDTH", 1, 48, 4
+        )
+        root.addWidget(self.geometry_group)
+
+        self.waveform_group = QGroupBox("WAVEFORM")
+        waveform_form = QFormLayout(self.waveform_group)
+        self.waveform_pattern_combo = QComboBox()
+        self.waveform_pattern_combo.addItems(["sine", "lissajous", "orbit"])
+        waveform_form.addRow("PATTERN", self.waveform_pattern_combo)
+        self.waveform_density_slider, self.waveform_density_value = self._slider(
+            waveform_form, "TRACES", 1, 12, 5
+        )
+        self.waveform_width_slider, self.waveform_width_value = self._slider(
+            waveform_form, "LINE WIDTH", 1, 40, 6
+        )
+        self.amplitude_slider, self.amplitude_value = self._slider(
+            waveform_form, "AMPLITUDE", 1, 48, 22
+        )
+        self.frequency_slider, self.frequency_value = self._slider(
+            waveform_form, "FREQUENCY", 1, 240, 25
+        )
+        root.addWidget(self.waveform_group)
+
+        self.style_group = QGroupBox("COLOUR AND ANIMATION")
+        style_form = QFormLayout(self.style_group)
         self.primary_color = QLineEdit("#E8E4DA")
         self.secondary_color = QLineEdit("#8678A8")
-        self.stroke_color = QLineEdit("#211B2A")
         style_form.addRow("PRIMARY COLOUR", self.primary_color)
         style_form.addRow("ACCENT COLOUR", self.secondary_color)
-        style_form.addRow("TEXT OUTLINE", self.stroke_color)
 
         self.animation_combo = QComboBox()
         self.animation_combo.addItems(["none", "pulse", "rotate", "drift", "flicker"])
@@ -139,19 +165,22 @@ class GeneratorsPanel(QWidget):
         self.amount_slider, self.amount_value = self._slider(
             style_form, "ANIMATION AMOUNT", 0, 100, 30
         )
-        root.addWidget(style_group)
+        root.addWidget(self.style_group)
 
         self.apply_button = QPushButton("APPLY TO SELECTED LAYER")
         self.apply_button.setDefault(True)
         root.addWidget(self.apply_button)
         self.hint_label = QLabel(
-            "Generator layers are transparent and render in both the preview "
-            "and projector output."
+            "Generator content is saved with the composition and rendered by the preview "
+            "and projector outputs."
         )
         self.hint_label.setWordWrap(True)
         self.hint_label.setObjectName("mutedLabel")
         root.addWidget(self.hint_label)
         root.addStretch(1)
+
+        self.scroll.setWidget(body)
+        outer.addWidget(self.scroll)
 
         self.add_geometry_button.clicked.connect(lambda: self.add_generator("geometry"))
         self.add_text_button.clicked.connect(lambda: self.add_generator("text"))
@@ -202,14 +231,14 @@ class GeneratorsPanel(QWidget):
             layer for layer in self.application.composition.layers
             if layer.source_type == "generator"
         ]
-        self._loading = True
-        self.layer_combo.blockSignals(True)
-        self.layer_combo.clear()
         labels = {
             "geometry": "GEOMETRY",
             "text": "TEXT ART",
             "waveform": "WAVEFORM",
         }
+        self._loading = True
+        self.layer_combo.blockSignals(True)
+        self.layer_combo.clear()
         for layer in layers:
             label = f"{labels.get(layer.generator_type, 'GENERATOR')} · {layer.name}"
             self.layer_combo.addItem(label, layer.id)
@@ -222,67 +251,50 @@ class GeneratorsPanel(QWidget):
     def load_selected(self, *_args) -> None:
         layer = self._selected_layer()
         enabled = layer is not None
-        for widget in (
-                self.text_edit,
-                self.pattern_combo,
-                self.font_combo,
-                self.weight_combo,
-                self.alignment_combo,
-                self.vertical_alignment_combo,
-                self.size_slider,
-                self.tracking_slider,
-                self.line_spacing_slider,
-                self.shadow_check,
-                self.density_slider,
-                self.width_slider,
-                self.amplitude_slider,
-                self.frequency_slider,
-                self.primary_color,
-                self.secondary_color,
-                self.stroke_color,
-                self.animation_combo,
-                self.speed_slider,
-                self.amount_slider,
-                self.apply_button,
-                self.remove_button,
-        ):
-            widget.setEnabled(enabled)
+        generator_type = layer.generator_type if layer else None
+
+        self.text_group.setVisible(generator_type == "text")
+        self.geometry_group.setVisible(generator_type == "geometry")
+        self.waveform_group.setVisible(generator_type == "waveform")
+        self.style_group.setVisible(enabled)
+        self.apply_button.setEnabled(enabled and not layer.locked if layer else False)
+        self.remove_button.setEnabled(enabled)
         if not enabled or self._loading:
             return
 
-        values = normalize_settings(
-            layer.generator_type or "geometry",
-            layer.generator_settings,
-        )
+        values = normalize_settings(generator_type or "geometry", layer.generator_settings)
         self._loading = True
-        self.text_edit.setPlainText(str(values.get("text", "")))
-        self.pattern_combo.setCurrentText(str(values.get("pattern", "rings")))
-        self.font_combo.setCurrentText(str(values.get("font_family", "Arial")))
-        weight_index = self.weight_combo.findData(int(values.get("font_weight", 700)))
-        self.weight_combo.setCurrentIndex(max(0, weight_index))
-        self.alignment_combo.setCurrentText(str(values.get("alignment", "center")))
-        self.vertical_alignment_combo.setCurrentText(
-            str(values.get("vertical_alignment", "middle"))
-        )
-        self.size_slider.setValue(int(values.get("font_size", 148)))
-        self.tracking_slider.setValue(round(float(values.get("letter_spacing", 10.0))))
-        self.line_spacing_slider.setValue(round(
-            float(values.get("line_spacing", 1.0)) * 100
-        ))
-        self.shadow_check.setChecked(bool(values.get("shadow", True)))
-        self.density_slider.setValue(int(values.get("density", 12)))
-        self.width_slider.setValue(round(float(
-            values.get("stroke_width", values.get("line_width", 2.0))
-        ) * 2))
-        self.amplitude_slider.setValue(round(float(values.get("amplitude", 0.22)) * 100))
-        self.frequency_slider.setValue(round(float(values.get("frequency", 2.5)) * 10))
-        self.primary_color.setText(str(values.get("primary_color", "#E8E4DA")))
-        self.secondary_color.setText(str(values.get("secondary_color", "#8678A8")))
-        self.stroke_color.setText(str(values.get("stroke_color", "#211B2A")))
-        self.animation_combo.setCurrentText(str(values.get("animation", "none")))
-        self.speed_slider.setValue(round(float(values.get("animation_speed", 0.18)) * 100))
-        amount = float(values.get("animation_amount", 0.0))
-        if values.get("animation") == "rotate":
+
+        if generator_type == "text":
+            self.text_edit.setPlainText(str(values["text"]))
+            self.font_combo.setCurrentText(str(values["font_family"]))
+            weight_index = self.weight_combo.findData(int(values["font_weight"]))
+            self.weight_combo.setCurrentIndex(max(0, weight_index))
+            self.text_size_slider.setValue(int(values["font_size"]))
+            self.tracking_slider.setValue(round(float(values["letter_spacing"])))
+            self.line_spacing_slider.setValue(round(float(values["line_spacing"]) * 100))
+            self.alignment_combo.setCurrentText(str(values["alignment"]))
+            self.vertical_alignment_combo.setCurrentText(str(values["vertical_alignment"]))
+            self.stroke_color.setText(str(values["stroke_color"]))
+            self.text_outline_slider.setValue(round(float(values["stroke_width"]) * 2))
+            self.shadow_check.setChecked(bool(values["shadow"]))
+        elif generator_type == "geometry":
+            self.geometry_pattern_combo.setCurrentText(str(values["pattern"]))
+            self.geometry_density_slider.setValue(int(values["density"]))
+            self.geometry_width_slider.setValue(round(float(values["line_width"]) * 2))
+        elif generator_type == "waveform":
+            self.waveform_pattern_combo.setCurrentText(str(values["pattern"]))
+            self.waveform_density_slider.setValue(int(values["density"]))
+            self.waveform_width_slider.setValue(round(float(values["line_width"]) * 2))
+            self.amplitude_slider.setValue(round(float(values["amplitude"]) * 100))
+            self.frequency_slider.setValue(round(float(values["frequency"]) * 10))
+
+        self.primary_color.setText(str(values["primary_color"]))
+        self.secondary_color.setText(str(values["secondary_color"]))
+        self.animation_combo.setCurrentText(str(values["animation"]))
+        self.speed_slider.setValue(round(float(values["animation_speed"]) * 100))
+        amount = float(values["animation_amount"])
+        if values["animation"] == "rotate":
             amount_value = round(min(100.0, amount / 3.6))
         else:
             amount_value = round(min(100.0, amount / 0.45 * 100.0))
@@ -291,48 +303,47 @@ class GeneratorsPanel(QWidget):
 
     def apply_settings(self) -> None:
         layer = self._selected_layer()
-        if layer is None:
+        if layer is None or layer.locked:
             return
-        settings = dict(layer.generator_settings)
+
         generator_type = layer.generator_type or "geometry"
+        settings = dict(layer.generator_settings)
         settings.update({
             "primary_color": self.primary_color.text().strip() or "#E8E4DA",
             "secondary_color": self.secondary_color.text().strip() or "#8678A8",
             "animation": self.animation_combo.currentText(),
             "animation_speed": self.speed_slider.value() / 100.0,
         })
-        animation_amount = self.amount_slider.value() / 100.0
+        amount = self.amount_slider.value() / 100.0
         settings["animation_amount"] = (
-            animation_amount * 3.6
-            if settings["animation"] == "rotate"
-            else animation_amount * 0.45
+            amount * 3.6 if settings["animation"] == "rotate" else amount * 0.45
         )
 
-        if generator_type == "geometry":
-            settings.update({
-                "pattern": self.pattern_combo.currentText(),
-                "density": self.density_slider.value(),
-                "line_width": self.width_slider.value() / 2.0,
-            })
-        elif generator_type == "text":
+        if generator_type == "text":
             settings.update({
                 "text": self.text_edit.toPlainText(),
                 "font_family": self.font_combo.currentText().strip() or "Arial",
-                "font_size": self.size_slider.value(),
+                "font_size": self.text_size_slider.value(),
                 "font_weight": int(self.weight_combo.currentData()),
                 "letter_spacing": float(self.tracking_slider.value()),
                 "line_spacing": self.line_spacing_slider.value() / 100.0,
                 "alignment": self.alignment_combo.currentText(),
                 "vertical_alignment": self.vertical_alignment_combo.currentText(),
-                "shadow": self.shadow_check.isChecked(),
                 "stroke_color": self.stroke_color.text().strip() or "#211B2A",
-                "stroke_width": self.width_slider.value() / 2.0,
+                "stroke_width": self.text_outline_slider.value() / 2.0,
+                "shadow": self.shadow_check.isChecked(),
+            })
+        elif generator_type == "geometry":
+            settings.update({
+                "pattern": self.geometry_pattern_combo.currentText(),
+                "density": self.geometry_density_slider.value(),
+                "line_width": self.geometry_width_slider.value() / 2.0,
             })
         elif generator_type == "waveform":
             settings.update({
-                "pattern": self.pattern_combo.currentText(),
-                "density": self.density_slider.value(),
-                "line_width": self.width_slider.value() / 2.0,
+                "pattern": self.waveform_pattern_combo.currentText(),
+                "density": self.waveform_density_slider.value(),
+                "line_width": self.waveform_width_slider.value() / 2.0,
                 "amplitude": self.amplitude_slider.value() / 100.0,
                 "frequency": self.frequency_slider.value() / 10.0,
             })
@@ -343,7 +354,7 @@ class GeneratorsPanel(QWidget):
             generator_settings=normalized,
         )
         self.hint_label.setText(
-            f"Applied {layer.name}. The raster texture updates once; animation remains GPU-side."
+            f"Applied {layer.name}. Static content updates once; animation remains GPU-side."
         )
 
     def remove_selected(self) -> None:
