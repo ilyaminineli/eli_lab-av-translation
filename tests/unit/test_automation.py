@@ -424,3 +424,55 @@ def test_automation_can_randomize_independent_layer_effects(tmp_path) -> None:
     original = dict(layer.layer_effects)
     assert director.tick(now=4.0) is True
     assert layer.layer_effects != original or layer.layer_effects["enabled"]
+
+
+
+def test_automation_varies_text_and_respects_layer_locks(tmp_path) -> None:
+    from generators.catalog import default_generator_settings
+
+    asset = make_asset(tmp_path, "generator-auto.mp4")
+    deck = FakeDeck("deck_a")
+    active = Layer(
+        id="text-layer", source_type="generator", generator_type="text",
+        generator_settings=default_generator_settings("text"),
+    )
+    locked = Layer(
+        id="locked-text", source_type="generator", generator_type="text",
+        locked=True, generator_settings=default_generator_settings("text"),
+    )
+    original_locked = dict(locked.generator_settings)
+    director = AutomationDirector(seed=18)
+    director.start(
+        [asset], [deck], [active, locked], EffectSettings(),
+        settings=AutomationSettings(
+            randomize_layout=False, randomize_effects=False,
+            randomize_generators=True, randomize_text=True,
+            randomize_layer_effects=False,
+            min_generator_interval=2.0, max_generator_interval=2.0,
+        ),
+        duration_seconds=None, now=1.0,
+    )
+    before = active.generator_settings["text"]
+    assert director.tick(now=4.0) is True
+    assert active.generator_settings["text"] != before
+    assert locked.generator_settings == original_locked
+
+
+def test_automation_varies_enabled_layer_fx(tmp_path) -> None:
+    asset = make_asset(tmp_path, "layer-fx-auto.mp4")
+    deck = FakeDeck("deck_a")
+    layer = Layer(id="fx-layer", layer_effects={"enabled": True, "monochrome": 1.0})
+    director = AutomationDirector(seed=21)
+    director.start(
+        [asset], [deck], [layer], EffectSettings(),
+        settings=AutomationSettings(
+            randomize_layout=False, randomize_effects=False,
+            randomize_generators=True, randomize_text=False,
+            randomize_layer_effects=True,
+            min_generator_interval=2.0, max_generator_interval=2.0,
+        ),
+        duration_seconds=None, now=1.0,
+    )
+    before = dict(layer.layer_effects)
+    assert director.tick(now=4.0) is True
+    assert layer.layer_effects != before
