@@ -302,6 +302,10 @@ class LayerPanel(QWidget):
             slider.blockSignals(False)
             label.setText(f"{title}  {value}")
         self.layer_fx_preset.blockSignals(True)
+        imported = self.application.composition.metadata.get("layer_fx_presets", {})
+        known_names = list(LAYER_EFFECT_PRESETS) + (list(imported) if isinstance(imported, dict) else [])
+        self.layer_fx_preset.clear()
+        self.layer_fx_preset.addItems(list(dict.fromkeys(known_names)) + ["Custom"])
         self.layer_fx_preset.setCurrentText("Custom")
         for name in LAYER_EFFECT_PRESETS:
             if normalize_layer_effects({
@@ -310,6 +314,11 @@ class LayerPanel(QWidget):
             }) == values:
                 self.layer_fx_preset.setCurrentText(name)
                 break
+        if isinstance(imported, dict):
+            for name, stages in imported.items():
+                if values["stages"] == normalize_layer_effects({"stages": stages})["stages"]:
+                    self.layer_fx_preset.setCurrentText(str(name))
+                    break
         self.layer_fx_preset.blockSignals(False)
         self.fx_stage_list.clear()
         for stage in values["stages"]:
@@ -374,11 +383,14 @@ class LayerPanel(QWidget):
         if not path:
             return
         import json
-        presets = {name: preset["stages"] for name, preset in {
-            "Xerox Stack": {"stages": [{"type": "monochrome", "amount": 1.0, "enabled": True}, {"type": "threshold", "amount": 0.45, "enabled": True}]},
-            "Negative Print": {"stages": [{"type": "invert", "amount": 1.0, "enabled": True}, {"type": "posterize", "amount": 0.55, "enabled": True}]},
-            "Signal Scan": {"stages": [{"type": "hue", "amount": 0.22, "enabled": True}, {"type": "scanlines", "amount": 0.7, "enabled": True}]},
-        }.items()}
+        presets = {
+            "Xerox Stack": [{"type": "monochrome", "amount": 1.0, "enabled": True}, {"type": "threshold", "amount": 0.45, "enabled": True}],
+            "Negative Print": [{"type": "invert", "amount": 1.0, "enabled": True}, {"type": "posterize", "amount": 0.55, "enabled": True}],
+            "Signal Scan": [{"type": "hue", "amount": 0.22, "enabled": True}, {"type": "scanlines", "amount": 0.7, "enabled": True}],
+        }
+        imported = self.application.composition.metadata.get("layer_fx_presets", {})
+        if isinstance(imported, dict):
+            presets.update(imported)
         try:
             from pathlib import Path
             Path(path).write_text(json.dumps({"format": "eli_lab_layer_fx_presets", "version": 1, "presets": presets}, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -434,9 +446,15 @@ class LayerPanel(QWidget):
         layer = self._selected_layer()
         if layer is None:
             return
+        imported = self.application.composition.metadata.get("layer_fx_presets", {})
+        if isinstance(imported, dict) and name in imported:
+            stages = normalize_layer_effects({"stages": imported[name]})["stages"]
+            values = normalize_layer_effects({"enabled": bool(stages), "stages": stages})
+        else:
+            values = apply_layer_effect_preset(name)
         self.application.layer_manager.update_layer(
             layer.id,
-            layer_effects=apply_layer_effect_preset(name),
+            layer_effects=values,
             fx_manual_override_until=time.time() + 30.0,
         )
         self._loading = True
