@@ -19,11 +19,12 @@ from PySide6.QtWidgets import (
     QSlider,
     QVBoxLayout,
     QWidget,
+    QMessageBox,
 )
 
 from core.application import Application
 from generators.catalog import normalize_settings
-from generators.palettes import palette_look, palette_names
+from generators.palettes import import_aco_palette, palette_look, palette_names
 from generators.text_pools import random_text_sample
 
 
@@ -261,6 +262,8 @@ class GeneratorsPanel(QWidget):
         self.palette_combo.addItem("Manual colours", "")
         self.palette_combo.addItems(palette_names())
         style_form.addRow("JAPANESE PALETTE LOOK", self.palette_combo)
+        self.import_palette_button = QPushButton("IMPORT ACO PALETTE…")
+        style_form.addRow(self.import_palette_button)
 
         self.animation_combo = QComboBox()
         self.animation_combo.addItems(["none", "pulse", "rotate", "drift", "flicker", "warp"])
@@ -296,6 +299,7 @@ class GeneratorsPanel(QWidget):
         self.remove_button.clicked.connect(self.remove_selected)
         self.layer_combo.currentIndexChanged.connect(self.load_selected)
         self.palette_combo.currentTextChanged.connect(self._palette_changed)
+        self.import_palette_button.clicked.connect(self.import_palette)
         self.apply_button.clicked.connect(self.apply_settings)
         self.random_text_button.clicked.connect(self.randomize_text)
         self._collage_seed = 211
@@ -560,6 +564,25 @@ class GeneratorsPanel(QWidget):
         amount_range = amount_ranges.get(str(values["animation"]), 0.45)
         self.amount_slider.setValue(round(max(0.0, min(100.0, amount / amount_range * 100.0))))
         self._loading = False
+
+    def import_palette(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Import Japanese colour palette", "", "Adobe Colour Swatch (*.aco)"
+        )
+        if not path:
+            return
+        try:
+            imported = import_aco_palette(path)
+        except (OSError, ValueError) as exc:
+            QMessageBox.warning(self, "Palette import failed", str(exc))
+            return
+        self.palette_combo.blockSignals(True)
+        self.palette_combo.clear()
+        self.palette_combo.addItem("Manual colours", "")
+        self.palette_combo.addItems(palette_names())
+        self.palette_combo.blockSignals(False)
+        if imported:
+            self.palette_combo.setCurrentText(imported[0])
 
     def _palette_changed(self, name: str) -> None:
         if not name or name == "Manual colours":
