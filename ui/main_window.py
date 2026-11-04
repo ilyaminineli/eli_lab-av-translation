@@ -28,6 +28,7 @@ from ui.generators_panel import GeneratorsPanel
 from ui.layer_panel import LayerPanel
 from ui.media_browser import MediaBrowser
 from ui.output_window import OutputWindowManager
+from ui.performance_control_panel import PerformanceControlPanel
 from ui.performance_view import PerformanceView
 from ui.transport_bar import TransportBar
 
@@ -88,6 +89,15 @@ class MainWindow(QMainWindow):
         self.preview_dock.setMinimumSize(260, 180)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.preview_dock)
         self.tabifyDockWidget(self.automation_dock, self.preview_dock)
+
+        self.performance_control_panel = PerformanceControlPanel(application, self)
+        self.performance_control_dock = self._make_dock(
+            "AUDIO / CONTROL",
+            self.performance_control_panel,
+        )
+        self.performance_control_dock.setMinimumWidth(340)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.performance_control_dock)
+        self.tabifyDockWidget(self.preview_dock, self.performance_control_dock)
         self.layer_dock.raise_()
         self.setCentralWidget(self._build_workspace())
 
@@ -123,21 +133,34 @@ class MainWindow(QMainWindow):
         self.layer_panel.layers_changed.connect(self.generators_panel.refresh)
         self.generators_panel.selected_layer_changed.connect(self.layer_panel.select_layer)
         self.layer_panel.selected_layer_changed.connect(self.generators_panel.select_layer)
+        self.generators_panel.selected_layer_changed.connect(self.application.set_selected_layer_id)
+        self.layer_panel.selected_layer_changed.connect(self.application.set_selected_layer_id)
         self.generators_panel.layer_properties_changed.connect(self.layer_panel.sync_layer_row)
         self.layer_panel.layer_properties_changed.connect(
             self.generators_panel.sync_layer_appearance
+        )
+        self.layer_panel.layer_properties_changed.connect(
+            lambda _layer_id: self.application.notify_manual_override(
+                "selected_layer.*"
+            )
+        )
+        self.generators_panel.manual_target_changed.connect(
+            self.application.notify_manual_override
+        )
+        self.effects_panel.manual_parameter_changed.connect(
+            self.application.notify_manual_override
         )
         self.asset_library_panel.composition_changed.connect(self.layer_panel.refresh)
         self.asset_library_panel.composition_changed.connect(self.generators_panel.refresh)
 
         self._create_actions()
         saved_geometry = self._ui_settings.value("ui/main_window_geometry")
-        saved_state = self._ui_settings.value("ui/main_window_state_v3")
+        saved_state = self._ui_settings.value("ui/main_window_state_v4")
         restored = False
         if saved_geometry and saved_state:
             restored = (
                     self.restoreGeometry(saved_geometry)
-                    and self.restoreState(saved_state, 3)
+                    and self.restoreState(saved_state, 4)
             )
         if not restored:
             QTimer.singleShot(0, self._apply_default_dock_sizes)
@@ -151,6 +174,7 @@ class MainWindow(QMainWindow):
         self._status_timer = QTimer(self)
         self._status_timer.setInterval(500)
         self._status_timer.timeout.connect(self._refresh_automation_status)
+        self._status_timer.timeout.connect(self.performance_control_panel.refresh_monitor)
         self._status_timer.start()
 
     def _build_workspace(self) -> QWidget:
@@ -252,6 +276,7 @@ class MainWindow(QMainWindow):
                 self.effects_dock,
                 self.automation_dock,
                 self.preview_dock,
+                self.performance_control_dock,
         ):
             view_menu.addAction(dock.toggleViewAction())
 
@@ -445,13 +470,18 @@ class MainWindow(QMainWindow):
 
     def _runtime_tick(self) -> None:
         self.application.refresh_frames()
-        self.application.process_control_events()
+        previous_scene = self.application.performance_control.scene_id
+        self.application.tick_performance_control()
         control_revision = self.application.performance_control.revision
         if control_revision != self._last_control_revision:
             self.control_status_label.setText(
                 self.application.performance_control.status_text()
             )
             self._last_control_revision = control_revision
+        if self.application.performance_control.scene_id != previous_scene:
+            self.effects_panel.sync_from_settings()
+            self.generators_panel.refresh()
+            self.performance_control_panel._load_scene_profile()
         was_running = self.application.automation.running
         changed = self.application.tick_automation()
         if changed:
@@ -546,13 +576,14 @@ class MainWindow(QMainWindow):
             self,
             "About eli_lab AV Translation",
             f"eli_lab AV Translation {APP_VERSION}\n"
-            "Video collage, generative visuals, text art and projector output.\n\n"
-            "Audio and Sonic Pi features remain separate future milestones.",
+            "Video collage, generative visuals, text art and projector output.\n"
+            "M3: internal transport, audio analysis and visual modulation.\n"
+            "M4: external Sonic Pi OSC integration.",
         )
 
     def closeEvent(self, event) -> None:
         self._ui_settings.setValue("ui/main_window_geometry", self.saveGeometry())
-        self._ui_settings.setValue("ui/main_window_state_v3", self.saveState(3))
+        self._ui_settings.setValue("ui/main_window_state_v4", self.saveState(4))
         self._runtime_timer.stop()
         self._status_timer.stop()
         self.media_browser.shutdown_workers()
