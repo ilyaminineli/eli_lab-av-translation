@@ -29,5 +29,7 @@ def test_application_adds_generator_as_composition_layer() -> None:
     assert layer.source_type == "generator"
     assert layer.generator_type == "text"
     assert layer.source_id == f"generator:{layer.id}"
-    assert layer.generator_settings["text"] == "THE SHAPE OF\\nA VANISHING\\nSIGNAL"
+    assert layer.generator_settings["text"].splitlines() == [
+        "THE SHAPE OF", "A VANISHING", "SIGNAL"
+    ]
     assert application.composition.layers[-1] is layer
