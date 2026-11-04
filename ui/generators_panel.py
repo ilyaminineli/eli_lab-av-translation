@@ -38,6 +38,7 @@ class GeneratorsPanel(QWidget):
     composition_changed = Signal()
     selected_layer_changed = Signal(str)
     layer_properties_changed = Signal(str)
+    manual_target_changed = Signal(str)
 
     def __init__(self, application: Application, parent=None) -> None:
         super().__init__(parent)
@@ -815,6 +816,7 @@ class GeneratorsPanel(QWidget):
             ),
         )
         self.layer_properties_changed.emit(layer.id)
+        self.manual_target_changed.emit("selected_layer.opacity")
 
     def _apply_overlay_settings(self, *_args) -> None:
         layer = self._selected_layer()
@@ -934,6 +936,8 @@ class GeneratorsPanel(QWidget):
             layer.id,
             generator_settings=normalized,
         )
+        self.manual_target_changed.emit("generator.*")
+        self.composition_changed.emit()
         self.hint_label.setText(
             f"Applied {layer.name}. Static content updates once; animation remains GPU-side."
         )
