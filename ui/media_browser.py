@@ -228,6 +228,9 @@ class MediaBrowser(QWidget):
     def _pump_thumbnail_queue(self) -> None:
         while self._thumbnail_queue and len(self._thumbnail_workers) < 2:
             asset = self._thumbnail_queue.popleft()
+            if self.library.get_asset(asset.id) is None:
+                self._thumbnail_pending.discard(asset.id)
+                continue
             worker = ThumbnailWorker(asset)
             self._thumbnail_workers[asset.id] = worker
             worker.signals.completed.connect(self._thumbnail_completed)
