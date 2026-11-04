@@ -34,6 +34,8 @@ class Application:
         self.window: Any | None = None
 
     def _create_default_layers(self) -> None:
+        # A 2x2 layout makes four loaded decks visible without requiring randomization.
+        positions = ((0.25, 0.25), (0.75, 0.25), (0.25, 0.75), (0.75, 0.75))
         for index, deck_id in enumerate(VIDEO_DECK_IDS):
             self.composition.add_layer(
                 Layer(
@@ -42,6 +44,8 @@ class Application:
                     source_type="video",
                     source_id=deck_id,
                     visible=True,
+                    position=positions[index],
+                    scale=(0.5, 0.5),
                     z_index=index,
                 )
             )
@@ -72,13 +76,12 @@ class Application:
         self.events.publish("deck.loaded", deck_id=deck_id, asset=asset)
 
     def current_frames(self) -> dict[str, object]:
+        # Only pass newly decoded frames. The GPU texture retains the last uploaded frame.
         frames: dict[str, object] = {}
         for deck_id, deck in self.decks.items():
             frame = deck.consume_latest_frame()
             if frame is not None:
                 frames[deck_id] = frame
-            elif deck.current_frame is not None:
-                frames[deck_id] = deck.current_frame
         return frames
 
     def save_project(self, path: str | Path) -> Path:
