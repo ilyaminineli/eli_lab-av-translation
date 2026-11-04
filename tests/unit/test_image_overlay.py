@@ -44,3 +44,17 @@ def test_overlay_layer_media_and_layer_effects_survive_serialization() -> None:
     assert restored.overlay_path == layer.overlay_path
     assert restored.overlay_kind == "image"
     assert restored.layer_effects == layer.layer_effects
+
+
+def test_animated_overlay_playback_speed_and_frame_hold_are_clamped(tmp_path) -> None:
+    path = Path(tmp_path) / "still.png"
+    image = QImage(2, 2, QImage.Format.Format_RGBA8888)
+    image.fill(0)
+    assert image.save(str(path))
+    player = ImageOverlayPlayer(path, speed=8.0, frame_hold=0)
+    assert player.speed == 4.0
+    assert player.frame_hold == 1
+    player.configure_playback(0.5, 4)
+    assert player.speed == 0.5
+    assert player.frame_hold == 4
+    player.close()
