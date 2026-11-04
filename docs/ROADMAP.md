@@ -19,7 +19,7 @@ The roadmap is deliberately staged. M0–M2 establish a complete visual instrume
 |---|---|---|
 | M0 — Rendering Core | Core implemented; hardware hardening remains | PySide6 shell, OpenGL/ModernGL render contexts, canvas/layers, project persistence and fullscreen external output are present. |
 | M1 — Video Collage | Core implemented; reliability pass in progress | Folder indexing, four decoder decks, transforms, blending and random collage behaviour are present. Safe library cleanup, bounded import workers, decoder retirement and preview output limits are now implemented in the hardening branch. |
-| M2 — Generative Visuals | Partially implemented | Master GLSL looks, shader overlays, presets, project settings and timed random automation are present. Geometry, particles, waveform visuals and typography generators remain to be delivered. |
+| M2 — Generative Visuals | Initial generator layers implemented | GPU master looks plus first-class geometry, text-art and waveform layers with cached RGBA content, shader animation and project persistence. Particle simulation, imported image/animated overlays, vector paths and richer text motion remain. |
 | M3 — Audio Reactive Engine | Planned | No audio capture or analysis engine is included in the current video-focused build. |
 | M4 — Sonic Pi Integration | Planned | No OSC receiver or Sonic Pi event mapping is included in the current build. |
 | M5 — Performance Environment | Planned / foundations only | Full MIDI mapping, scene system, recording and advanced output routing remain future work. |
@@ -137,6 +137,12 @@ Give the video mixer a distinctive visual toolkit and make automated performance
 ## Implemented foundations
 
 - GPU master post-processing pass after the layer compositor.
+- First-class transparent generator layers integrated into the standard composition transform, opacity, blend mode, z-order and project serializer.
+- Procedural geometry: concentric rings, grids, radial constructions, crosshatch and nested polygons.
+- Typographic art with editable multiline content, installed system fonts, weight, size, tracking, line spacing, alignment, outline and shadow.
+- Procedural waveform visuals: sine traces, Lissajous figures and orbit patterns.
+- Static generator content is rasterized only when settings change; pulse, rotate, drift and flicker animation run in the GPU compositing shader.
+- Generator layers render independently in preview and projector contexts.
 - Brightness, contrast, saturation and gamma.
 - Vignette, grain, scanlines, RGB split / chromatic aberration and glitch.
 - Pixelation, posterization and inversion.
@@ -145,14 +151,14 @@ Give the video mixer a distinctive visual toolkit and make automated performance
 - Semi-random collage layouts and timed effect-look changes.
 - Unattended automation sessions with a selected duration or manual stop.
 
-## Generators still to implement
+## Remaining generator work
 
 ### Geometry
 
-- Procedural 2D shapes, lines, grids, rings, polygons and parameterized patterns.
-- Geometry layers with independent transform, opacity, blend mode and compositing order.
-- Animated parameters driven by envelopes, oscillators, deterministic random sources and scene state.
-- GPU-friendly batching and instancing so dense patterns do not create large CPU draw-call overhead.
+- Editable vector paths, Bézier curves, text-on-path and shape groups.
+- More parameterized pattern families and procedural tiling systems.
+- Optional geometry instancing for high-density scenes.
+- Generator-level macro parameters and reusable user presets.
 
 ### Particles
 
@@ -164,17 +170,24 @@ Give the video mixer a distinctive visual toolkit and make automated performance
 
 ### Waveform and signal visuals
 
-- Procedural waveforms and oscilloscope-style graphics that work without an audio source.
-- Configurable traces, grids, phase patterns and Lissajous-style forms.
+- Additional oscilloscope, phase-scope, circular scope and signal-grid styles.
+- Editable amplitude envelopes and independent phase controls.
 - In M3, allow the same visualizers to subscribe to live audio bands or beat events without coupling the generator to the audio input device.
 
 ### Typography
 
-- Text layers with editable content, font, weight, tracking, leading, alignment and colour.
-- Layout anchors, safe areas, rotation, scale and opacity.
-- Motion behaviours such as reveal, crawl, type-on, jitter and timed entrance/exit.
+- Rich text runs with multiple styles and colours inside one text layer.
+- Text paths, vertical text, variable font axes and typographic grids.
+- Motion behaviours such as reveal, crawl, type-on, glyph-by-glyph jitter and timed entrance/exit.
+- Additional layout anchors, safe areas and alignment guides.
 - Project-safe font fallback and clear handling of missing fonts.
-- Text remains a first-class layer, not an image permanently baked into the master frame.
+
+### Particles
+
+- GPU-oriented particle simulation with controlled count, lifetime, velocity, acceleration, size and colour.
+- Emitters from points, lines, shapes and sampled image/video regions.
+- Forces such as turbulence, attraction, repulsion, orbit and drag.
+- Presets with resource ceilings and seeded randomness.
 
 ### Effect and overlay system
 
@@ -335,7 +348,7 @@ Package the visual, audio and external-control systems into a flexible live perf
 3. Finish decoder lifecycle tests and add explicit end-of-stream, seek and variable-frame-rate fixtures.
 4. Mixer ergonomics: aspect handling, layer selection, hold/freeze and transitions.
 5. Auto Mode refinement: weighted selection, cooldowns, manual override and scene coherence.
-6. M2 geometry, particles, waveform visuals, typography and alpha-capable overlay layers.
+6. Expand M2 with particles, richer vector/text systems, imported alpha overlays and user-defined generator presets.
 7. Projector / 60-minute soak testing and performance diagnostics.
 8. Declare the Video Mixer complete only after the release criterion is met; then begin M3.
 

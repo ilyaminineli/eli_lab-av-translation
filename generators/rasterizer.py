@@ -1,0 +1,291 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import math
+from typing import Any
+
+import numpy as np
+from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtGui import (
+    QColor,
+    QFont,
+    QFontMetricsF,
+    QImage,
+    QPainter,
+    QPainterPath,
+    QPen,
+)
+
+from core.composition import Layer
+from generators.catalog import normalize_settings
+
+GENERATOR_WIDTH = 1600
+GENERATOR_HEIGHT = 900
+
+
+class GeneratorRasterizer:
+    """Rasterizes static generator content once; animation stays in the GPU compositor."""
+
+    def __init__(
+            self,
+            width: int = GENERATOR_WIDTH,
+            height: int = GENERATOR_HEIGHT,
+    ) -> None:
+        self.width = max(320, int(width))
+        self.height = max(180, int(height))
+        self._cache: dict[str, tuple[str, np.ndarray]] = {}
+
+    @staticmethod
+    def fingerprint(layer: Layer) -> str:
+        settings = normalize_settings(
+            layer.generator_type or "geometry",
+            layer.generator_settings,
+        )
+        # Animation is evaluated in the compositor, so it must not invalidate
+        # the static raster texture or trigger another CPU-side text/shape pass.
+        for key in ("animation", "animation_speed", "animation_amount"):
+            settings.pop(key, None)
+        payload = {
+            "type": layer.generator_type,
+            "settings": settings,
+            "size": [GENERATOR_WIDTH, GENERATOR_HEIGHT],
+        }
+        encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
+        return hashlib.sha1(encoded).hexdigest()
+
+    def render(self, layer: Layer) -> tuple[str, np.ndarray]:
+        generator_type = layer.generator_type or "geometry"
+        fingerprint = self.fingerprint(layer)
+        cached = self._cache.get(layer.id)
+        if cached and cached[0] == fingerprint:
+            return cached
+
+        settings = normalize_settings(generator_type, layer.generator_settings)
+        image = QImage(
+            self.width,
+            self.height,
+            QImage.Format.Format_RGBA8888,
+        )
+        image.fill(QColor(0, 0, 0, 0))
+        painter = QPainter(image)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
+        if generator_type == "geometry":
+            self._draw_geometry(painter, settings)
+        elif generator_type == "text":
+            self._draw_text(painter, settings)
+        elif generator_type == "waveform":
+            self._draw_waveform(painter, settings)
+        painter.end()
+
+        rgba = image.bits().tobytes()
+        pixels = np.frombuffer(rgba, dtype=np.uint8).reshape(
+            self.height, self.width, 4
+        ).copy()
+        result = (fingerprint, pixels)
+        self._cache[layer.id] = result
+        return result
+
+    def remove_missing(self, layer_ids: set[str]) -> None:
+        for layer_id in tuple(self._cache):
+            if layer_id not in layer_ids:
+                self._cache.pop(layer_id, None)
+
+    def clear(self) -> None:
+        self._cache.clear()
+
+    @staticmethod
+    def _color(value: str, fallback: str = "#E8E4DA") -> QColor:
+        color = QColor(value)
+        return color if color.isValid() else QColor(fallback)
+
+    def _pen(self, color: str, width: float) -> QPen:
+        pen = QPen(self._color(color))
+        pen.setWidthF(float(width))
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        return pen
+
+    def _draw_geometry(self, painter: QPainter, settings: dict[str, Any]) -> None:
+        width = self.width
+        height = self.height
+        center = QPointF(width / 2.0, height / 2.0)
+        primary = str(settings["primary_color"])
+        secondary = str(settings["secondary_color"])
+        count = int(settings["density"])
+        line_width = float(settings["line_width"])
+        pattern = str(settings["pattern"])
+        painter.save()
+        painter.translate(center)
+        painter.rotate(float(settings.get("rotation", 0.0)))
+        painter.translate(-center)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+
+        if pattern == "grid":
+            step = max(12, round(min(width, height) / count))
+            painter.setPen(self._pen(secondary, max(0.5, line_width * 0.55)))
+            for x in range(-width, width * 2, step):
+                painter.drawLine(QPointF(x, 0), QPointF(x, height))
+            for y in range(-height, height * 2, step):
+                painter.drawLine(QPointF(0, y), QPointF(width, y))
+            painter.setPen(self._pen(primary, line_width))
+            painter.drawRect(QRectF(0, 0, width, height))
+        elif pattern == "crosshatch":
+            step = max(10, round(min(width, height) / count))
+            painter.setPen(self._pen(primary, line_width))
+            for offset in range(-height, width + height, step):
+                painter.drawLine(QPointF(offset, 0), QPointF(offset + height, height))
+                painter.drawLine(QPointF(offset, height), QPointF(offset + height, 0))
+            painter.setPen(self._pen(secondary, line_width * 0.6))
+            for offset in range(-height, width + height, step * 2):
+                painter.drawLine(QPointF(offset, 0), QPointF(offset + height, height))
+        elif pattern == "radial":
+            radius = math.hypot(width, height) * 0.56
+            painter.setPen(self._pen(secondary, max(0.5, line_width * 0.65)))
+            for index in range(count * 3):
+                angle = math.tau * index / (count * 3)
+                painter.drawLine(
+                    center,
+                    QPointF(
+                        center.x() + math.cos(angle) * radius,
+                        center.y() + math.sin(angle) * radius,
+                    ),
+                )
+            painter.setPen(self._pen(primary, line_width))
+            for ring in range(1, max(4, count // 2)):
+                r = radius * ring / max(4, count // 2)
+                painter.drawEllipse(center, r, r)
+        elif pattern == "polygon":
+            painter.setPen(self._pen(primary, line_width))
+            sides = max(3, min(12, count // 2))
+            for ring in range(1, count + 1):
+                radius = min(width, height) * 0.48 * ring / count
+                path = QPainterPath()
+                for point in range(sides):
+                    angle = math.tau * point / sides - math.pi / 2
+                    x = center.x() + math.cos(angle) * radius
+                    y = center.y() + math.sin(angle) * radius
+                    if point == 0:
+                        path.moveTo(x, y)
+                    else:
+                        path.lineTo(x, y)
+                path.closeSubpath()
+                painter.setPen(self._pen(
+                    primary if ring % 2 else secondary,
+                    line_width if ring % 2 else line_width * 0.7,
+                ))
+                painter.drawPath(path)
+        else:  # rings
+            max_radius = math.hypot(width, height) * 0.52
+            for ring in range(count):
+                radius = max_radius * (ring + 1) / count
+                painter.setPen(self._pen(
+                    primary if ring % 2 == 0 else secondary,
+                    line_width if ring % 2 == 0 else line_width * 0.7,
+                ))
+                painter.drawEllipse(center, radius, radius)
+        painter.restore()
+
+    def _draw_text(self, painter: QPainter, settings: dict[str, Any]) -> None:
+        text = str(settings.get("text", "")).replace("\\n", "\n")
+        if not text:
+            return
+        family = str(settings.get("font_family", "Arial"))
+        font = QFont(family)
+        font.setPixelSize(int(settings["font_size"]))
+        font.setWeight(int(settings["font_weight"]))
+        font.setLetterSpacing(
+            QFont.SpacingType.AbsoluteSpacing,
+            float(settings["letter_spacing"]),
+        )
+        metrics = QFontMetricsF(font)
+        lines = text.splitlines() or [text]
+        line_height = metrics.height() * float(settings["line_spacing"])
+        total_height = line_height * len(lines)
+        vertical = str(settings["vertical_alignment"])
+        if vertical == "top":
+            y = metrics.ascent() + 48
+        elif vertical == "bottom":
+            y = self.height - total_height + metrics.ascent() - 48
+        else:
+            y = (self.height - total_height) / 2.0 + metrics.ascent()
+
+        alignment = str(settings["alignment"])
+        if alignment == "left":
+            x_anchor = 96.0
+        elif alignment == "right":
+            x_anchor = self.width - 96.0
+        else:
+            x_anchor = self.width / 2.0
+
+        for line in lines:
+            path = QPainterPath()
+            advance = metrics.horizontalAdvance(line)
+            if alignment == "left":
+                x = x_anchor
+            elif alignment == "right":
+                x = x_anchor - advance
+            else:
+                x = x_anchor - advance / 2.0
+            path.addText(QPointF(x, y), font, line)
+            if bool(settings.get("shadow", False)):
+                shadow = QPainterPath(path)
+                shadow.translate(8.0, 10.0)
+                painter.fillPath(shadow, QColor(0, 0, 0, 150))
+            stroke_width = float(settings["stroke_width"])
+            if stroke_width > 0:
+                painter.strokePath(
+                    path,
+                    self._pen(str(settings["stroke_color"]), stroke_width),
+                )
+            painter.fillPath(path, self._color(str(settings["primary_color"])))
+            y += line_height
+
+    def _draw_waveform(self, painter: QPainter, settings: dict[str, Any]) -> None:
+        width = self.width
+        height = self.height
+        density = int(settings["density"])
+        amplitude = float(settings["amplitude"]) * height
+        frequency = float(settings["frequency"])
+        phase = float(settings["phase_offset"])
+        line_width = float(settings["line_width"])
+        pattern = str(settings.get("pattern", "sine"))
+        for band in range(density):
+            normalized = (band + 0.5) / density
+            center_y = normalized * height
+            offset = band * phase
+            path = QPainterPath()
+            for step in range(481):
+                progress = step / 480.0
+                if pattern == "lissajous":
+                    angle = progress * math.tau * max(1.0, frequency)
+                    x = width / 2.0 + math.sin(angle + offset) * width * 0.42
+                    y = height / 2.0 + math.sin(
+                        angle * 1.5 + offset + phase
+                    ) * height * 0.38
+                elif pattern == "orbit":
+                    angle = progress * math.tau
+                    radius = min(width, height) * (
+                        0.12 + 0.28 * (0.5 + 0.5 * math.sin(angle * frequency + offset))
+                    )
+                    x = width / 2.0 + math.cos(angle + offset) * radius
+                    y = height / 2.0 + math.sin(angle + offset) * radius
+                else:
+                    x = width * progress
+                    envelope = 0.35 + 0.65 * (
+                        math.sin(math.pi * progress) ** 0.5
+                    )
+                    y = center_y + math.sin(
+                        progress * math.tau * frequency + offset
+                    ) * amplitude * envelope
+                if step == 0:
+                    path.moveTo(x, y)
+                else:
+                    path.lineTo(x, y)
+            painter.setPen(self._pen(
+                str(settings["primary_color"])
+                if band % 2 == 0 else str(settings["secondary_color"]),
+                line_width if band % 2 == 0 else line_width * 0.65,
+            ))
+            painter.drawPath(path)

@@ -21,6 +21,8 @@ class Layer:
     scale: tuple[float, float] = (1.0, 1.0)
     rotation: float = 0.0
     z_index: int = 0
+    generator_type: str | None = None
+    generator_settings: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.opacity = min(1.0, max(0.0, float(self.opacity)))
@@ -40,8 +42,12 @@ class Layer:
         allowed = {
             "id", "name", "source_type", "source_id", "visible", "locked",
             "opacity", "blend_mode", "position", "scale", "rotation", "z_index",
+            "generator_type", "generator_settings",
         }
-        return cls(**{key: value for key, value in data.items() if key in allowed})
+        values = {key: value for key, value in data.items() if key in allowed}
+        if not isinstance(values.get("generator_settings", {}), dict):
+            values["generator_settings"] = {}
+        return cls(**values)
 
 
 @dataclass

@@ -32,3 +32,38 @@ def test_duplicate_layer_id_is_rejected() -> None:
         assert "already exists" in str(exc)
     else:
         raise AssertionError("Duplicate layer id should raise ValueError")
+
+
+def test_generator_layer_settings_round_trip() -> None:
+    layer = Layer(
+        id="geometry-1",
+        name="Geometry",
+        source_type="generator",
+        source_id="generator:geometry-1",
+        generator_type="geometry",
+        generator_settings={
+            "pattern": "radial",
+            "density": 28,
+            "primary_color": "#FF3366",
+            "animation": "rotate",
+            "animation_amount": 24.0,
+        },
+    )
+
+    restored = Layer.from_dict(layer.to_dict())
+
+    assert restored.source_type == "generator"
+    assert restored.generator_type == "geometry"
+    assert restored.generator_settings == layer.generator_settings
+
+
+def test_legacy_layers_receive_empty_generator_settings() -> None:
+    restored = Layer.from_dict({
+        "id": "old-layer",
+        "name": "Legacy footage",
+        "source_type": "video",
+        "source_id": "deck_a",
+    })
+
+    assert restored.generator_type is None
+    assert restored.generator_settings == {}

@@ -5,6 +5,7 @@ import numpy as np
 
 from core.composition import Layer
 from effects.settings import EffectSettings
+from generators.catalog import animation_code
 
 _VERTEX_SHADER = """#version 330
 in vec2 in_position;
@@ -24,6 +25,10 @@ uniform vec2 u_scale;
 uniform float u_rotation;
 uniform float u_opacity;
 uniform int u_blend_mode;
+uniform float u_time;
+uniform int u_animation;
+uniform float u_animation_speed;
+uniform float u_animation_amount;
 
 in vec2 v_uv;
 out vec4 frag_color;
@@ -31,12 +36,28 @@ out vec4 frag_color;
 void main() {
     vec4 base = texture(u_base, v_uv);
     vec2 screen_uv = vec2(v_uv.x, 1.0 - v_uv.y);
-    vec2 local = screen_uv - u_position;
-    float angle = radians(-u_rotation);
+    vec2 animated_position = u_position;
+    vec2 animated_scale = u_scale;
+    float animated_rotation = u_rotation;
+    float animated_opacity = u_opacity;
+    float phase = u_time * u_animation_speed;
+
+    if (u_animation == 1) {
+        animated_scale *= 1.0 + sin(phase) * u_animation_amount;
+    } else if (u_animation == 2) {
+        animated_rotation += sin(phase) * u_animation_amount;
+    } else if (u_animation == 3) {
+        animated_position += vec2(sin(phase), cos(phase * 0.83)) * u_animation_amount;
+    } else if (u_animation == 4) {
+        animated_opacity *= 0.65 + 0.35 * (0.5 + 0.5 * sin(phase * 3.7));
+    }
+
+    vec2 local = screen_uv - animated_position;
+    float angle = radians(-animated_rotation);
     float c = cos(angle);
     float s = sin(angle);
     local = vec2(c * local.x - s * local.y, s * local.x + c * local.y);
-    local = local / max(u_scale, vec2(0.001)) + vec2(0.5);
+    local = local / max(animated_scale, vec2(0.001)) + vec2(0.5);
 
     if (local.x < 0.0 || local.x > 1.0 || local.y < 0.0 || local.y > 1.0) {
         frag_color = base;
@@ -44,7 +65,7 @@ void main() {
     }
 
     vec4 source = texture(u_layer, local);
-    float alpha = clamp(source.a * u_opacity, 0.0, 1.0);
+    float alpha = clamp(source.a * animated_opacity, 0.0, 1.0);
     vec3 blended = source.rgb;
 
     if (u_blend_mode == 1) {
@@ -173,6 +194,9 @@ class Compositor:
         )
         self.composite_program["u_base"].value = 0
         self.composite_program["u_layer"].value = 1
+        self.composite_program["u_animation"].value = 0
+        self.composite_program["u_animation_speed"].value = 0.0
+        self.composite_program["u_animation_amount"].value = 0.0
         self.post_program["u_texture"].value = 0
 
         self.source_textures: dict[str, moderngl.Texture] = {}
@@ -291,6 +315,15 @@ class Compositor:
             self.composite_program["u_blend_mode"].value = _BLEND_MODES.get(
                 layer.blend_mode, 0
             )
+            self.composite_program["u_time"].value = float(time_seconds)
+            animation = layer.generator_settings if layer.source_type == "generator" else {}
+            self.composite_program["u_animation"].value = animation_code(animation)
+            self.composite_program["u_animation_speed"].value = float(
+                animation.get("animation_speed", 0.0)
+            )
+            self.composite_program["u_animation_amount"].value = float(
+                animation.get("animation_amount", 0.0)
+            )
             self.composite_vao.render(mode=moderngl.TRIANGLE_STRIP)
             current = next_target
 
@@ -302,6 +335,11 @@ class Compositor:
             effects or EffectSettings(),
             time_seconds,
         )
+
+    def remove_texture(self, source_id: str) -> None:
+        texture = self.source_textures.pop(source_id, None)
+        if texture is not None:
+            texture.release()
 
     def _release_targets(self) -> None:
         for framebuffer in self.framebuffers:

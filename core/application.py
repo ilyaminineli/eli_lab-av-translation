@@ -12,6 +12,7 @@ from core.layer_manager import LayerManager
 from core.performance_manager import PerformanceManager
 from core.project_manager import ProjectManager
 from effects.settings import EffectSettings
+from generators.catalog import GENERATOR_TYPES, default_generator_settings
 from media.frame_queue import FrameSnapshot
 from media.library import MediaLibrary
 from media.video_deck import VideoDeck
@@ -58,6 +59,39 @@ class Application:
 
     def set_window(self, window: Any) -> None:
         self.window = window
+
+    def add_generator_layer(self, generator_type: str) -> Layer:
+        if generator_type not in GENERATOR_TYPES:
+            raise ValueError(f"Unknown generator type: {generator_type}")
+        labels = {
+            "geometry": "Geometry Generator",
+            "text": "Text Art",
+            "waveform": "Waveform Generator",
+        }
+        blend_modes = {
+            "geometry": "screen",
+            "text": "normal",
+            "waveform": "screen",
+        }
+        layer = self.layer_manager.create_layer(
+            name=labels[generator_type],
+            source_type="generator",
+            generator_type=generator_type,
+            generator_settings=default_generator_settings(generator_type),
+            blend_mode=blend_modes[generator_type],
+            position=(0.5, 0.5),
+            scale=(1.0, 1.0),
+            z_index=max(
+                (item.z_index for item in self.composition.layers),
+                default=-1,
+            ) + 1,
+        )
+        layer.source_id = f"generator:{layer.id}"
+        self.events.publish("generator.added", layer=layer)
+        return layer
+
+    def remove_layer(self, layer_id: str) -> bool:
+        return self.layer_manager.remove_layer(layer_id)
 
     def reset_project(self) -> None:
         self.automation.stop()

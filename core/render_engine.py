@@ -7,6 +7,7 @@ from typing import Any
 from config import OPENGL_REQUIREMENT
 from core.composition import Composition
 from effects.settings import EffectSettings
+from generators.rasterizer import GeneratorRasterizer
 from rendering.compositor import Compositor
 
 _LOG = logging.getLogger(__name__)
@@ -26,6 +27,9 @@ class RenderEngine:
         self.last_upload_ms = 0.0
         self.last_composite_ms = 0.0
         self.last_upload_bytes = 0
+        self.generator_rasterizer = GeneratorRasterizer()
+        self._generator_signatures: dict[str, str] = {}
+        self._generator_sources: dict[str, str] = {}
 
     def initialize(self) -> None:
         try:
@@ -73,6 +77,28 @@ class RenderEngine:
                 uploaded_bytes += int(getattr(pixels, "nbytes", 0))
                 if revision >= 0:
                     self._uploaded_revisions[source_id] = revision
+        generator_layers = [
+            layer for layer in composition.layers
+            if layer.source_type == "generator" and layer.visible
+        ]
+        active_generator_ids = {layer.id for layer in generator_layers}
+        for layer in generator_layers:
+            source_id = layer.source_id or f"generator:{layer.id}"
+            fingerprint, pixels = self.generator_rasterizer.render(layer)
+            if self._generator_signatures.get(layer.id) != fingerprint:
+                self.compositor.update_texture(source_id, pixels)
+                uploaded_bytes += int(pixels.nbytes)
+                self._generator_signatures[layer.id] = fingerprint
+                self._generator_sources[layer.id] = source_id
+
+        removed_ids = set(self._generator_signatures) - active_generator_ids
+        for layer_id in removed_ids:
+            source_id = self._generator_sources.pop(layer_id, None)
+            if source_id:
+                self.compositor.remove_texture(source_id)
+            self._generator_signatures.pop(layer_id, None)
+        self.generator_rasterizer.remove_missing(active_generator_ids)
+
         composite_started = time.perf_counter()
         self.last_upload_ms = (composite_started - upload_started) * 1000.0
         self.last_upload_bytes = uploaded_bytes
@@ -93,5 +119,8 @@ class RenderEngine:
             self.compositor.release()
             self.compositor = None
         self._uploaded_revisions.clear()
+        self._generator_signatures.clear()
+        self._generator_sources.clear()
+        self.generator_rasterizer.clear()
         self.context = None
         self.initialized = False
