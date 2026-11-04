@@ -125,6 +125,15 @@ class RenderEngine:
             self._generator_errors.pop(layer_id, None)
         self.generator_rasterizer.remove_missing(active_generator_ids)
 
+        # Dispose textures for overlay layers removed from the composition.
+        active_source_ids = {
+            layer.source_id for layer in composition.layers if layer.source_id
+        }
+        for source_id in tuple(self._uploaded_revisions):
+            if source_id not in active_source_ids:
+                self.compositor.remove_texture(source_id)
+                self._uploaded_revisions.pop(source_id, None)
+
         composite_started = time.perf_counter()
         self.last_upload_ms = (composite_started - upload_started) * 1000.0
         self.last_upload_bytes = uploaded_bytes
