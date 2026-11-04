@@ -16,8 +16,8 @@ from PySide6.QtWidgets import (
 
 from config import APP_VERSION
 from core.application import Application
-from ui.automation_panel import AutomationPanel
 from ui.asset_library_panel import AssetLibraryPanel
+from ui.automation_panel import AutomationPanel
 from ui.deck_panel import DeckPanel
 from ui.effects_panel import EffectsPanel
 from ui.generators_panel import GeneratorsPanel
@@ -332,7 +332,10 @@ class MainWindow(QMainWindow):
             self.effects_panel.sync_from_settings()
             self.automation_panel.set_running(
                 True,
-                f"Running · {count} deck(s) automated. Layouts, generator text and layer FX will evolve automatically.",
+                (
+                    f"Running · {count} deck(s) automated. Layouts, generator text "
+                    "and layer FX will evolve automatically."
+                ),
             )
             self._refresh_automation_status()
         except Exception as exc:
