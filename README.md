@@ -29,6 +29,10 @@ This development pass focuses on video, master effects, overlays and automation.
 - Shared decoded-frame snapshots so preview and projector outputs show the same playback without competing for frames.
 - Effect and automation settings saved inside .eliav projects.
 
+## Development roadmap
+
+See [docs/ROADMAP.md](docs/ROADMAP.md) for the complete M0–M5 plan, implementation status and the Video Mixer Completion Gate. The current priority is to finish and harden M0–M2 before starting audio-reactive and Sonic Pi work.
+
 ## System requirements
 
 - Windows 10/11, 64-bit.

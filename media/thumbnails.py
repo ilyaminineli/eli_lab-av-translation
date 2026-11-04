@@ -39,13 +39,16 @@ def generate_thumbnail(
             frame = next(container.decode(stream), None)
             if frame is None:
                 return None
-            pixels = frame.to_ndarray(format="rgb24")
+
+            # PyAV may expose a strided ndarray view (for example after pixel
+            # format conversion). QImage requires a contiguous RGB byte buffer.
+            pixels = frame.to_ndarray(format="rgb24").copy(order="C")
             height, width, _ = pixels.shape
             image = QImage(
                 pixels.data,
                 width,
                 height,
-                int(pixels.strides[0]),
+                width * 3,
                 QImage.Format.Format_RGB888,
             ).copy()
             thumbnail = image.scaled(
