@@ -145,7 +145,8 @@ class GeneratorsPanel(QWidget):
         self.apply_button.setDefault(True)
         root.addWidget(self.apply_button)
         self.hint_label = QLabel(
-            "Generators are transparent composition layers. They render in preview and projector output."
+            "Generator layers are transparent and render in both the preview "
+            "and projector output."
         )
         self.hint_label.setWordWrap(True)
         self.hint_label.setObjectName("mutedLabel")
