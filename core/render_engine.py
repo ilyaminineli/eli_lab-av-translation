@@ -77,7 +77,7 @@ class RenderEngine:
         self.last_upload_ms = (composite_started - upload_started) * 1000.0
         self.last_upload_bytes = uploaded_bytes
         self.compositor.render(
-            composition,
+            composition.layers,
             target_fbo,
             width,
             height,
