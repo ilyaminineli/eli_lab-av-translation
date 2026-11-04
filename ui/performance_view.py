@@ -35,7 +35,10 @@ class PerformanceView(QOpenGLWidget):
         self._last_decoded_frames = 0
         self._last_published_frames = 0
         self._last_dropped_frames = 0
-        self.setMinimumSize(640, 360)
+        # This widget is also used inside a narrow dockable local-preview pane.
+        # The fullscreen projector window supplies its own unconstrained surface.
+        self.setMinimumSize(240, 135)
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
         self.setObjectName("masterPerformanceView")
 
         self._timer = QTimer(self)
