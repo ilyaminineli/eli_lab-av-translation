@@ -91,6 +91,13 @@ class MediaLibrary:
             for row in legacy_ids:
                 sample = Path(row["sample_path"])
                 root = sample.parent
+                # Older databases did not persist the imported root path.
+                # Recover it by matching the historical collection hash against
+                # the sample file's ancestor directories.
+                for candidate in sample.parents:
+                    if self.scanner.collection_id_for(candidate) == row["collection_id"]:
+                        root = candidate
+                        break
                 connection.execute(
                     """
                     INSERT OR IGNORE INTO collections (id, root_path, name, imported_at)
@@ -150,6 +157,12 @@ class MediaLibrary:
                         asset.file_size, asset.modified_at,
                     ),
                 )
+            connection.execute(
+                """
+                DELETE FROM collections
+                WHERE id NOT IN (SELECT DISTINCT collection_id FROM assets)
+                """
+            )
         return assets
 
     def list_assets(self, collection_id: str | None = None) -> list[MediaAsset]:
