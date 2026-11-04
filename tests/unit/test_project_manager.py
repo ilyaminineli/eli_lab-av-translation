@@ -8,6 +8,16 @@ def test_project_save_and_load_round_trip(tmp_path) -> None:
         Layer(id="layer_a", name="Deck A", source_id="deck_a",
               opacity=0.5, position=(0.2, 0.6))
     )
+    composition.add_layer(
+        Layer(
+            id="text_art",
+            name="Text Art",
+            source_type="generator",
+            source_id="generator:text_art",
+            generator_type="text",
+            generator_settings={"text": "memory / signal", "font_size": 180},
+        )
+    )
     decks = [{"id": "deck_a", "path": "C:/Footage/clip.mp4",
               "asset_id": "asset-a", "loop": True}]
     path = tmp_path / "scene.eliav"
@@ -18,6 +28,13 @@ def test_project_save_and_load_round_trip(tmp_path) -> None:
     assert (restored.width, restored.height, restored.fps) == (1280, 720, 30)
     assert restored.layers[0].opacity == 0.5
     assert restored.layers[0].position == (0.2, 0.6)
+    generator = restored.get_layer("text_art")
+    assert generator is not None
+    assert generator.generator_type == "text"
+    assert generator.generator_settings == {
+        "text": "memory / signal",
+        "font_size": 180,
+    }
     assert restored_decks == decks
 
 
