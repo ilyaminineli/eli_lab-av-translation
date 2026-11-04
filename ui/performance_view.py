@@ -95,17 +95,16 @@ class PerformanceView(QOpenGLWidget):
             convert_ms_per_frame = (
                 float(stats["conversion_time_ms"]) / max(1, int(stats["published_frames"]))
             )
-            self.render_status_changed.emit(
-                (
-                    f"{fps:0.1f} FPS · decode {decode_ms_per_frame:0.1f} "
-                    f"ms/f · convert {convert_ms_per_frame:0.1f} ms/f · "
-                    f"render CPU {average_render_ms:0.1f} ms "
-                    f"(upload {average_upload_ms:0.1f} ms) · "
-                    f"{stats['playing_decks']} decks · "
-                    f"drop {stats['dropped_frames']} · "
-                    f"{self.engine.renderer_name}"
-                )
+            status = (
+                f"{fps:0.1f} FPS · decode {decode_ms_per_frame:0.1f} "
+                f"ms/f · convert {convert_ms_per_frame:0.1f} ms/f · "
+                f"render CPU {average_render_ms:0.1f} ms "
+                f"(upload {average_upload_ms:0.1f} ms) · "
+                f"{stats['playing_decks']} decks · "
+                f"drop {stats['dropped_frames']} · "
+                f"{self.engine.renderer_name}"
             )
+            self.render_status_changed.emit(status)
 
     def _paint_message(self, title: str, detail: str) -> None:
         painter = QPainter(self)
