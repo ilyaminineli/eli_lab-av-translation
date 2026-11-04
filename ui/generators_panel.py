@@ -3,6 +3,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFontDatabase
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QFormLayout,
     QGroupBox,
@@ -69,7 +70,7 @@ class GeneratorsPanel(QWidget):
 
         self.font_combo = QComboBox()
         self.font_combo.setEditable(True)
-        families = sorted(set(QFontDatabase().families()), key=str.casefold)
+        families = sorted(set(QFontDatabase.families()), key=str.casefold)
         self.font_combo.addItems(families[:250])
         content_form.addRow("TYPEFACE", self.font_combo)
 
@@ -87,8 +88,18 @@ class GeneratorsPanel(QWidget):
         self.alignment_combo.addItems(["left", "center", "right"])
         content_form.addRow("ALIGNMENT", self.alignment_combo)
 
+        self.vertical_alignment_combo = QComboBox()
+        self.vertical_alignment_combo.addItems(["top", "middle", "bottom"])
+        content_form.addRow("VERTICAL ALIGNMENT", self.vertical_alignment_combo)
+
         self.size_slider, self.size_value = self._slider(
             content_form, "FONT SIZE", 12, 420, 148
+        )
+        self.tracking_slider, self.tracking_value = self._slider(
+            content_form, "LETTER TRACKING", -8, 48, 10
+        )
+        self.line_spacing_slider, self.line_spacing_value = self._slider(
+            content_form, "LINE SPACING", 50, 250, 100
         )
         self.density_slider, self.density_value = self._slider(
             content_form, "DENSITY", 1, 80, 12
@@ -102,6 +113,9 @@ class GeneratorsPanel(QWidget):
         self.frequency_slider, self.frequency_value = self._slider(
             content_form, "WAVE FREQUENCY", 1, 240, 25
         )
+        self.shadow_check = QCheckBox("Soft offset shadow")
+        self.shadow_check.setChecked(True)
+        content_form.addRow("TEXT SHADOW", self.shadow_check)
         root.addWidget(content_group)
 
         style_group = QGroupBox("COLOUR AND ANIMATION")
@@ -210,7 +224,11 @@ class GeneratorsPanel(QWidget):
             self.font_combo,
             self.weight_combo,
             self.alignment_combo,
+            self.vertical_alignment_combo,
             self.size_slider,
+            self.tracking_slider,
+            self.line_spacing_slider,
+            self.shadow_check,
             self.density_slider,
             self.width_slider,
             self.amplitude_slider,
@@ -239,7 +257,15 @@ class GeneratorsPanel(QWidget):
         weight_index = self.weight_combo.findData(int(values.get("font_weight", 700)))
         self.weight_combo.setCurrentIndex(max(0, weight_index))
         self.alignment_combo.setCurrentText(str(values.get("alignment", "center")))
+        self.vertical_alignment_combo.setCurrentText(
+            str(values.get("vertical_alignment", "middle"))
+        )
         self.size_slider.setValue(int(values.get("font_size", 148)))
+        self.tracking_slider.setValue(round(float(values.get("letter_spacing", 10.0))))
+        self.line_spacing_slider.setValue(round(
+            float(values.get("line_spacing", 1.0)) * 100
+        ))
+        self.shadow_check.setChecked(bool(values.get("shadow", True)))
         self.density_slider.setValue(int(values.get("density", 12)))
         self.width_slider.setValue(round(float(
             values.get("stroke_width", values.get("line_width", 2.0))
@@ -290,8 +316,11 @@ class GeneratorsPanel(QWidget):
                 "font_family": self.font_combo.currentText().strip() or "Arial",
                 "font_size": self.size_slider.value(),
                 "font_weight": int(self.weight_combo.currentData()),
-                "letter_spacing": float(settings.get("letter_spacing", 10.0)),
+                "letter_spacing": float(self.tracking_slider.value()),
+                "line_spacing": self.line_spacing_slider.value() / 100.0,
                 "alignment": self.alignment_combo.currentText(),
+                "vertical_alignment": self.vertical_alignment_combo.currentText(),
+                "shadow": self.shadow_check.isChecked(),
                 "stroke_color": self.stroke_color.text().strip() or "#211B2A",
                 "stroke_width": self.width_slider.value() / 2.0,
             })
