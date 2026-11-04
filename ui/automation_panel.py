@@ -69,8 +69,14 @@ class AutomationPanel(QWidget):
         self.layout_check.setChecked(True)
         self.effects_check = QCheckBox("Periodically change overlay / filter look")
         self.effects_check.setChecked(True)
+        self.generator_check = QCheckBox("Periodically vary generators + text")
+        self.generator_check.setChecked(True)
+        self.layer_fx_check = QCheckBox("Vary enabled per-layer FX")
+        self.layer_fx_check.setChecked(True)
         layout.addWidget(self.layout_check)
         layout.addWidget(self.effects_check)
+        layout.addWidget(self.generator_check)
+        layout.addWidget(self.layer_fx_check)
 
         self.start_button = QPushButton("START AUTOMATIC SESSION")
         self.stop_button = QPushButton("STOP AUTOMATION")
@@ -132,6 +138,11 @@ class AutomationPanel(QWidget):
             max_layout_interval=max(16.0, cut_max * 1.8),
             min_effect_interval=max(7.0, cut_min * 1.1),
             max_effect_interval=max(14.0, cut_max * 1.5),
+            randomize_generators=self.generator_check.isChecked(),
+            randomize_text=self.generator_check.isChecked(),
+            randomize_layer_effects=self.layer_fx_check.isChecked(),
+            min_generator_interval=max(12.0, cut_min * 1.5),
+            max_generator_interval=max(24.0, cut_max * 2.0),
         )
 
     def _start(self) -> None:
