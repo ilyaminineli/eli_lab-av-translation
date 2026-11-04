@@ -413,6 +413,7 @@ class LayerPanel(QWidget):
             overlay_scene_sync=self.overlay_scene_sync_check.isChecked(),
             overlay_mask_mode=str(self.overlay_mask_mode.currentData()),
             overlay_mask_source=str(self.overlay_mask_source.currentData() or ""),
+            overlay_manual_override_until=time.time() + 30.0,
         )
 
     def _commit_fx_stages(self) -> None:
