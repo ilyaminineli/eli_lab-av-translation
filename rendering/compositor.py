@@ -21,6 +21,9 @@ void main() {
 _COMPOSITE_FRAGMENT = """#version 330
 uniform sampler2D u_base;
 uniform sampler2D u_layer;
+uniform sampler2D u_mask;
+uniform int u_mask_enabled;
+uniform int u_mask_mode;
 uniform vec2 u_position;
 uniform vec2 u_scale;
 uniform float u_rotation;
@@ -275,6 +278,13 @@ void main() {
         }
         if (u_generator_type == 2) {
             source.a *= text_mask;
+        }
+        if (u_mask_enabled == 1) {
+            vec4 matte = texture(u_mask, uv_safe);
+            float matte_value = u_mask_mode == 2
+                ? dot(matte.rgb, vec3(0.2126, 0.7152, 0.0722))
+                : matte.a;
+            source.a *= matte_value;
         }
     }
     source.rgb = layer_color_effects(source.rgb, local);
@@ -629,6 +639,15 @@ class Compositor:
                 layer_texture.use(location=1)
             else:
                 self.particle_stub.use(location=1)
+            mask_texture = self.source_textures.get(layer.overlay_mask_source) if layer.overlay_mask_source else None
+            if mask_texture is not None and layer.overlay_mask_mode in {"alpha", "luma"}:
+                mask_texture.use(location=2)
+                self.composite_program["u_mask_enabled"].value = 1
+                self.composite_program["u_mask_mode"].value = 2 if layer.overlay_mask_mode == "luma" else 1
+            else:
+                self.particle_stub.use(location=2)
+                self.composite_program["u_mask_enabled"].value = 0
+                self.composite_program["u_mask_mode"].value = 0
 
             self.composite_program["u_position"].value = tuple(layer.position)
             self.composite_program["u_scale"].value = tuple(layer.scale)
