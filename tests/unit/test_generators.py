@@ -18,7 +18,7 @@ def test_default_generator_settings_are_available(generator_type: str) -> None:
 
     assert isinstance(settings, dict)
     assert settings["primary_color"].startswith("#")
-    assert settings["animation"] in {"none", "pulse", "rotate", "drift", "flicker"}
+    assert settings["animation"] in {"none", "pulse", "rotate", "drift", "flicker", "warp"}
 
 
 def test_unknown_generator_type_is_rejected() -> None:
@@ -67,6 +67,7 @@ def test_animation_mapping_is_stable_for_the_gpu_uniform() -> None:
     assert animation_code({"animation": "rotate"}) == 2
     assert animation_code({"animation": "drift"}) == 3
     assert animation_code({"animation": "flicker"}) == 4
+    assert animation_code({"animation": "warp"}) == 5
     assert animation_code({"animation": "unknown"}) == 0
 
 
@@ -211,3 +212,13 @@ def test_text_layout_changes_invalidate_static_raster() -> None:
     layer.generator_settings["text_layout"] = "collage"
 
     assert GeneratorRasterizer.fingerprint(layer) != first
+
+
+def test_japanese_palette_looks_are_complete_and_use_real_swatch_hex_values() -> None:
+    from generators.palettes import JP_PALETTE_LOOKS, palette_look
+
+    assert len(JP_PALETTE_LOOKS) >= 8
+    for name, colours in JP_PALETTE_LOOKS.items():
+        assert len(colours) == 4
+        assert all(len(value) == 7 and value.startswith("#") for value in colours)
+        assert palette_look(name)["primary_color"] == colours[0]
