@@ -100,6 +100,7 @@ class MainWindow(QMainWindow):
         self.control_status_label = QLabel(
             self.application.performance_control.status_text()
         )
+        self._last_control_revision = self.application.performance_control.revision
         self.control_status_label.setToolTip(
             "M3 control state · normalized transport, scene and macro events"
         )
@@ -444,10 +445,13 @@ class MainWindow(QMainWindow):
 
     def _runtime_tick(self) -> None:
         self.application.refresh_frames()
-        if self.application.process_control_events():
+        self.application.process_control_events()
+        control_revision = self.application.performance_control.revision
+        if control_revision != self._last_control_revision:
             self.control_status_label.setText(
                 self.application.performance_control.status_text()
             )
+            self._last_control_revision = control_revision
         was_running = self.application.automation.running
         changed = self.application.tick_automation()
         if changed:
