@@ -67,3 +67,25 @@ def test_legacy_layers_receive_empty_generator_settings() -> None:
 
     assert restored.generator_type is None
     assert restored.generator_settings == {}
+
+
+def test_overlay_timing_playback_and_matte_settings_round_trip() -> None:
+    layer = Layer(
+        id="overlay-timed",
+        source_type="overlay",
+        overlay_in=1.25,
+        overlay_out=8.5,
+        overlay_speed=1.75,
+        overlay_frame_hold=3,
+        overlay_scene_sync=True,
+        overlay_mask_mode="luma",
+        overlay_mask_source="overlay:matte",
+    )
+    restored = Layer.from_dict(layer.to_dict())
+    assert restored.overlay_in == 1.25
+    assert restored.overlay_out == 8.5
+    assert restored.overlay_speed == 1.75
+    assert restored.overlay_frame_hold == 3
+    assert restored.overlay_scene_sync is True
+    assert restored.overlay_mask_mode == "luma"
+    assert restored.overlay_mask_source == "overlay:matte"
