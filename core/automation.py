@@ -37,6 +37,7 @@ class AutomationSettings:
     randomize_text: bool = True
     randomize_layer_effects: bool = True
     randomize_overlays: bool = True
+    randomize_palette: bool = False
     min_generator_interval: float = 18.0
     max_generator_interval: float = 42.0
     text_language: str = "bilingual"
@@ -325,6 +326,10 @@ class AutomationDirector:
                 kind = layer.generator_type
                 values = normalize_settings(kind, layer.generator_settings)
                 updated = False
+                if self.settings.randomize_palette:
+                    from generators.palettes import random_palette_look
+                    values.update(random_palette_look(self.rng))
+                    updated = True
 
                 if kind == "text" and self.settings.randomize_text:
                     if bool(values.get("text_auto_regenerate", True)):
