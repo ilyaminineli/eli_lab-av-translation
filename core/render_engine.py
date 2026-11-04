@@ -28,6 +28,8 @@ class RenderEngine:
         self.last_composite_ms = 0.0
         self.last_upload_bytes = 0
         self.generator_rasterizer = GeneratorRasterizer()
+        # Keep shader phase small and stable during long performances.
+        self._time_origin = time.perf_counter()
         self._generator_signatures: dict[str, str] = {}
         self._generator_sources: dict[str, str] = {}
         self._generator_errors: dict[str, str] = {}
@@ -143,7 +145,7 @@ class RenderEngine:
             width,
             height,
             effects=effects,
-            time_seconds=time.perf_counter(),
+            time_seconds=max(0.0, time.perf_counter() - self._time_origin),
             canvas_width=composition.width,
             canvas_height=composition.height,
         )
