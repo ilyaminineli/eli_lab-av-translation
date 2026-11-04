@@ -31,7 +31,7 @@ Editable multiline typographic compositions with:
 - Regular, medium, bold and black weights
 - Font size and absolute letter tracking
 - Line spacing and horizontal / vertical alignment
-- Fill colour, alternate accent-line colour, outline colour and outline width
+- Fill colour, optional alternating accent-line colour, outline colour and outline width
 - Soft offset shadow
 
 Text remains editable as layer data in the project. It is not permanently converted into a user-managed bitmap asset.
