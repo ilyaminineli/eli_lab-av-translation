@@ -54,12 +54,12 @@ class MainWindow(QMainWindow):
 
         self.media_browser = MediaBrowser(application.media_library, self)
         self.media_dock = self._make_dock("MEDIA LIBRARY", self.media_browser)
-        self.media_dock.setMinimumWidth(260)
+        self.media_dock.setMinimumWidth(280)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.media_dock)
 
         self.asset_library_panel = AssetLibraryPanel(application, self)
         self.asset_library_dock = self._make_dock("VISUAL ASSET LIBRARY", self.asset_library_panel)
-        self.asset_library_dock.setMinimumWidth(260)
+        self.asset_library_dock.setMinimumWidth(280)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.asset_library_dock)
         self.tabifyDockWidget(self.media_dock, self.asset_library_dock)
 
@@ -70,7 +70,7 @@ class MainWindow(QMainWindow):
 
         self.layer_panel = LayerPanel(application, self)
         self.layer_dock = self._make_dock("LAYERS", self.layer_panel)
-        self.layer_dock.setMinimumWidth(300)
+        self.layer_dock.setMinimumWidth(320)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.layer_dock)
 
         self.effects_panel = EffectsPanel(application.effects, self)
@@ -78,18 +78,12 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.effects_dock)
         self.tabifyDockWidget(self.layer_dock, self.effects_dock)
 
-        self.generators_panel = GeneratorsPanel(application, self)
-        self.generators_dock = self._make_dock("GENERATORS + TEXT ART", self.generators_panel)
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.generators_dock)
-        self.tabifyDockWidget(self.effects_dock, self.generators_dock)
-
         self.automation_panel = AutomationPanel(application.media_library, self)
         self.automation_dock = self._make_dock("AUTO PERFORMANCE", self.automation_panel)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.automation_dock)
-        self.tabifyDockWidget(self.generators_dock, self.automation_dock)
+        self.tabifyDockWidget(self.effects_dock, self.automation_dock)
 
-        # Local preview is a normal dock, not the central widget. It can be
-        # resized, floated, tabified or hidden without taking space from controls.
+        self.generators_panel = GeneratorsPanel(application, self)
         self.preview_dock = self._make_dock("LOCAL PREVIEW", self.performance_view)
         self.preview_dock.setMinimumSize(260, 180)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.preview_dock)
@@ -119,6 +113,12 @@ class MainWindow(QMainWindow):
         self.automation_panel.stop_requested.connect(self.stop_automation)
         self.generators_panel.composition_changed.connect(self.layer_panel.refresh)
         self.layer_panel.layers_changed.connect(self.generators_panel.refresh)
+        self.generators_panel.selected_layer_changed.connect(self.layer_panel.select_layer)
+        self.layer_panel.selected_layer_changed.connect(self.generators_panel.select_layer)
+        self.generators_panel.layer_properties_changed.connect(self.layer_panel.sync_layer_row)
+        self.layer_panel.layer_properties_changed.connect(
+            self.generators_panel.sync_layer_appearance
+        )
         self.asset_library_panel.composition_changed.connect(self.layer_panel.refresh)
         self.asset_library_panel.composition_changed.connect(self.generators_panel.refresh)
 
@@ -148,52 +148,33 @@ class MainWindow(QMainWindow):
     def _build_workspace(self) -> QWidget:
         workspace = QWidget(self)
         layout = QVBoxLayout(workspace)
-        layout.setContentsMargins(36, 32, 36, 32)
-        layout.setSpacing(14)
-        layout.addStretch(1)
+        layout.setContentsMargins(10, 8, 10, 8)
+        layout.setSpacing(8)
 
-        eyebrow = QLabel("ELI LAB  /  AV TRANSLATION")
-        eyebrow.setObjectName("mutedLabel")
-        layout.addWidget(eyebrow, alignment=Qt.AlignmentFlag.AlignHCenter)
-
-        title = QLabel("PERFORMANCE WORKSPACE")
-        title.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        layout.addWidget(title)
-
-        description = QLabel(
-            "The live canvas now lives in a dockable local preview. "
-            "Keep the workspace for media, layers, effects and performance controls, "
-            "or open the projector on a separate display."
-        )
-        description.setWordWrap(True)
-        description.setMaximumWidth(620)
-        description.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        layout.addWidget(description, alignment=Qt.AlignmentFlag.AlignHCenter)
-
-        self.workspace_output_label = QLabel("OUTPUT  ·  LOCAL PREVIEW")
-        self.workspace_output_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        header = QHBoxLayout()
+        title = QLabel("SELECTED GENERATOR / OVERLAY")
+        title.setObjectName("sectionHeading")
+        header.addWidget(title)
+        header.addStretch(1)
+        self.workspace_output_label = QLabel("OUTPUT  ·  LOCAL WORKSPACE")
         self.workspace_output_label.setObjectName("mutedLabel")
-        layout.addWidget(self.workspace_output_label)
-
-        actions = QHBoxLayout()
-        actions.addStretch(1)
+        header.addWidget(self.workspace_output_label)
         self.show_preview_button = QPushButton("OPEN LOCAL PREVIEW")
         self.show_preview_button.clicked.connect(self.show_local_preview)
-        actions.addWidget(self.show_preview_button)
-        actions.addStretch(1)
-        layout.addLayout(actions)
-        layout.addStretch(2)
+        header.addWidget(self.show_preview_button)
+        layout.addLayout(header)
+        layout.addWidget(self.generators_panel, 1)
         return workspace
 
     def _apply_default_dock_sizes(self) -> None:
         self.resizeDocks(
             [self.media_dock],
-            [330],
+            [350],
             Qt.Orientation.Horizontal,
         )
         self.resizeDocks(
             [self.layer_dock],
-            [350],
+            [440],
             Qt.Orientation.Horizontal,
         )
         self.resizeDocks(
@@ -261,7 +242,6 @@ class MainWindow(QMainWindow):
                 self.deck_dock,
                 self.layer_dock,
                 self.effects_dock,
-                self.generators_dock,
                 self.automation_dock,
                 self.preview_dock,
         ):
@@ -362,7 +342,7 @@ class MainWindow(QMainWindow):
         try:
             layer = self.application.add_media_overlay(path)
             self.layer_panel.refresh()
-            self.generators_panel.refresh()
+            self.generators_panel.refresh(select_id=layer.id)
             self.statusBar().showMessage(f"Added overlay {layer.name}", 4000)
         except Exception as exc:
             _LOG.exception("Could not add overlay media")
