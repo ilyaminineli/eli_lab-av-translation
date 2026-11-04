@@ -478,6 +478,7 @@ class Compositor:
         )
         self.composite_program["u_base"].value = 0
         self.composite_program["u_layer"].value = 1
+        self.composite_program["u_mask"].value = 2
         self.composite_program["u_animation"].value = 0
         self.composite_program["u_animation_speed"].value = 0.0
         self.composite_program["u_animation_amount"].value = 0.0
