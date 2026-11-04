@@ -84,6 +84,10 @@ The deck and layer lock controls are respected by automation. Lock anything that
 
 Use the **LIBRARY** menu in the Media Library panel to remove a selected imported folder from the index, prune missing source files, clear the entire index, or delete unused cached thumbnails. These operations never delete the original video files. Clips already loaded into decks continue playing when their folder is removed from the index.
 
+## Performance behaviour
+
+Preview decoding is currently capped at 30 output frames per second and 1920×1080 per deck; smaller sources remain at native size. These are preview/output limits only—the original files are not modified. The render status reports FPS, average CPU-side decode and conversion costs, renderer CPU submission time, texture upload time, active deck count and queue drops. These measurements help identify the next bottleneck; CPU-side render timing is not the same as a GPU timer query.
+
 ## Effects and overlays
 
 The EFFECTS + OVERLAYS panel controls the master output. Presets are starting looks; every parameter can be adjusted manually. Automated look changes use the same presets and affect the preview and projector output together.
