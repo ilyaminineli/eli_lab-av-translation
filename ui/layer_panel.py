@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QComboBox,
     QGroupBox,
+    QFormLayout,
     QFileDialog,
     QListWidget,
     QListWidgetItem,
