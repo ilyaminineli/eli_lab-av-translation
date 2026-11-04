@@ -64,7 +64,10 @@ class GeneratorsPanel(QWidget):
 
         self.pattern_combo = QComboBox()
         self.pattern_combo.addItems(
-            ["rings", "grid", "radial", "crosshatch", "polygon", "sine"]
+            [
+                "rings", "grid", "radial", "crosshatch", "polygon",
+                "sine", "lissajous", "orbit",
+            ]
         )
         content_form.addRow("PATTERN", self.pattern_combo)
 
