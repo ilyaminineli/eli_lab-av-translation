@@ -100,7 +100,7 @@ class Application:
         # Each output has its own GPU context and upload revision.
         return dict(self._frame_snapshots)
 
-    def performance_snapshot(self) -> dict[str, int]:
+    def performance_snapshot(self) -> dict[str, int | float]:
         deck_stats = [deck.performance_stats() for deck in self.decks.values()]
         return {
             "playing_decks": sum(bool(item["playing"]) for item in deck_stats),
