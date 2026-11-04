@@ -317,7 +317,6 @@ class Compositor:
             )
             self.composite_program["u_time"].value = float(time_seconds)
             animation = layer.generator_settings if layer.source_type == "generator" else {}
-            animation_name = str(animation.get("animation", "none"))
             self.composite_program["u_animation"].value = animation_code(animation)
             self.composite_program["u_animation_speed"].value = float(
                 animation.get("animation_speed", 0.0)
