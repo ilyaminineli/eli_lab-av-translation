@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtGui import QImage
+from PySide6.QtGui import QColor, QImage
 
 from core.composition import Layer
 from media.image_overlay import ImageOverlayPlayer
@@ -13,7 +13,7 @@ def test_still_image_overlay_loads_transparent_rgba_frame(tmp_path) -> None:
     path = Path(tmp_path) / "overlay.png"
     image = QImage(4, 3, QImage.Format.Format_RGBA8888)
     image.fill(0)
-    image.setPixelColor(1, 1, 0x80FFFFFF)
+    image.setPixelColor(1, 1, QColor(255, 255, 255, 128))
     assert image.save(str(path))
 
     player = ImageOverlayPlayer(path)
