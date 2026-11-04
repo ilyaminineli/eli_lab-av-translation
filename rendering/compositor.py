@@ -220,7 +220,19 @@ void main() {
     if (u_generator_type == 1) {
         source = particle_field(local);
     } else {
-        source = texture(u_layer, clamp(sample_local, vec2(0.001), vec2(0.999)));
+        vec2 rgb_shift = vec2(u_layer_fx_chromatic * 0.012, 0.0);
+        vec2 uv_safe = clamp(sample_local, vec2(0.001), vec2(0.999));
+        source = texture(u_layer, uv_safe);
+        if (u_layer_fx_chromatic > 0.001) {
+            source.r = texture(
+                u_layer,
+                clamp(uv_safe + rgb_shift, vec2(0.001), vec2(0.999))
+            ).r;
+            source.b = texture(
+                u_layer,
+                clamp(uv_safe - rgb_shift, vec2(0.001), vec2(0.999))
+            ).b;
+        }
         if (u_generator_type == 2) {
             source.a *= text_mask;
         }
