@@ -41,7 +41,7 @@ _SCENE_DEFAULTS = (
     ("rc_w", "Wide Recapitulation", 1.0, "Infrared", "Riso · リソ"),
     ("peak", "Peak", 1.0, "Digital Damage", "Riso · リソ"),
     ("intd", "Interlude", 0.30, "Dream Haze", "Fuji · 藤"),
-    ("s_s", "Second Surge", 1.0, "Hard Signal", "Kitsune · 狐"),
+    ("s_s", "Second Surge", 1.0, "Digital Damage", "Kitsune · 狐"),
     ("rls", "Release", 0.42, "Shin-hanga", "Yamabuki · 山吹"),
     ("c", "Coda", 0.14, "16mm Film", "Sumi · 墨"),
     ("end", "End", 0.0, "Clean", "Sumi · 墨"),
