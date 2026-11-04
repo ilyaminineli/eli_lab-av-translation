@@ -26,6 +26,7 @@ def test_application_adds_shared_still_overlay_and_releases_it(tmp_path) -> None
     application.composition = Composition()
     application.layer_manager = LayerManager(application.composition, application.events)
     application._overlay_frames = {}
+    application._overlay_started_at = {}
     application._overlay_images = {}
     application._overlay_videos = {}
     application._frame_snapshots = {}
