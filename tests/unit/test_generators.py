@@ -96,3 +96,50 @@ def test_text_weight_normalizes_to_a_supported_qt_weight() -> None:
     settings = normalize_settings("text", {"font_weight": 650})
 
     assert settings["font_weight"] in (600, 700)
+
+
+def test_text_generator_has_complete_palette_defaults() -> None:
+    settings = default_generator_settings("text")
+
+    assert settings["secondary_color"].startswith("#")
+    assert settings["text_color_mode"] == "alternate"
+
+
+def test_legacy_text_generator_settings_get_accent_colour_fallback() -> None:
+    settings = normalize_settings("text", {
+        "text": "OLD PROJECT",
+        "primary_color": "#FFFFFF",
+    })
+
+    assert settings["secondary_color"] == "#C35C75"
+    assert settings["text_color_mode"] == "alternate"
+
+
+def test_invalid_text_colour_mode_falls_back_to_single_colour() -> None:
+    settings = normalize_settings("text", {"text_color_mode": "rainbow"})
+
+    assert settings["text_color_mode"] == "single"
+
+
+@pytest.mark.parametrize(
+    ("generator_type", "pattern"),
+    [
+        ("geometry", "spiral"),
+        ("geometry", "moire"),
+        ("geometry", "hexgrid"),
+        ("waveform", "radial"),
+        ("waveform", "rose"),
+    ],
+)
+def test_new_generator_patterns_survive_normalization(
+    generator_type: str,
+    pattern: str,
+) -> None:
+    settings = normalize_settings(generator_type, {"pattern": pattern})
+
+    assert settings["pattern"] == pattern
+
+
+def test_unknown_generator_pattern_returns_to_safe_default() -> None:
+    assert normalize_settings("geometry", {"pattern": "invalid"})["pattern"] == "rings"
+    assert normalize_settings("waveform", {"pattern": "invalid"})["pattern"] == "sine"
