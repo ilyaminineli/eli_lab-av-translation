@@ -11,8 +11,8 @@ from core.automation import AutomationDirector, AutomationSettings
 from core.composition import Composition, Layer
 from core.event_bus import EventBus
 from core.layer_manager import LayerManager
-from core.performance_manager import PerformanceManager
 from core.performance_control import ControlEvent, ControlEventQueue, PerformanceControlState
+from core.performance_manager import PerformanceManager
 from core.project_manager import ProjectManager
 from effects.settings import EffectSettings
 from generators.catalog import GENERATOR_TYPES, default_generator_settings
