@@ -667,7 +667,11 @@ class LayerPanel(QWidget):
         self.application.layer_manager.update_layer(layer_id, opacity=value / 100.0)
 
     def _blend_changed(self, layer_id: str, value: str) -> None:
-        self.application.layer_manager.update_layer(layer_id, blend_mode=value)
+        layer = self.application.composition.get_layer(layer_id)
+        changes = {"blend_mode": value}
+        if layer is not None and layer.source_type == "overlay":
+            changes["overlay_manual_override_until"] = time.time() + 30.0
+        self.application.layer_manager.update_layer(layer_id, **changes)
         layer = self._selected_layer()
         if layer is not None and layer.id == layer_id:
             self.selected_blend_combo.blockSignals(True)
