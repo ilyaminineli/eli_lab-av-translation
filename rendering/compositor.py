@@ -159,6 +159,20 @@ void main() {
 }
 """
 
+def canvas_fit_scale(
+        output_width: int,
+        output_height: int,
+        canvas_width: int,
+        canvas_height: int,
+) -> tuple[float, float]:
+    """Return normalized UV scale that letterboxes a canvas without distortion."""
+    output_aspect = max(1, int(output_width)) / max(1, int(output_height))
+    canvas_aspect = max(1, int(canvas_width)) / max(1, int(canvas_height))
+    if output_aspect > canvas_aspect:
+        return canvas_aspect / output_aspect, 1.0
+    return 1.0, output_aspect / canvas_aspect
+
+
 _BLEND_MODES = {
     "normal": 0,
     "add": 1,
@@ -298,13 +312,12 @@ class Compositor:
             canvas_height: int = 1080,
     ) -> None:
         self._resize_targets(width, height)
-        target_aspect = max(1, width) / max(1, height)
-        canvas_aspect = max(1, canvas_width) / max(1, canvas_height)
-        if target_aspect > canvas_aspect:
-            canvas_scale = (canvas_aspect / target_aspect, 1.0)
-        else:
-            canvas_scale = (1.0, target_aspect / canvas_aspect)
-        self.composite_program["u_canvas_scale"].value = canvas_scale
+        self.composite_program["u_canvas_scale"].value = canvas_fit_scale(
+            width,
+            height,
+            canvas_width,
+            canvas_height,
+        )
         self.ctx.viewport = (0, 0, width, height)
         self.framebuffers[0].use()
         self.framebuffers[0].clear(0.025, 0.028, 0.035, 1.0)
