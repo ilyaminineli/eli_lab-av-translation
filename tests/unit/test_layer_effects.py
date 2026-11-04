@@ -68,3 +68,25 @@ def test_particle_shader_has_gpu_field_and_all_motion_modes() -> None:
     assert "u_particle_density" in _COMPOSITE_FRAGMENT
     assert "u_particle_trail" in _COMPOSITE_FRAGMENT
     assert "u_particle_mode == 3" in _COMPOSITE_FRAGMENT
+
+
+def test_ordered_effect_chain_preserves_stage_order_and_limits_length() -> None:
+    values = normalize_layer_effects({
+        "enabled": True,
+        "stages": [
+            {"type": "invert", "amount": 1.4},
+            {"type": "monochrome", "amount": 0.5},
+            {"type": "unknown", "amount": 1.0},
+        ],
+    })
+    assert [stage["type"] for stage in values["stages"]] == ["invert", "monochrome"]
+    assert values["stages"][0]["amount"] == 1.0
+    assert values["stages"][1]["amount"] == 0.5
+
+
+def test_ordered_fx_stages_and_track_matte_are_in_shared_shader() -> None:
+    from rendering.compositor import _COMPOSITE_FRAGMENT
+    assert "u_fx_stage_count" in _COMPOSITE_FRAGMENT
+    assert "u_fx_stage_type[i]" in _COMPOSITE_FRAGMENT
+    assert "u_mask_enabled" in _COMPOSITE_FRAGMENT
+    assert "u_mask_mode == 2" in _COMPOSITE_FRAGMENT
