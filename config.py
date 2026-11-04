@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 
 APP_NAME = "ELI LAB AV Translation"
-APP_VERSION = "0.1.0"
+APP_VERSION = "0.2.0"
 DEFAULT_CANVAS_WIDTH = 1920
 DEFAULT_CANVAS_HEIGHT = 1080
 DEFAULT_FPS = 60

@@ -14,7 +14,7 @@ _LOG = logging.getLogger(__name__)
 
 
 class PerformanceView(QOpenGLWidget):
-    """Qt OpenGL surface that presents the live master composition."""
+    """Qt OpenGL output surface used for preview and external projector windows."""
 
     render_status_changed = Signal(str)
 
@@ -65,6 +65,7 @@ class PerformanceView(QOpenGLWidget):
                 int(self.defaultFramebufferObject()),
                 width,
                 height,
+                effects=self.application.effects,
             )
         except Exception as exc:
             self._initialization_error = str(exc)

@@ -2,37 +2,44 @@
 
 ## Product direction
 
-ELI LAB AV Translation is a Windows-first live audiovisual compositor. Its first useful workflow is video collage: index a local footage folder, load clips into four independent decks, compose them as GPU layers and randomize the scene during a performance.
-
-The rendering pipeline is deliberately independent from the UI and media decoders.
+ELI LAB AV Translation is a Windows-first live video collage and VJ performance environment. Its first unattended workflow is: import a local footage folder, run randomized clip segments across four decks, change collage arrangements and master effect looks automatically, and send the master output to a separate fullscreen display.
 
 ## Runtime boundaries
 
-- UI (ui/) owns Qt widgets and user interaction.
-- Application core (core/) owns composition, project state, events and orchestration.
-- Media (media/) owns discovery, metadata, thumbnails, frame queues and decoding.
-- Rendering (rendering/) owns OpenGL resources, video textures and compositing.
-- Future modules (audio/, generators/, effects/, integrations/, presets/) feed the same layer/compositor model.
+- UI owns Qt widgets, automation controls and output-window lifecycle.
+- Application core owns composition, project state, events, automation scheduling and orchestration.
+- Media owns discovery, metadata, thumbnails, frame queues, video decks and decoding.
+- Rendering owns OpenGL resources, video textures, layer compositing and post-processing.
+- Effects owns master look parameters and filter presets.
+- Future audio and integrations modules can feed the same control and composition model without replacing the renderer.
 
-Decoder workers must never call OpenGL. They publish timestamped CPU frames to bounded queues. The Qt OpenGL widget consumes the newest frame and uploads it while its context is current.
+Decoder workers must never call OpenGL. They publish timestamped CPU frames to bounded queues. The main application refreshes a shared latest-frame snapshot cache. Each output renderer independently uploads new revisions into its own OpenGL context.
 
 ## Rendering lifecycle
 
-1. Qt creates the QOpenGLWidget context.
-2. PerformanceView.initializeGL creates the ModernGL wrapper and compositor.
-3. VideoDecoder workers decode frames into bounded queues.
-4. PerformanceView.paintGL consumes the newest frame from each deck.
-5. RenderEngine uploads changed frames to GPU textures.
-6. Compositor composites visible layers into ping-pong framebuffers.
-7. The final texture is drawn into Qt's current widget framebuffer.
+1. Qt creates a QOpenGLWidget context for the preview or projector window.
+2. PerformanceView.initializeGL creates a per-window ModernGL wrapper and compositor.
+3. Each VideoDecoder worker decodes frames into a bounded queue.
+4. The application refresh loop consumes each queue once and stores a FrameSnapshot.
+5. Each PerformanceView reads the current snapshots without consuming the queues.
+6. Each RenderEngine uploads only unseen frame revisions to its local GPU textures.
+7. The compositor blends visible video layers into ping-pong framebuffers.
+8. A master GLSL effect pass applies the current look / overlay parameters.
+9. The final framebuffer is drawn into that output window's Qt framebuffer.
+
+The preview and projector windows share application state and CPU frame snapshots, not OpenGL texture objects.
+
+## Automation lifecycle
+
+AutomationDirector uses monotonic deadlines for each deck, layout change, effect-look change and session expiry. It is ticked by the application/UI timer. It accepts an RNG seed for deterministic tests.
 
 ## Project data
 
-A project file uses the .eliav extension and JSON content. It stores composition metadata, layers, deck assignments and source paths. It does not copy media files into the project.
+A project file uses the .eliav extension and UTF-8 JSON. Schema version 2 stores composition, deck assignments, segment in/out points, loop settings, effect settings and automation settings. Media files remain in their original folders.
 
 ## Future extensions
 
-- M2: procedural generators, GLSL effects and preset compositions.
-- M3: audio input, FFT, beat/onset analysis and modulation routing.
-- M4: Sonic Pi OSC event bridge and visual action mapping.
-- M5: MIDI mapping, external video output and recording.
+- Audio analysis and modulation.
+- Sonic Pi OSC event bridge and visual action mapping.
+- MIDI mapping.
+- Additional generators, per-layer effects, masks, crossfades and recording.

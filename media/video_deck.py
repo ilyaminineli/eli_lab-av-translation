@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from media.frame_queue import FrameQueue, VideoFrameData
+from media.frame_queue import FrameQueue, FrameSnapshot, VideoFrameData
 from media.video_decoder import VideoDecoder
 
 
@@ -12,9 +12,12 @@ class VideoDeck:
         self.frame_queue = FrameQueue(max_size=3)
         self.decoder: VideoDecoder | None = None
         self.current_frame: VideoFrameData | None = None
+        self.frame_revision = 0
         self.path: str | None = None
         self.asset_id: str | None = None
         self.collection_id: str | None = None
+        self.segment_start = 0.0
+        self.segment_end: float | None = None
         self.loop = True
         self.locked = False
 
@@ -31,23 +34,55 @@ class VideoDeck:
         path: str | Path,
         asset_id: str | None = None,
         collection_id: str | None = None,
+        segment_start: float = 0.0,
+        segment_end: float | None = None,
+        loop: bool | None = None,
     ) -> None:
-        self.close()
         source = Path(path).expanduser().resolve()
         if not source.is_file():
             raise FileNotFoundError(source)
+        start = max(0.0, float(segment_start))
+        end = float(segment_end) if segment_end is not None else None
+        if end is not None and end <= start:
+            raise ValueError("Segment end must be later than segment start.")
+
+        # Give every decoder its own queue. A previous worker can finish an in-flight
+        # decode without ever publishing into the replacement deck's queue.
+        if self.decoder is not None:
+            self.decoder.stop(timeout=0.0)
+        self.frame_queue = FrameQueue(max_size=3)
+        self.decoder = None
+        self.current_frame = None
+        self.frame_revision += 1
         self.path = str(source)
         self.asset_id = asset_id
         self.collection_id = collection_id
-        self.current_frame = None
-        self.decoder = VideoDecoder(source, self.frame_queue, loop=self.loop)
+        self.segment_start = start
+        self.segment_end = end
+        if loop is not None:
+            self.loop = bool(loop)
+
+        self.decoder = VideoDecoder(
+            source,
+            self.frame_queue,
+            loop=self.loop,
+            segment_start=self.segment_start,
+            segment_end=self.segment_end,
+        )
         self.decoder.start(autoplay=True)
 
     def play(self) -> None:
         if not self.path:
             return
         if self.decoder is None or not self.decoder.is_running:
-            self.load(self.path, self.asset_id, self.collection_id)
+            self.load(
+                self.path,
+                self.asset_id,
+                self.collection_id,
+                segment_start=self.segment_start,
+                segment_end=self.segment_end,
+                loop=self.loop,
+            )
         else:
             self.decoder.play()
 
@@ -61,6 +96,7 @@ class VideoDeck:
             self.decoder = None
         self.frame_queue.clear()
         self.current_frame = None
+        self.frame_revision += 1
 
     def seek(self, seconds: float) -> None:
         if self.decoder:
@@ -75,13 +111,21 @@ class VideoDeck:
         latest = self.frame_queue.pop_latest()
         if latest is not None:
             self.current_frame = latest
+            self.frame_revision += 1
         return latest
+
+    def snapshot_frame(self) -> FrameSnapshot | None:
+        if self.current_frame is None:
+            return None
+        return FrameSnapshot(self.frame_revision, self.current_frame)
 
     def close(self) -> None:
         self.stop()
         self.path = None
         self.asset_id = None
         self.collection_id = None
+        self.segment_start = 0.0
+        self.segment_end = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -89,6 +133,8 @@ class VideoDeck:
             "path": self.path,
             "asset_id": self.asset_id,
             "collection_id": self.collection_id,
+            "segment_start": self.segment_start,
+            "segment_end": self.segment_end,
             "loop": self.loop,
             "playing": self.is_playing,
             "locked": self.locked,

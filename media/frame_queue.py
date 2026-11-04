@@ -15,6 +15,12 @@ class VideoFrameData:
     timestamp: float
 
 
+@dataclass(frozen=True, slots=True)
+class FrameSnapshot:
+    revision: int
+    frame: VideoFrameData
+
+
 class FrameQueue:
     """Bounded queue that favors freshness over preserving stale video frames."""
 

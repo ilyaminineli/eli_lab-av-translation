@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QRunnable, QSize, QThreadPool, Qt, Signal
+from PySide6.QtCore import QObject, QRunnable, QSize, Qt, QThreadPool, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QComboBox,
@@ -58,12 +58,14 @@ class ThumbnailWorker(QRunnable):
 
 class MediaBrowser(QWidget):
     assign_requested = Signal(object, str)
+    library_updated = Signal()
 
     def __init__(self, library: MediaLibrary, parent=None) -> None:
         super().__init__(parent)
         self.library = library
         self.thread_pool = QThreadPool.globalInstance()
         self._assets: dict[str, MediaAsset] = {}
+        self.setAcceptDrops(True)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
@@ -102,8 +104,10 @@ class MediaBrowser(QWidget):
 
     def choose_folder(self) -> None:
         folder = QFileDialog.getExistingDirectory(self, "Add video folder")
-        if not folder:
-            return
+        if folder:
+            self.scan_folder(folder)
+
+    def scan_folder(self, folder: str) -> None:
         self.add_folder_button.setEnabled(False)
         self.status_label.setText(f"Scanning {folder}…")
         worker = ScanWorker(self.library, folder)
@@ -111,10 +115,30 @@ class MediaBrowser(QWidget):
         worker.signals.error.connect(self.scan_failed)
         self.thread_pool.start(worker)
 
+    def dragEnterEvent(self, event) -> None:
+        if any(url.isLocalFile() for url in event.mimeData().urls()):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event) -> None:
+        folders = [
+            url.toLocalFile()
+            for url in event.mimeData().urls()
+            if url.isLocalFile() and Path(url.toLocalFile()).is_dir()
+        ]
+        if not folders:
+            event.ignore()
+            return
+        for folder in folders:
+            self.scan_folder(folder)
+        event.acceptProposedAction()
+
     def scan_finished(self, assets: list[MediaAsset]) -> None:
         self.add_folder_button.setEnabled(True)
         self.refresh()
         self.status_label.setText(f"Indexed {len(assets)} video file(s).")
+        self.library_updated.emit()
         for asset in assets:
             if not asset.thumbnail_path:
                 worker = ThumbnailWorker(asset)
