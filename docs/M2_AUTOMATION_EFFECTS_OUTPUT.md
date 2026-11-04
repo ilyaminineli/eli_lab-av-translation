@@ -110,3 +110,5 @@ Overlay in/out are layer-local elapsed seconds from attachment and gate the shar
 Current asset-library application path: selected indexed assets can be placed as overlay layers. Direct material-slot binding for geometry, particle sprite assignment and automatic post-processing texture routing remain future extensions; the index exposes those purposes for discovery.
 
 - Geometry animation controls now use mode-specific amplitude ranges: rotate is in degrees, pulse is a bounded scale variation, drift is a small canvas-space offset, and warp is a texture-space displacement. Auto Performance varies the geometry animation mode with corresponding safe amplitude ranges.
+
+- Master post-production looks now also include Sakura Fade, Noh Theatre, Indigo Night, Shin-hanga and Kintsugi alongside the existing film/CRT/print/signal presets.
