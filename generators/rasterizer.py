@@ -328,7 +328,6 @@ class GeneratorRasterizer:
         family = str(settings.get("font_family", "Arial"))
         primary = str(settings.get("primary_color", "#F2EEE6"))
         secondary = str(settings.get("secondary_color", "#C35C75"))
-        alignment = str(settings.get("alignment", "center"))
         stroke_width = float(settings.get("stroke_width", 0.0))
         for index, word in enumerate(words):
             ratio = rng.uniform(1.0 - variation * 0.62, 1.0 + variation * 0.78)
