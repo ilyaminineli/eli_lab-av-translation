@@ -82,14 +82,12 @@ class RenderEngine:
             if layer.source_type == "generator" and layer.visible
         ]
         active_generator_ids = {layer.id for layer in generator_layers}
-        active_generator_sources = {
-            layer.source_id or f"generator:{layer.id}" for layer in generator_layers
-        }
         for layer in generator_layers:
             source_id = layer.source_id or f"generator:{layer.id}"
             fingerprint, pixels = self.generator_rasterizer.render(layer)
             if self._generator_signatures.get(layer.id) != fingerprint:
                 self.compositor.update_texture(source_id, pixels)
+                uploaded_bytes += int(pixels.nbytes)
                 self._generator_signatures[layer.id] = fingerprint
                 self._generator_sources[layer.id] = source_id
 
@@ -121,5 +119,8 @@ class RenderEngine:
             self.compositor.release()
             self.compositor = None
         self._uploaded_revisions.clear()
+        self._generator_signatures.clear()
+        self._generator_sources.clear()
+        self.generator_rasterizer.clear()
         self.context = None
         self.initialized = False
