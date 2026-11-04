@@ -32,10 +32,12 @@ During the November 4, 2026 user test, the application rendered the collage smoo
 
 - Thumbnail conversion now makes an owned C-contiguous RGB copy before creating the Qt image; a regression test covers a strided NumPy frame.
 - The Media Library has a folder selector and a LIBRARY menu to remove one imported folder, prune missing source files, clear the index, or clean unused thumbnail files. These operations never delete the source videos.
-- Folder scans are serialized and thumbnail generation is limited to two background workers, preventing a large import from spawning an unbounded number of simultaneous decode tasks.
+- Folder scans are serialized and thumbnail generation is limited to two background workers, preventing a large import from spawning an unbounded number of simultaneous decode tasks. Destructive library actions are disabled while an import is still indexing.
+- Legacy library databases recover imported root paths from the stable collection hash; intentionally imported empty folders remain visible and removable.
+- Auto Mode refreshes its eligible source pool when collections are added or removed. Current deck playback is not interrupted; an empty pool simply stops scheduling further random cuts until footage is imported again.
 - Decoder replacements use separate frame queues and retain references to workers that have not finished shutting down.
 - Preview output is capped at 30 FPS and scaled to a maximum of 1920×1080 before RGB conversion. Smaller sources are not upscaled.
-- The renderer now reports CPU-side frame cost, texture-upload cost, active deck count and dropped frames in the status area.
+- The renderer reports rolling per-second decode and RGB-conversion cost, render CPU submission time, upload time/bandwidth, active deck count and per-second frame drops. These are diagnostic counters, not GPU timer queries.
 
 The November 4 RTX 4060 screenshot showed approximately 18.9 FPS. The new counters are intended to identify whether the remaining limit is CPU conversion, texture upload or compositor submission. CPU-side timings are not GPU timer-query measurements, so hardware profiling is still required before claiming a specific bottleneck or improvement.
 
