@@ -54,7 +54,10 @@ def test_animated_overlay_playback_speed_and_frame_hold_are_clamped(tmp_path) ->
     player = ImageOverlayPlayer(path, speed=8.0, frame_hold=0)
     assert player.speed == 4.0
     assert player.frame_hold == 1
-    player.configure_playback(0.5, 4)
+    player.configure_playback(0.5, 4, loop=False)
     assert player.speed == 0.5
     assert player.frame_hold == 4
+    assert player.loop is False
+    player.configure_playback(1.0, 1, loop=True)
+    assert player.loop is True
     player.close()
