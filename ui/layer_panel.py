@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QComboBox,
     QGroupBox,
+    QInputDialog,
     QFormLayout,
     QFileDialog,
     QListWidget,
@@ -180,6 +181,7 @@ class LayerPanel(QWidget):
         self.overlay_mask_mode.currentIndexChanged.connect(self._overlay_controls_changed)
         self.overlay_mask_source.currentIndexChanged.connect(self._overlay_controls_changed)
         self.layer_fx_preset.currentTextChanged.connect(self._layer_fx_preset_changed)
+        self.fx_stage_list.itemDoubleClicked.connect(self._edit_fx_stage_amount)
         self.fx_stage_add.clicked.connect(self._add_fx_stage)
         self.fx_stage_remove.clicked.connect(self._remove_fx_stage)
         self.fx_stage_up.clicked.connect(lambda: self._move_fx_stage(-1))
@@ -421,6 +423,19 @@ class LayerPanel(QWidget):
             stage["enabled"] = item.checkState() == Qt.CheckState.Checked
             stages.append(stage)
         self._update_selected_layer_effects({"stages": stages})
+
+    def _edit_fx_stage_amount(self, item) -> None:
+        stage = dict(item.data(Qt.ItemDataRole.UserRole) or {})
+        value, accepted = QInputDialog.getDouble(
+            self, "Effect stage amount", "Amount", float(stage.get("amount", 1.0)),
+            0.0, 1.0, 2,
+        )
+        if not accepted:
+            return
+        stage["amount"] = value
+        item.setData(Qt.ItemDataRole.UserRole, stage)
+        item.setText(f'{EFFECT_STAGE_TYPES[stage["type"]]} · {value:.2f}')
+        self._commit_fx_stages()
 
     def _add_fx_stage(self) -> None:
         kind = self.fx_stage_type.currentData()
