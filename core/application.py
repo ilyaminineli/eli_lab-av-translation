@@ -33,8 +33,10 @@ class Application:
         self._animation_started_at = time.perf_counter()
         self.project_manager = ProjectManager()
         self.media_library = MediaLibrary()
-        texture_root = Path(__file__).resolve().parents[1] / "resources" / "textures"
-        self.visual_asset_index = VisualAssetIndex([texture_root])
+        resource_root = Path(__file__).resolve().parents[1] / "resources"
+        texture_root = resource_root / "textures"
+        sketch_root = resource_root / "sketches_and_strokes"
+        self.visual_asset_index = VisualAssetIndex([texture_root, sketch_root])
         self.visual_asset_index.scan()
         self.performance_manager = PerformanceManager()
         self.automation = AutomationDirector()
@@ -107,6 +109,14 @@ class Application:
         layer.source_id = f"generator:{layer.id}"
         self.events.publish("generator.added", layer=layer)
         return layer
+
+    def add_visual_asset_root(self, path: str | Path) -> int:
+        root = Path(path).expanduser().resolve()
+        if not root.is_dir():
+            raise NotADirectoryError(root)
+        if root not in self.visual_asset_index.roots:
+            self.visual_asset_index.roots.append(root)
+        return len(self.visual_asset_index.scan())
 
     def search_visual_assets(self, query: str = "", purpose: str | None = None,
                              kind: str | None = None, category: str | None = None):
