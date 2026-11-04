@@ -56,7 +56,6 @@ def test_application_adds_shared_still_overlay_and_releases_it(tmp_path) -> None
     assert layer.source_id not in application.current_frames()
 
 
-
 def test_selected_layer_editor_edits_and_removes_overlay(qtbot, tmp_path) -> None:
     from ui.generators_panel import GeneratorsPanel
 

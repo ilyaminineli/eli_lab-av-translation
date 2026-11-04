@@ -118,10 +118,10 @@ def _dictionary_candidates(root: Path, language: str, theme: str) -> list[str]:
                         term = next((
                             part for part in parts
                             if any(
-                                "\u3040" <= ch <= "\u30ff"
-                                or "\u4e00" <= ch <= "\u9fff"
-                                for ch in part
-                            )
+                            "\u3040" <= ch <= "\u30ff"
+                            or "\u4e00" <= ch <= "\u9fff"
+                            for ch in part
+                        )
                         ), "")
                     if not term or len(term) > 24:
                         continue

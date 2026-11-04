@@ -100,8 +100,8 @@ class LayerPanel(QWidget):
         self.fx_stage_up = QPushButton("↑")
         self.fx_stage_down = QPushButton("↓")
         for button in (
-            self.fx_stage_add, self.fx_stage_remove,
-            self.fx_stage_up, self.fx_stage_down,
+                self.fx_stage_add, self.fx_stage_remove,
+                self.fx_stage_up, self.fx_stage_down,
         ):
             stage_row.addWidget(button)
         layer_fx_layout.addLayout(stage_row)
@@ -363,11 +363,11 @@ class LayerPanel(QWidget):
         self.layer_fx_preset.blockSignals(True)
         imported = self.application.composition.metadata.get("layer_fx_presets", {})
         known_names = (
-            list(LAYER_EFFECT_PRESETS)
-            + ["Xerox Stack", "Negative Print", "Signal Scan"]
-            + (
-                list(imported) if isinstance(imported, dict) else []
-            )
+                list(LAYER_EFFECT_PRESETS)
+                + ["Xerox Stack", "Negative Print", "Signal Scan"]
+                + (
+                    list(imported) if isinstance(imported, dict) else []
+                )
         )
         self.layer_fx_preset.clear()
         self.layer_fx_preset.addItems(list(dict.fromkeys(known_names)) + ["Custom"])

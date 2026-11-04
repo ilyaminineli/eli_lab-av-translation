@@ -541,10 +541,10 @@ def test_auto_performance_can_vary_palette_without_changing_generator_parameters
     director = AutomationDirector(seed=32)
     director.start([asset], [deck], [layer], EffectSettings(),
                    settings=AutomationSettings(randomize_layout=False, randomize_effects=False,
-                       randomize_generators=False, randomize_text=False,
-                       randomize_palette=True, randomize_layer_effects=False,
-                       randomize_overlays=False, min_generator_interval=2.0,
-                       max_generator_interval=2.0),
+                                               randomize_generators=False, randomize_text=False,
+                                               randomize_palette=True, randomize_layer_effects=False,
+                                               randomize_overlays=False, min_generator_interval=2.0,
+                                               max_generator_interval=2.0),
                    duration_seconds=None, now=1.0)
     assert director.tick(now=4.0) is True
     assert layer.generator_settings["pattern"] == original_pattern
