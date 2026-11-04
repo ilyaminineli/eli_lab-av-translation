@@ -64,14 +64,14 @@ def _dictionary_candidates(root: Path, language: str, theme: str) -> list[str]:
                         continue
                     # English dictionary files are alphabetized; use one clean lexical headword.
                     # Japanese reading lists may be tab-separated; choose the CJK column.
-                    parts = [part.strip("・、。[](){}") for part in re.split(r"[\\t,;| ]+", line)]
+                    parts = [part.strip("・、。[](){}") for part in re.split(r"[\t,;| ]+", line)]
                     parts = [part for part in parts if part]
                     if language == "english":
                         term = next((part for part in parts if re.fullmatch(r"[A-Za-z][A-Za-z'’-]*", part)), "")
                     else:
                         term = next((
                             part for part in parts
-                            if any("\\u3040" <= ch <= "\\u30ff" or "\\u4e00" <= ch <= "\\u9fff" for ch in part)
+                            if any("\u3040" <= ch <= "\u30ff" or "\u4e00" <= ch <= "\u9fff" for ch in part)
                         ), "")
                     if not term or len(term) > 24:
                         continue
