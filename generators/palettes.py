@@ -1,7 +1,7 @@
-"""Curated looks extracted from the supplied JP Palette.aco swatches.
+"""Curated four-colour looks inspired by traditional Japanese colour families.
 
-The source ACO contains 251 unnamed swatches. These named looks are curated
-four-colour subsets; primary/secondary are the first two colours.
+The named looks provide primary, accent and background colours for generator
+layers. Import the original ACO file separately if exact source swatches are needed.
 """
 from __future__ import annotations
 
