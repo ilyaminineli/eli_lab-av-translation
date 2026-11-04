@@ -54,3 +54,37 @@ def test_application_adds_shared_still_overlay_and_releases_it(tmp_path) -> None
     assert layer.id not in application._overlay_images
     assert layer.id not in application._overlay_frames
     assert layer.source_id not in application.current_frames()
+
+
+
+def test_selected_layer_editor_edits_and_removes_overlay(qtbot, tmp_path) -> None:
+    from ui.generators_panel import GeneratorsPanel
+
+    path = tmp_path / "editable-overlay.png"
+    make_image(path)
+    application = Application()
+    try:
+        layer = application.add_media_overlay(path)
+        panel = GeneratorsPanel(application)
+        qtbot.addWidget(panel)
+
+        selected_index = panel.layer_combo.findData(layer.id)
+        assert selected_index >= 0
+        panel.layer_combo.setCurrentIndex(selected_index)
+        assert not panel.overlay_group.isHidden()
+
+        panel.opacity_slider.setValue(42)
+        panel.blend_mode_combo.setCurrentText("multiply")
+        panel.overlay_loop_check.setChecked(False)
+
+        assert layer.opacity == 0.42
+        assert layer.blend_mode == "multiply"
+        assert layer.overlay_loop is False
+        assert application._overlay_images[layer.id].loop is False
+
+        panel.remove_button.click()
+
+        assert application.composition.get_layer(layer.id) is None
+        assert layer.id not in application._overlay_images
+    finally:
+        application.shutdown()
