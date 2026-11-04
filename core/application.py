@@ -91,10 +91,7 @@ class Application:
         return layer
 
     def remove_layer(self, layer_id: str) -> bool:
-        removed = self.layer_manager.remove_layer(layer_id)
-        if removed:
-            self.events.publish("layer.removed", layer_id=layer_id)
-        return removed
+        return self.layer_manager.remove_layer(layer_id)
 
     def reset_project(self) -> None:
         self.automation.stop()
