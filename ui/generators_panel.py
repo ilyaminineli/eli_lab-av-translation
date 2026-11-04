@@ -7,6 +7,7 @@ from PySide6.QtGui import QFontDatabase
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
+    QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
     QGroupBox,
@@ -18,6 +19,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSlider,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
@@ -32,20 +34,28 @@ class GeneratorsPanel(QWidget):
     """Create and edit transparent procedural and typographic composition layers."""
 
     composition_changed = Signal()
+    selected_layer_changed = Signal(str)
+    layer_properties_changed = Signal(str)
 
     def __init__(self, application: Application, parent=None) -> None:
         super().__init__(parent)
         self.application = application
         self._loading = False
-        self.setMinimumWidth(320)
+        self.setMinimumWidth(0)
+        self.setSizePolicy(
+            QWidget.SizePolicy.Policy.Expanding,
+            QWidget.SizePolicy.Policy.Expanding,
+        )
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
         self.scroll = QScrollArea(self)
         self.scroll.setWidgetResizable(True)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.scroll.setObjectName("generatorSettingsScroll")
         body = QWidget()
+        body.setMinimumWidth(0)
         root = QVBoxLayout(body)
         root.setContentsMargins(8, 8, 8, 8)
         root.setSpacing(7)
@@ -72,7 +82,9 @@ class GeneratorsPanel(QWidget):
         add_layout.addLayout(row_three)
         root.addWidget(add_group)
 
-        root.addWidget(QLabel("SELECTED GENERATOR"))
+        selected_heading = QLabel("SELECTED GENERATOR / OVERLAY")
+        selected_heading.setObjectName("sectionHeading")
+        root.addWidget(selected_heading)
         self.layer_combo = QComboBox()
         root.addWidget(self.layer_combo)
 
@@ -80,7 +92,8 @@ class GeneratorsPanel(QWidget):
         text_form = QFormLayout(self.text_group)
         self.text_edit = QPlainTextEdit()
         self.text_edit.setMaximumBlockCount(32)
-        self.text_edit.setFixedHeight(100)
+        self.text_edit.setMinimumHeight(84)
+        self.text_edit.setMaximumHeight(120)
         text_form.addRow("CONTENT", self.text_edit)
 
         self.text_layout_combo = QComboBox()
@@ -184,7 +197,10 @@ class GeneratorsPanel(QWidget):
         self.dictionary_check = QCheckBox("Use repository dictionaries")
         self.dictionary_check.setChecked(True)
         random_form.addRow("DICTIONARY", self.dictionary_check)
-        self.auto_text_check = QCheckBox("Auto-regenerate this layer during Auto Performance")
+        self.auto_text_check = QCheckBox("Auto-regenerate during Auto Performance")
+        self.auto_text_check.setToolTip(
+            "Allow Auto Performance to regenerate this text layer on its generator cycle."
+        )
         self.auto_text_check.setChecked(True)
         random_form.addRow("AUTO TEXT", self.auto_text_check)
         self.random_text_button = QPushButton("REGENERATE TEXT")
@@ -276,12 +292,64 @@ class GeneratorsPanel(QWidget):
         )
         root.addWidget(self.style_group)
 
-        self.apply_button = QPushButton("APPLY TO SELECTED LAYER")
+        self.layer_appearance_group = QGroupBox("SELECTED LAYER APPEARANCE")
+        appearance_form = QFormLayout(self.layer_appearance_group)
+        self.blend_mode_combo = QComboBox()
+        self.blend_mode_combo.addItems(
+            ["normal", "add", "screen", "multiply", "difference"]
+        )
+        appearance_form.addRow("BLEND MODE", self.blend_mode_combo)
+        self.opacity_slider, self.opacity_value = self._slider(
+            appearance_form, "OPACITY", 0, 100, 100
+        )
+        root.addWidget(self.layer_appearance_group)
+
+        self.overlay_group = QGroupBox("IMAGE / VIDEO OVERLAY")
+        overlay_form = QFormLayout(self.overlay_group)
+        self.overlay_in_spin = QDoubleSpinBox()
+        self.overlay_in_spin.setRange(0.0, 86400.0)
+        self.overlay_in_spin.setDecimals(2)
+        self.overlay_in_spin.setSuffix(" s")
+        self.overlay_out_spin = QDoubleSpinBox()
+        self.overlay_out_spin.setRange(0.0, 86400.0)
+        self.overlay_out_spin.setDecimals(2)
+        self.overlay_out_spin.setSpecialValueText("No end")
+        self.overlay_out_spin.setSuffix(" s")
+        self.overlay_speed_spin = QDoubleSpinBox()
+        self.overlay_speed_spin.setRange(0.1, 4.0)
+        self.overlay_speed_spin.setSingleStep(0.1)
+        self.overlay_speed_spin.setDecimals(1)
+        self.overlay_frame_hold_spin = QSpinBox()
+        self.overlay_frame_hold_spin.setRange(1, 24)
+        self.overlay_loop_check = QCheckBox("Loop playback")
+        self.overlay_scene_sync_check = QCheckBox("Sync to scene changes")
+        self.overlay_mask_mode = QComboBox()
+        self.overlay_mask_mode.addItem("No matte", "none")
+        self.overlay_mask_mode.addItem("Alpha matte", "alpha")
+        self.overlay_mask_mode.addItem("Luma matte", "luma")
+        self.overlay_mask_source = QComboBox()
+        overlay_form.addRow("IN POINT", self.overlay_in_spin)
+        overlay_form.addRow("OUT POINT", self.overlay_out_spin)
+        overlay_form.addRow("PLAYBACK SPEED", self.overlay_speed_spin)
+        overlay_form.addRow("FRAME HOLD", self.overlay_frame_hold_spin)
+        overlay_form.addRow("PLAYBACK", self.overlay_loop_check)
+        overlay_form.addRow("MASK MODE", self.overlay_mask_mode)
+        overlay_form.addRow("MASK SOURCE", self.overlay_mask_source)
+        overlay_form.addRow(self.overlay_scene_sync_check)
+        self.overlay_hint = QLabel(
+            "Overlay playback settings apply to the selected image or video layer."
+        )
+        self.overlay_hint.setWordWrap(True)
+        self.overlay_hint.setObjectName("mutedLabel")
+        overlay_form.addRow(self.overlay_hint)
+        root.addWidget(self.overlay_group)
+        self.overlay_group.setVisible(False)
+
+        self.apply_button = QPushButton("APPLY GENERATOR SETTINGS")
         self.apply_button.setDefault(True)
         root.addWidget(self.apply_button)
         self.hint_label = QLabel(
-            "Generator content is saved with the composition and rendered by the preview "
-            "and projector outputs."
+            "Select a generator or overlay above. Its settings are saved with the composition."
         )
         self.hint_label.setWordWrap(True)
         self.hint_label.setObjectName("mutedLabel")
@@ -299,6 +367,19 @@ class GeneratorsPanel(QWidget):
         self.remove_button.clicked.connect(self.remove_selected)
         self.layer_combo.currentIndexChanged.connect(self.load_selected)
         self.palette_combo.currentTextChanged.connect(self._palette_changed)
+        self.blend_mode_combo.currentTextChanged.connect(self._apply_layer_appearance)
+        self.opacity_slider.valueChanged.connect(self._apply_layer_appearance)
+        for control in (
+                self.overlay_in_spin,
+                self.overlay_out_spin,
+                self.overlay_speed_spin,
+                self.overlay_frame_hold_spin,
+        ):
+            control.valueChanged.connect(self._apply_overlay_settings)
+        self.overlay_loop_check.toggled.connect(self._apply_overlay_settings)
+        self.overlay_scene_sync_check.toggled.connect(self._apply_overlay_settings)
+        self.overlay_mask_mode.currentIndexChanged.connect(self._apply_overlay_settings)
+        self.overlay_mask_source.currentIndexChanged.connect(self._apply_overlay_settings)
         self.import_palette_button.clicked.connect(self.import_palette)
         self.apply_button.clicked.connect(self.apply_settings)
         self.random_text_button.clicked.connect(self.randomize_text)
@@ -419,8 +500,9 @@ class GeneratorsPanel(QWidget):
             return
         try:
             layer = self.application.add_media_overlay(path)
+            self.refresh(select_id=layer.id)
             self.hint_label.setText(
-                f"Added overlay {layer.name}. It is now a normal composition layer."
+                f"Added {layer.name}. Edit opacity, blend mode and playback below."
             )
             self.composition_changed.emit()
         except Exception as exc:
@@ -431,7 +513,7 @@ class GeneratorsPanel(QWidget):
         if not layer_id:
             return None
         layer = self.application.composition.get_layer(str(layer_id))
-        if layer is None or layer.source_type != "generator":
+        if layer is None or layer.source_type not in {"generator", "overlay"}:
             return None
         return layer
 
@@ -444,7 +526,7 @@ class GeneratorsPanel(QWidget):
         previous = select_id or self.layer_combo.currentData()
         layers = [
             layer for layer in self.application.composition.layers
-            if layer.source_type == "generator"
+            if layer.source_type in {"generator", "overlay"}
         ]
         labels = {
             "geometry": "GEOMETRY",
@@ -456,7 +538,11 @@ class GeneratorsPanel(QWidget):
         self.layer_combo.blockSignals(True)
         self.layer_combo.clear()
         for layer in layers:
-            label = f"{labels.get(layer.generator_type, 'GENERATOR')} · {layer.name}"
+            if layer.source_type == "overlay":
+                media_kind = (layer.overlay_kind or "media").upper()
+                label = f"OVERLAY · {media_kind} · {layer.name}"
+            else:
+                label = f"{labels.get(layer.generator_type, 'GENERATOR')} · {layer.name}"
             self.layer_combo.addItem(label, layer.id)
         selected = self.layer_combo.findData(previous)
         self.layer_combo.setCurrentIndex(selected if selected >= 0 else 0)
@@ -464,23 +550,103 @@ class GeneratorsPanel(QWidget):
         self._loading = False
         self.load_selected()
 
+    def select_layer(self, layer_id: str) -> None:
+        index = self.layer_combo.findData(layer_id)
+        if index < 0 or index == self.layer_combo.currentIndex():
+            return
+        self.layer_combo.setCurrentIndex(index)
+
     def load_selected(self, *_args) -> None:
         layer = self._selected_layer()
         enabled = layer is not None
-        generator_type = layer.generator_type if layer else None
+        is_overlay = bool(layer and layer.source_type == "overlay")
+        generator_type = layer.generator_type if layer and not is_overlay else None
 
         self.text_group.setVisible(generator_type == "text")
         self.geometry_group.setVisible(generator_type == "geometry")
         self.waveform_group.setVisible(generator_type == "waveform")
         self.particles_group.setVisible(generator_type == "particles")
-        self.style_group.setVisible(enabled)
-        self.apply_button.setEnabled(enabled and not layer.locked if layer else False)
+        self.style_group.setVisible(bool(layer and not is_overlay))
+        self.layer_appearance_group.setVisible(enabled)
+        self.overlay_group.setVisible(is_overlay)
+        self.apply_button.setVisible(not is_overlay)
+        self.apply_button.setEnabled(
+            bool(layer and not is_overlay and not layer.locked)
+        )
         self.remove_button.setEnabled(enabled)
-        if not enabled or self._loading:
+        if not enabled:
+            self.hint_label.setText("Add or select a generator or overlay layer.")
+            return
+        if self._loading:
+            return
+
+        self._loading = True
+        self.blend_mode_combo.blockSignals(True)
+        self.opacity_slider.blockSignals(True)
+        self.blend_mode_combo.setCurrentText(layer.blend_mode)
+        self.opacity_slider.setValue(round(layer.opacity * 100))
+        self.blend_mode_combo.blockSignals(False)
+        self.opacity_slider.blockSignals(False)
+
+        if is_overlay:
+            self.overlay_in_spin.blockSignals(True)
+            self.overlay_out_spin.blockSignals(True)
+            self.overlay_speed_spin.blockSignals(True)
+            self.overlay_frame_hold_spin.blockSignals(True)
+            self.overlay_loop_check.blockSignals(True)
+            self.overlay_scene_sync_check.blockSignals(True)
+            self.overlay_mask_mode.blockSignals(True)
+            self.overlay_mask_source.blockSignals(True)
+            self.overlay_in_spin.setValue(layer.overlay_in)
+            self.overlay_out_spin.setValue(layer.overlay_out or 0.0)
+            self.overlay_speed_spin.setValue(layer.overlay_speed)
+            self.overlay_frame_hold_spin.setValue(layer.overlay_frame_hold)
+            self.overlay_loop_check.setChecked(layer.overlay_loop)
+            self.overlay_scene_sync_check.setChecked(layer.overlay_scene_sync)
+            self.overlay_mask_mode.setCurrentIndex(
+                max(0, self.overlay_mask_mode.findData(layer.overlay_mask_mode))
+            )
+            self.overlay_mask_source.clear()
+            self.overlay_mask_source.addItem("No source", "")
+            for candidate in self.application.composition.layers:
+                if candidate.id != layer.id and candidate.source_id:
+                    self.overlay_mask_source.addItem(candidate.name, candidate.source_id)
+            self.overlay_mask_source.setCurrentIndex(
+                max(0, self.overlay_mask_source.findData(layer.overlay_mask_source))
+            )
+            for control in (
+                    self.overlay_in_spin,
+                    self.overlay_out_spin,
+                    self.overlay_speed_spin,
+                    self.overlay_frame_hold_spin,
+                    self.overlay_loop_check,
+                    self.overlay_scene_sync_check,
+                    self.overlay_mask_mode,
+                    self.overlay_mask_source,
+            ):
+                control.blockSignals(False)
+
+            is_video = layer.overlay_kind == "video"
+            self.overlay_speed_spin.setEnabled(not is_video)
+            self.overlay_frame_hold_spin.setEnabled(not is_video)
+            if is_video:
+                self.overlay_hint.setText(
+                    "Video overlays support looping and local in/out timing. "
+                    "Playback speed is not yet available for video sources."
+                )
+            else:
+                self.overlay_hint.setText(
+                    "Animated images support playback speed, frame hold and looping. "
+                    "Still images remain static."
+                )
+            self.hint_label.setText(
+                f"Editing {layer.name} · opacity and blend mode update live."
+            )
+            self._loading = False
+            self.selected_layer_changed.emit(layer.id)
             return
 
         values = normalize_settings(generator_type or "geometry", layer.generator_settings)
-        self._loading = True
 
         if generator_type == "text":
             self.text_edit.setPlainText(str(values["text"]))
@@ -566,6 +732,8 @@ class GeneratorsPanel(QWidget):
         amount_range = amount_ranges.get(str(values["animation"]), 0.45)
         self.amount_slider.setValue(round(max(0.0, min(100.0, amount / amount_range * 100.0))))
         self._loading = False
+        if layer is not None:
+            self.selected_layer_changed.emit(layer.id)
 
     def import_palette(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
@@ -594,9 +762,57 @@ class GeneratorsPanel(QWidget):
         self.secondary_color.setText(str(look["secondary_color"]))
         self.background_color.setText(str(look["background_color"]))
 
+    def _apply_layer_appearance(self, *_args) -> None:
+        layer = self._selected_layer()
+        if layer is None or layer.locked or self._loading:
+            return
+        self.application.layer_manager.update_layer(
+            layer.id,
+            blend_mode=str(self.blend_mode_combo.currentText()),
+            opacity=self.opacity_slider.value() / 100.0,
+            overlay_manual_override_until=(
+                __import__("time").time() + 30.0
+                if layer.source_type == "overlay"
+                else layer.overlay_manual_override_until
+            ),
+        )
+        self.layer_properties_changed.emit(layer.id)
+
+    def _apply_overlay_settings(self, *_args) -> None:
+        layer = self._selected_layer()
+        if (
+                layer is None
+                or layer.source_type != "overlay"
+                or layer.locked
+                or self._loading
+        ):
+            return
+        self.application.layer_manager.update_layer(
+            layer.id,
+            overlay_in=self.overlay_in_spin.value(),
+            overlay_out=self.overlay_out_spin.value() or None,
+            overlay_speed=self.overlay_speed_spin.value(),
+            overlay_frame_hold=self.overlay_frame_hold_spin.value(),
+            overlay_loop=self.overlay_loop_check.isChecked(),
+            overlay_scene_sync=self.overlay_scene_sync_check.isChecked(),
+            overlay_mask_mode=str(self.overlay_mask_mode.currentData()),
+            overlay_mask_source=str(self.overlay_mask_source.currentData() or ""),
+            overlay_manual_override_until=__import__("time").time() + 30.0,
+        )
+        video = self.application._overlay_videos.get(layer.id)
+        if video is not None:
+            video.set_loop(layer.overlay_loop)
+        image = self.application._overlay_images.get(layer.id)
+        if image is not None:
+            image.configure_playback(
+                layer.overlay_speed,
+                layer.overlay_frame_hold,
+                layer.overlay_loop,
+            )
+
     def apply_settings(self) -> None:
         layer = self._selected_layer()
-        if layer is None or layer.locked:
+        if layer is None or layer.source_type != "generator" or layer.locked:
             return
 
         generator_type = layer.generator_type or "geometry"
@@ -688,6 +904,8 @@ class GeneratorsPanel(QWidget):
         layer = self._selected_layer()
         if layer is None:
             return
-        self.application.remove_layer(layer.id)
+        removed_id = layer.id
+        self.application.remove_layer(removed_id)
         self.refresh()
         self.composition_changed.emit()
+        self.selected_layer_changed.emit(self.layer_combo.currentData() or "")
