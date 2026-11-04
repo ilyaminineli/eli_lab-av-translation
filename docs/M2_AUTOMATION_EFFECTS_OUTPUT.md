@@ -96,3 +96,15 @@ Overlay layers expose persisted in/out metadata, playback speed, frame hold, sce
 Auto Performance varies enabled per-layer FX independently of generator variation, and has a separate overlay-transform/blend toggle. A manual layer-FX or overlay-control edit starts a 30-second cooldown; locked layers are always excluded. The same scheduled mutation updates the shared composition model, so both output windows see the same state.
 
 Overlay in/out are layer-local elapsed seconds from attachment and gate the shared CPU frame snapshot, so preview and projector hide/show the overlay together. Scene-sync remains a persisted intent for M3's scene/timeline clock; video-overlay source trimming is not yet implemented.
+
+
+## Follow-up usability pass (November 2026)
+
+- Overlay image/video layers now expose a dedicated **Remove Overlay Image / Video** action in the selected overlay controls; it routes through the application lifecycle so decoder/player resources are released.
+- Ordered layer FX stages are individually checkable, reorderable, removable and amount-editable. Contrast, saturation and brightness are now available as ordered stages too; the legacy sliders are composited after the stage chain rather than being silently bypassed when a chain exists.
+- Added additional looks: Bleach Bypass, Infrared, Cold Storage, Riso Print, Soft Ghost and Hard Signal.
+- Geometry adds a texture-space **Warp** motion mode. Shader time is now session-relative to keep animation phase precision stable during long performances.
+- The supplied `JP Palette.aco` was decoded into curated Japanese palette looks (Sakura, Beni, Matcha, Ai, Fuji, Kitsune, Yamabuki, Sumi, Shinbashi and Riso). Generator styling has a palette selector; Auto Performance can vary palette colours independently of generator-shape variation.
+- Bundled visual textures are indexed by category, tags, media type and inferred purposes (overlay, texture, surface/distress, mask/matte, material, background, particles/atmosphere, geometry/environment). The Visual Asset Library dock supports search and purpose filters and can add selected assets as composition overlays.
+
+Current asset-library application path: selected indexed assets can be placed as overlay layers. Direct material-slot binding for geometry, particle sprite assignment and automatic post-processing texture routing remain future extensions; the index exposes those purposes for discovery.
