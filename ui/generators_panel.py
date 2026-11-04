@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 
 from core.application import Application
 from generators.catalog import normalize_settings
-from generators.palettes import palette_names, palette_look
+from generators.palettes import palette_look, palette_names
 from generators.text_pools import random_text_sample
 
 
@@ -478,7 +478,12 @@ class GeneratorsPanel(QWidget):
         if generator_type == "text":
             self.text_edit.setPlainText(str(values["text"]))
             self.random_language_combo.setCurrentIndex(
-                max(0, self.random_language_combo.findData(values.get("text_pool_language", "bilingual"))))
+                max(
+                    0,
+                    self.random_language_combo.findData(
+                        values.get("text_pool_language", "bilingual")
+                    ),
+                )
             self.random_theme_combo.setCurrentIndex(
                 max(0, self.random_theme_combo.findData(values.get("text_pool_theme", "random"))))
             self.random_count_combo.setCurrentIndex(
