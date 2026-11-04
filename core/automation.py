@@ -367,6 +367,9 @@ class AutomationDirector:
                         ),
                         "density": self.rng.randint(6, 34),
                         "rotation": self.rng.uniform(-35, 35),
+                        "animation": self.rng.choice(("rotate", "pulse", "drift", "warp")),
+                        "animation_speed": self.rng.uniform(0.08, 1.8),
+                        "animation_amount": self.rng.uniform(0.02, 0.25),
                     })
                     updated = True
                 elif self.settings.randomize_generators and kind == "waveform":
