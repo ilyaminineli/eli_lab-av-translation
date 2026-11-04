@@ -90,3 +90,9 @@ def test_animation_changes_do_not_change_raster_fingerprint(tmp_path) -> None:
 def test_py_side_font_weight_values_convert_to_qt_enum() -> None:
     for weight in (400, 500, 700, 900):
         assert int(QFont.Weight(weight)) == weight
+
+
+def test_text_weight_normalizes_to_a_supported_qt_weight() -> None:
+    settings = normalize_settings("text", {"font_weight": 650})
+
+    assert settings["font_weight"] in (600, 700)
