@@ -336,7 +336,7 @@ class GeneratorsPanel(QWidget):
         ):
             signal = getattr(widget, "textChanged", None)
             if signal is None:
-                signal = getattr(widget, "currentIndexChanged", None)
+                signal = getattr(widget, "currentTextChanged", None)
             if signal is not None:
                 signal.connect(self._schedule_apply)
         for slider in (
