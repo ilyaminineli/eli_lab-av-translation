@@ -380,9 +380,11 @@ class AutomationDirector:
                     layer.generator_settings = normalize_settings(kind, values)
                     changed += 1
 
-            if self.settings.randomize_layer_effects and layer.source_type in {
-                "video", "generator", "overlay"
-            }:
+            if (
+                self.settings.randomize_layer_effects
+                and time.time() >= float(getattr(layer, "fx_manual_override_until", 0.0))
+                and layer.source_type in {"video", "generator", "overlay"}
+            ):
                 fx = layer.layer_effects if isinstance(layer.layer_effects, dict) else {}
                 if fx.get("enabled", False):
                     preset_names = [name for name in LAYER_EFFECT_PRESETS if name != "Clean"]
