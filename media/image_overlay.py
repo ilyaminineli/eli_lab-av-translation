@@ -12,7 +12,13 @@ from media.frame_queue import VideoFrameData
 class ImageOverlayPlayer:
     """Read a still or Qt-supported animated image and publish RGBA frames."""
 
-    def __init__(self, path: str | Path, loop: bool = True, speed: float = 1.0, frame_hold: int = 1) -> None:
+    def __init__(
+            self,
+            path: str | Path,
+            loop: bool = True,
+            speed: float = 1.0,
+            frame_hold: int = 1,
+    ) -> None:
         self.path = Path(path).expanduser().resolve()
         self.loop = bool(loop)
         self.speed = max(0.1, min(4.0, float(speed)))
