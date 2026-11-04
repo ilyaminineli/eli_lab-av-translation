@@ -77,7 +77,7 @@ _DEFAULTS: dict[str, dict[str, Any]] = {
     },
 }
 
-_ANIMATIONS = ("none", "pulse", "rotate", "drift", "flicker")
+_ANIMATIONS = ("none", "pulse", "rotate", "drift", "flicker", "warp")
 
 
 def default_generator_settings(generator_type: str) -> dict[str, Any]:
@@ -186,6 +186,7 @@ def animation_code(settings: dict[str, Any]) -> int:
         "rotate": 2,
         "drift": 3,
         "flicker": 4,
+        "warp": 5,
     }.get(str(settings.get("animation", "none")), 0)
 
 
