@@ -331,7 +331,7 @@ class AutomationDirector:
                     values.update(random_palette_look(self.rng))
                     updated = True
 
-                if kind == "text" and self.settings.randomize_text:
+                if self.settings.randomize_generators and kind == "text" and self.settings.randomize_text:
                     if bool(values.get("text_auto_regenerate", True)):
                         values.update({
                             "text": random_text_sample(
@@ -354,7 +354,7 @@ class AutomationDirector:
                         "text_animation_amount": self.rng.uniform(0.015, 0.12),
                     })
                     updated = True
-                elif kind == "geometry":
+                elif self.settings.randomize_generators and kind == "geometry":
                     values.update({
                         "pattern": self.rng.choice(
                             ("rings", "grid", "radial", "crosshatch", "spiral", "moire", "hexgrid")
@@ -363,7 +363,7 @@ class AutomationDirector:
                         "rotation": self.rng.uniform(-35, 35),
                     })
                     updated = True
-                elif kind == "waveform":
+                elif self.settings.randomize_generators and kind == "waveform":
                     values.update({
                         "pattern": self.rng.choice(("sine", "lissajous", "orbit", "radial", "rose")),
                         "density": self.rng.randint(2, 9),
@@ -372,7 +372,7 @@ class AutomationDirector:
                         "phase_offset": self.rng.uniform(0.0, 6.283),
                     })
                     updated = True
-                elif kind == "particles":
+                elif self.settings.randomize_generators and kind == "particles":
                     values.update({
                         "density": self.rng.randint(16, 100),
                         "speed": self.rng.uniform(0.05, 0.8),
@@ -469,7 +469,7 @@ class AutomationDirector:
 
         if (
                 (
-                        self.settings.randomize_generators or self.settings.randomize_layer_effects or self.settings.randomize_overlays)
+                        self.settings.randomize_generators or self.settings.randomize_palette or self.settings.randomize_layer_effects or self.settings.randomize_overlays)
                 and self._generators_due is not None
                 and current >= self._generators_due
         ):
