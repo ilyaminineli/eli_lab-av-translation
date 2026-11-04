@@ -176,7 +176,7 @@ class Application:
             deck = VideoDeck(
                 f"overlay_{layer.id}"
             )
-            deck.load(source, loop=True)
+            deck.load(source, loop=layer.overlay_loop)
             self._overlay_videos[layer.id] = deck
             self._overlay_frames.pop(layer.id, None)
         else:
@@ -184,6 +184,7 @@ class Application:
                 source,
                 speed=layer.overlay_speed,
                 frame_hold=layer.overlay_frame_hold,
+                loop=layer.overlay_loop,
             )
             self._overlay_images[layer.id] = player
             self._overlay_frames[layer.id] = FrameSnapshot(
@@ -264,7 +265,11 @@ class Application:
         for layer_id, player in self._overlay_images.items():
             layer = self.composition.get_layer(layer_id)
             if layer is not None:
-                player.configure_playback(layer.overlay_speed, layer.overlay_frame_hold)
+                player.configure_playback(
+                    layer.overlay_speed,
+                    layer.overlay_frame_hold,
+                    layer.overlay_loop,
+                )
             frame = player.update()
             if frame is not None:
                 self._overlay_frames[layer_id] = FrameSnapshot(
