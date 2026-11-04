@@ -366,6 +366,22 @@ class MediaBrowser(QWidget):
             f"Library cleared · removed {removed} index record(s). Source files were kept."
         )
 
+    def shutdown_workers(self) -> None:
+        """Stop queued background work and give active workers a bounded exit window."""
+        self._scan_queue.clear()
+        self._thumbnail_queue.clear()
+        self.scan_pool.clear()
+        self.thumbnail_pool.clear()
+        scan_stopped = self.scan_pool.waitForDone(2000)
+        thumbnails_stopped = self.thumbnail_pool.waitForDone(2000)
+        if not scan_stopped or not thumbnails_stopped:
+            _LOG.warning(
+                "Media workers did not all stop before shutdown "
+                "(scan=%s, thumbnails=%s)",
+                scan_stopped,
+                thumbnails_stopped,
+            )
+
     def assign_item(self, item: QListWidgetItem) -> None:
         asset = item.data(Qt.ItemDataRole.UserRole)
         if asset is not None:
