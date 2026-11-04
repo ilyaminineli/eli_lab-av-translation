@@ -62,7 +62,7 @@ class EffectsPanel(QWidget):
             value_label.setAlignment(Qt.AlignmentFlag.AlignRight)
             slider.valueChanged.connect(
                 lambda value, field=key, multiplier=scale, label=value_label:
-                    self._value_changed(field, value, multiplier, label)
+                self._value_changed(field, value, multiplier, label)
             )
             row.addWidget(slider, 1)
             row.addWidget(value_label)
@@ -85,11 +85,11 @@ class EffectsPanel(QWidget):
         self.sync_from_settings()
 
     def _value_changed(
-        self,
-        field: str,
-        value: int,
-        scale: float,
-        label: QLabel,
+            self,
+            field: str,
+            value: int,
+            scale: float,
+            label: QLabel,
     ) -> None:
         setattr(self.settings, field, value / scale)
         label.setText(f"{value / scale:.2f}".rstrip("0").rstrip("."))

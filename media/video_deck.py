@@ -30,13 +30,13 @@ class VideoDeck:
         return self.decoder.last_error if self.decoder else None
 
     def load(
-        self,
-        path: str | Path,
-        asset_id: str | None = None,
-        collection_id: str | None = None,
-        segment_start: float = 0.0,
-        segment_end: float | None = None,
-        loop: bool | None = None,
+            self,
+            path: str | Path,
+            asset_id: str | None = None,
+            collection_id: str | None = None,
+            segment_start: float = 0.0,
+            segment_end: float | None = None,
+            loop: bool | None = None,
     ) -> None:
         source = Path(path).expanduser().resolve()
         if not source.is_file():

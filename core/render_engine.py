@@ -45,13 +45,13 @@ class RenderEngine:
         )
 
     def render(
-        self,
-        composition: Composition,
-        frames: dict[str, object],
-        target_fbo: int,
-        width: int,
-        height: int,
-        effects: EffectSettings | None = None,
+            self,
+            composition: Composition,
+            frames: dict[str, object],
+            target_fbo: int,
+            width: int,
+            height: int,
+            effects: EffectSettings | None = None,
     ) -> None:
         if not self.initialized or self.compositor is None:
             return

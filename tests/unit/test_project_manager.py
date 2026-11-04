@@ -27,6 +27,6 @@ def test_project_manager_rejects_unrelated_json(tmp_path) -> None:
     try:
         ProjectManager().load(path)
     except ValueError as exc:
-        assert "not an ELI LAB" in str(exc)
+        assert "not an eli_lab" in str(exc)
     else:
         raise AssertionError("Unrecognized project should raise ValueError")

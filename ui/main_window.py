@@ -32,7 +32,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.application = application
         self.output_manager = OutputWindowManager(application, self)
-        self.setWindowTitle("ELI LAB AV Translation")
+        self.setWindowTitle("eli_lab AV Translation")
         self.resize(1600, 980)
         self.setMinimumSize(1100, 700)
 
@@ -145,11 +145,11 @@ class MainWindow(QMainWindow):
 
         view_menu = self.menuBar().addMenu("&View")
         for dock in (
-            self.media_dock,
-            self.deck_dock,
-            self.layer_dock,
-            self.effects_dock,
-            self.automation_dock,
+                self.media_dock,
+                self.deck_dock,
+                self.layer_dock,
+                self.effects_dock,
+                self.automation_dock,
         ):
             view_menu.addAction(dock.toggleViewAction())
 
@@ -243,10 +243,10 @@ class MainWindow(QMainWindow):
         self.layer_panel.refresh()
 
     def start_automation(
-        self,
-        collection_id: str | None,
-        duration_seconds: float | None,
-        settings,
+            self,
+            collection_id: str | None,
+            duration_seconds: float | None,
+            settings,
     ) -> None:
         try:
             count = self.application.start_automation(
@@ -364,8 +364,8 @@ class MainWindow(QMainWindow):
     def show_about(self) -> None:
         QMessageBox.about(
             self,
-            "About ELI LAB AV Translation",
-            "ELI LAB AV Translation 0.2.0\n"
+            "About eli_lab AV Translation",
+            "eli_lab AV Translation 0.2.0\n"
             "Automated video collage, master effects and projector output.\n\n"
             "Audio and Sonic Pi features remain separate future milestones.",
         )

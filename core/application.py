@@ -101,10 +101,10 @@ class Application:
         return dict(self._frame_snapshots)
 
     def start_automation(
-        self,
-        collection_id: str | None = None,
-        settings: AutomationSettings | None = None,
-        duration_seconds: float | None = 1800.0,
+            self,
+            collection_id: str | None = None,
+            settings: AutomationSettings | None = None,
+            duration_seconds: float | None = 1800.0,
     ) -> int:
         assets = self.media_library.list_assets(collection_id=collection_id)
         loaded = self.automation.start(

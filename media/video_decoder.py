@@ -14,12 +14,12 @@ class VideoDecoder:
     """Timestamp-paced PyAV decoder with optional random in/out segment looping."""
 
     def __init__(
-        self,
-        path: str | Path,
-        frame_queue: FrameQueue,
-        loop: bool = True,
-        segment_start: float = 0.0,
-        segment_end: float | None = None,
+            self,
+            path: str | Path,
+            frame_queue: FrameQueue,
+            loop: bool = True,
+            segment_start: float = 0.0,
+            segment_end: float | None = None,
     ) -> None:
         self.path = Path(path).expanduser().resolve()
         self.frame_queue = frame_queue

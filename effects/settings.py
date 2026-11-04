@@ -78,7 +78,7 @@ class EffectSettings:
         self.saturation = max(0.0, min(2.5, float(self.saturation)))
         self.gamma = max(0.2, min(2.5, float(self.gamma)))
         for name in (
-            "vignette", "grain", "scanlines", "chromatic",
-            "glitch", "pixelate", "posterize", "invert",
+                "vignette", "grain", "scanlines", "chromatic",
+                "glitch", "pixelate", "posterize", "invert",
         ):
             setattr(self, name, max(0.0, min(1.0, float(getattr(self, name)))))

@@ -61,12 +61,12 @@ class DeckCard(QGroupBox):
         layout.addLayout(options)
 
     def update_state(
-        self,
-        path: str | None,
-        playing: bool,
-        error: str | None,
-        loop: bool,
-        locked: bool,
+            self,
+            path: str | None,
+            playing: bool,
+            error: str | None,
+            loop: bool,
+            locked: bool,
     ) -> None:
         self.file_label.setText(Path(path).name if path else "No video loaded")
         if error:

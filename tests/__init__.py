@@ -1,1 +1,1 @@
-"""Automated tests for ELI LAB AV Translation."""
+"""Automated tests for eli_lab AV Translation."""

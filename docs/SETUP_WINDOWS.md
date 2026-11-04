@@ -1,6 +1,6 @@
 # Windows setup guide
 
-This guide covers a clean installation of ELI LAB AV Translation on Windows 10/11.
+This guide covers a clean installation of eli_lab AV Translation on Windows 10/11.
 
 ## 1. System requirements
 
@@ -63,7 +63,7 @@ Dependency metadata is also declared in pyproject.toml. Keep all three files ali
 
 On first launch the application creates local data folders under:
 
-    %LOCALAPPDATA%\ELI LAB\AV Translation\
+    %LOCALAPPDATA%\eli_lab\AV Translation\
 
 The media database, thumbnails and logs are kept outside the repository.
 
@@ -123,7 +123,7 @@ Run:
 - Update the Intel, AMD or NVIDIA graphics driver.
 - Confirm OpenGL 3.3 Core Profile support.
 - On laptops, set Python to use the high-performance GPU in Windows Graphics settings.
-- Check %LOCALAPPDATA%\ELI LAB\AV Translation\logs.
+- Check %LOCALAPPDATA%\eli_lab\AV Translation\logs.
 
 ### A video appears in the library but does not play
 
@@ -149,6 +149,6 @@ Thumbnail generation runs in a background worker. Check PyAV and PySide6 install
 
 The application stores media indexing, thumbnails and logs under:
 
-    %LOCALAPPDATA%\ELI LAB\AV Translation\
+    %LOCALAPPDATA%\eli_lab\AV Translation\
 
 A .eliav project stores composition, source paths, segment settings, master effect settings and automation settings. It does not copy source video files.

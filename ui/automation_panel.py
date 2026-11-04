@@ -33,12 +33,12 @@ class AutomationPanel(QWidget):
 
         self.duration_combo = QComboBox()
         for label, seconds in (
-            ("30 minutes", 1800),
-            ("45 minutes", 2700),
-            ("1 hour", 3600),
-            ("90 minutes", 5400),
-            ("2 hours", 7200),
-            ("Until stopped", None),
+                ("30 minutes", 1800),
+                ("45 minutes", 2700),
+                ("1 hour", 3600),
+                ("90 minutes", 5400),
+                ("2 hours", 7200),
+                ("Until stopped", None),
         ):
             self.duration_combo.addItem(label, seconds)
         form.addRow("SESSION LENGTH", self.duration_combo)

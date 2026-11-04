@@ -18,11 +18,11 @@ class ProjectManager:
         self.last_app_state: dict[str, Any] = {}
 
     def save(
-        self,
-        path: str | Path,
-        composition: Composition,
-        decks: list[dict[str, Any]] | None = None,
-        app_state: dict[str, Any] | None = None,
+            self,
+            path: str | Path,
+            composition: Composition,
+            decks: list[dict[str, Any]] | None = None,
+            app_state: dict[str, Any] | None = None,
     ) -> Path:
         destination = Path(path).expanduser().resolve()
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -50,7 +50,7 @@ class ProjectManager:
         source = Path(path).expanduser().resolve()
         payload = json.loads(source.read_text(encoding="utf-8"))
         if payload.get("format") != PROJECT_FORMAT:
-            raise ValueError("This file is not an ELI LAB AV Translation project.")
+            raise ValueError("This file is not an eli_lab AV Translation project.")
         version = int(payload.get("schema_version", 0))
         if version > PROJECT_SCHEMA_VERSION:
             raise ValueError(

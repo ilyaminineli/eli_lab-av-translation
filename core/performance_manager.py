@@ -18,9 +18,9 @@ class PerformanceManager:
         self._shuffle_bags: dict[str, list[MediaAsset]] = defaultdict(list)
 
     def randomize_decks(
-        self,
-        assets: Iterable[MediaAsset],
-        decks: Iterable[object],
+            self,
+            assets: Iterable[MediaAsset],
+            decks: Iterable[object],
     ) -> int:
         candidates = list(assets)
         unlocked = [deck for deck in decks if not getattr(deck, "locked", False)]

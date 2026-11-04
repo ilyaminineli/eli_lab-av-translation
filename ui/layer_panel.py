@@ -56,11 +56,11 @@ class LayerPanel(QWidget):
 
     @staticmethod
     def _add_slider(
-        parent_layout: QVBoxLayout,
-        title: str,
-        minimum: int,
-        maximum: int,
-        value: int,
+            parent_layout: QVBoxLayout,
+            title: str,
+            minimum: int,
+            maximum: int,
+            value: int,
     ) -> tuple[QLabel, QSlider]:
         row = QHBoxLayout()
         label = QLabel(f"{title}  {value}")
@@ -124,11 +124,11 @@ class LayerPanel(QWidget):
         return self.application.composition.get_layer(layer_id) if layer_id else None
 
     def _selection_changed(
-        self,
-        current_row: int,
-        current_column: int,
-        previous_row: int,
-        previous_column: int,
+            self,
+            current_row: int,
+            current_column: int,
+            previous_row: int,
+            previous_column: int,
     ) -> None:
         layer = self._selected_layer()
         sliders = (self.position_x[1], self.position_y[1], self.scale[1], self.rotation[1])

@@ -30,7 +30,7 @@ def main() -> int:
     qt_app = QApplication(sys.argv)
     qt_app.setApplicationName(APP_NAME)
     qt_app.setApplicationVersion(APP_VERSION)
-    qt_app.setOrganizationName("ELI LAB")
+    qt_app.setOrganizationName("eli_lab")
 
     if ICON_PATH.exists():
         qt_app.setWindowIcon(QIcon(str(ICON_PATH)))

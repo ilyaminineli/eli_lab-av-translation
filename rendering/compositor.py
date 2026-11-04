@@ -156,9 +156,9 @@ class Compositor:
         vertices = np.array(
             [
                 -1.0, -1.0, 0.0, 0.0,
-                 1.0, -1.0, 1.0, 0.0,
-                -1.0,  1.0, 0.0, 1.0,
-                 1.0,  1.0, 1.0, 1.0,
+                1.0, -1.0, 1.0, 0.0,
+                -1.0, 1.0, 0.0, 1.0,
+                1.0, 1.0, 1.0, 1.0,
             ],
             dtype="f4",
         )
@@ -187,9 +187,9 @@ class Compositor:
         height, width, components = frame.shape
         texture = self.source_textures.get(source_id)
         if (
-            texture is None
-            or texture.size != (width, height)
-            or texture.components != components
+                texture is None
+                or texture.size != (width, height)
+                or texture.components != components
         ):
             if texture is not None:
                 texture.release()
@@ -222,13 +222,13 @@ class Compositor:
         self.size = (width, height)
 
     def _apply_effects(
-        self,
-        texture: moderngl.Texture,
-        target_fbo: int,
-        width: int,
-        height: int,
-        effects: EffectSettings,
-        time_seconds: float,
+            self,
+            texture: moderngl.Texture,
+            target_fbo: int,
+            width: int,
+            height: int,
+            effects: EffectSettings,
+            time_seconds: float,
     ) -> None:
         destination = self.ctx.detect_framebuffer(glo=int(target_fbo))
         destination.use()
@@ -256,13 +256,13 @@ class Compositor:
         self.post_vao.render(mode=moderngl.TRIANGLE_STRIP)
 
     def render(
-        self,
-        layers: list[Layer],
-        target_fbo: int,
-        width: int,
-        height: int,
-        effects: EffectSettings | None = None,
-        time_seconds: float = 0.0,
+            self,
+            layers: list[Layer],
+            target_fbo: int,
+            width: int,
+            height: int,
+            effects: EffectSettings | None = None,
+            time_seconds: float = 0.0,
     ) -> None:
         self._resize_targets(width, height)
         self.ctx.viewport = (0, 0, width, height)

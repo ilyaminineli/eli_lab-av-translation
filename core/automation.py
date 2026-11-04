@@ -53,10 +53,10 @@ class AutomationSettings:
 
 
 def choose_random_segment(
-    duration: float | None,
-    minimum: float,
-    maximum: float,
-    rng: random.Random,
+        duration: float | None,
+        minimum: float,
+        maximum: float,
+        rng: random.Random,
 ) -> tuple[float, float | None]:
     """Return a random in/out range contained in the clip duration."""
     minimum = max(0.5, float(minimum))
@@ -95,14 +95,14 @@ class AutomationDirector:
         return rng.uniform(low, high)
 
     def start(
-        self,
-        assets: Iterable[MediaAsset],
-        decks: Iterable[object] | dict[str, object],
-        layers: list[Layer],
-        effects: EffectSettings,
-        settings: AutomationSettings | None = None,
-        duration_seconds: float | None = 1800.0,
-        now: float | None = None,
+            self,
+            assets: Iterable[MediaAsset],
+            decks: Iterable[object] | dict[str, object],
+            layers: list[Layer],
+            effects: EffectSettings,
+            settings: AutomationSettings | None = None,
+            duration_seconds: float | None = 1800.0,
+            now: float | None = None,
     ) -> int:
         candidates = [
             asset for asset in assets
@@ -158,16 +158,16 @@ class AutomationDirector:
         return loaded
 
     def _load_random_segment(
-        self,
-        deck: object,
-        current_asset_id: str | None,
-        now: float,
+            self,
+            deck: object,
+            current_asset_id: str | None,
+            now: float,
     ) -> None:
         if not self._assets:
             return
         switch = (
-            current_asset_id is None
-            or self.rng.random() < self.settings.clip_switch_probability
+                current_asset_id is None
+                or self.rng.random() < self.settings.clip_switch_probability
         )
         if not switch and current_asset_id:
             current = next(
@@ -261,9 +261,9 @@ class AutomationDirector:
             changed = True
 
         if (
-            self.settings.randomize_layout
-            and self._layout_due is not None
-            and current >= self._layout_due
+                self.settings.randomize_layout
+                and self._layout_due is not None
+                and current >= self._layout_due
         ):
             self._randomize_layout()
             self._layout_due = current + self._interval(
@@ -275,9 +275,9 @@ class AutomationDirector:
             changed = True
 
         if (
-            self.settings.randomize_effects
-            and self._effects_due is not None
-            and current >= self._effects_due
+                self.settings.randomize_effects
+                and self._effects_due is not None
+                and current >= self._effects_due
         ):
             self._randomize_effects()
             self._effects_due = current + self._interval(
