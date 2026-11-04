@@ -144,7 +144,7 @@ class AutomationPanel(QWidget):
             max_layout_interval=max(16.0, cut_max * 1.8),
             min_effect_interval=max(7.0, cut_min * 1.1),
             max_effect_interval=max(14.0, cut_max * 1.5),
-            randomize_generators=self.generator_check.isChecked() or self.palette_check.isChecked(),
+            randomize_generators=self.generator_check.isChecked(),
             randomize_text=self.generator_check.isChecked(),
             randomize_layer_effects=self.layer_fx_check.isChecked(),
             randomize_overlays=self.overlay_check.isChecked(),
