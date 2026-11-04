@@ -28,6 +28,8 @@ _DEFAULTS: dict[str, dict[str, Any]] = {
         "alignment": "center",
         "vertical_alignment": "middle",
         "primary_color": "#F2EEE6",
+        "secondary_color": "#C35C75",
+        "text_color_mode": "alternate",
         "stroke_color": "#211B2A",
         "stroke_width": 2.0,
         "shadow": True,
@@ -87,6 +89,8 @@ def normalize_settings(generator_type: str, settings: dict[str, Any] | None) -> 
             result["alignment"] = "center"
         if result["vertical_alignment"] not in {"top", "middle", "bottom"}:
             result["vertical_alignment"] = "middle"
+        if result.get("text_color_mode") not in {"single", "alternate"}:
+            result["text_color_mode"] = "single"
         result["shadow"] = bool(result["shadow"])
     elif generator_type == "waveform":
         result["density"] = max(1, min(12, int(result["density"])))
