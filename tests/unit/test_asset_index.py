@@ -24,3 +24,16 @@ def test_visual_asset_index_classifies_and_filters_by_purpose(tmp_path) -> None:
 def test_visual_asset_index_ignores_missing_roots(tmp_path) -> None:
     index = VisualAssetIndex([tmp_path / "missing"])
     assert index.scan() == []
+
+
+def test_material_maps_receive_specific_purposes(tmp_path) -> None:
+    material = tmp_path / "Bark" / "Bark_1"
+    material.mkdir(parents=True)
+    for name in ("normal_map.png", "roughness_map.png", "displacement_map.png",
+                 "ambient_occlusion.png", "specular_map.png"):
+        (material / name).write_bytes(b"image")
+    index = VisualAssetIndex([tmp_path])
+    index.scan()
+    for purpose in ("normal map", "roughness map", "displacement map",
+                    "ambient occlusion", "specular map"):
+        assert index.search(purpose=purpose)
