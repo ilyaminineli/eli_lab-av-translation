@@ -58,6 +58,7 @@ def test_overlay_and_per_layer_effect_settings_survive_project_round_trip(tmp_pa
         source_id="overlay:paper-overlay",
         overlay_path="C:/Assets/paper.gif",
         overlay_kind="image",
+        overlay_loop=False,
         layer_effects={
             "enabled": True,
             "mix": 0.75,
@@ -79,6 +80,7 @@ def test_overlay_and_per_layer_effect_settings_survive_project_round_trip(tmp_pa
     assert overlay.source_type == "overlay"
     assert overlay.overlay_path == "C:/Assets/paper.gif"
     assert overlay.overlay_kind == "image"
+    assert overlay.overlay_loop is False
     assert overlay.blend_mode == "multiply"
     assert overlay.opacity == 0.82
     assert overlay.layer_effects == layer.layer_effects
