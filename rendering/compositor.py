@@ -25,6 +25,7 @@ uniform vec2 u_scale;
 uniform float u_rotation;
 uniform float u_opacity;
 uniform int u_blend_mode;
+uniform vec2 u_canvas_scale;
 uniform float u_time;
 uniform int u_animation;
 uniform float u_animation_speed;
@@ -35,7 +36,13 @@ out vec4 frag_color;
 
 void main() {
     vec4 base = texture(u_base, v_uv);
-    vec2 screen_uv = vec2(v_uv.x, 1.0 - v_uv.y);
+    vec2 canvas_uv = (v_uv - vec2(0.5)) / u_canvas_scale + vec2(0.5);
+    if (canvas_uv.x < 0.0 || canvas_uv.x > 1.0
+            || canvas_uv.y < 0.0 || canvas_uv.y > 1.0) {
+        frag_color = base;
+        return;
+    }
+    vec2 screen_uv = vec2(canvas_uv.x, 1.0 - canvas_uv.y);
     vec2 animated_position = u_position;
     vec2 animated_scale = u_scale;
     float animated_rotation = u_rotation;
@@ -151,6 +158,20 @@ void main() {
     frag_color = vec4(clamp(color, 0.0, 1.0), 1.0);
 }
 """
+
+def canvas_fit_scale(
+        output_width: int,
+        output_height: int,
+        canvas_width: int,
+        canvas_height: int,
+) -> tuple[float, float]:
+    """Return normalized UV scale that letterboxes a canvas without distortion."""
+    output_aspect = max(1, int(output_width)) / max(1, int(output_height))
+    canvas_aspect = max(1, int(canvas_width)) / max(1, int(canvas_height))
+    if output_aspect > canvas_aspect:
+        return canvas_aspect / output_aspect, 1.0
+    return 1.0, output_aspect / canvas_aspect
+
 
 _BLEND_MODES = {
     "normal": 0,
@@ -287,8 +308,16 @@ class Compositor:
             height: int,
             effects: EffectSettings | None = None,
             time_seconds: float = 0.0,
+            canvas_width: int = 1920,
+            canvas_height: int = 1080,
     ) -> None:
         self._resize_targets(width, height)
+        self.composite_program["u_canvas_scale"].value = canvas_fit_scale(
+            width,
+            height,
+            canvas_width,
+            canvas_height,
+        )
         self.ctx.viewport = (0, 0, width, height)
         self.framebuffers[0].use()
         self.framebuffers[0].clear(0.025, 0.028, 0.035, 1.0)

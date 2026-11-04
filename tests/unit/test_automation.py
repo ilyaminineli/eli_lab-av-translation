@@ -287,3 +287,94 @@ def test_deck_unlocked_after_session_start_joins_automation(tmp_path) -> None:
     assert locked.load_count == 0
     assert director.tick(now=12.0) is True
     assert locked.load_count == 1
+
+
+def test_automation_skips_unreadable_clip_and_starts_with_next_candidate(tmp_path) -> None:
+    class PartiallyFailingDeck(FakeDeck):
+        def load(self, path: str, **kwargs) -> None:
+            if path.endswith("bad.mp4"):
+                raise RuntimeError("unreadable clip")
+            super().load(path, **kwargs)
+
+    bad = make_asset(tmp_path, "bad.mp4")
+    good = make_asset(tmp_path, "good.mp4")
+    deck = PartiallyFailingDeck("deck_a")
+    director = AutomationDirector(seed=2)
+    settings = AutomationSettings(
+        randomize_layout=False,
+        randomize_effects=False,
+    )
+
+    loaded = director.start(
+        [bad, good],
+        [deck],
+        [Layer(id="video-layer")],
+        EffectSettings(),
+        settings=settings,
+        duration_seconds=None,
+        now=10.0,
+    )
+
+    assert loaded == 1
+    assert deck.path == good.path
+    assert director.running
+
+
+def test_automation_start_failure_leaves_director_stopped(tmp_path) -> None:
+    class BrokenDeck(FakeDeck):
+        def load(self, path: str, **kwargs) -> None:
+            raise RuntimeError("decoder could not open clip")
+
+    asset = make_asset(tmp_path, "broken.mp4")
+    deck = BrokenDeck("deck_a")
+    director = AutomationDirector(seed=3)
+
+    try:
+        director.start(
+            [asset],
+            [deck],
+            [Layer(id="video-layer")],
+            EffectSettings(),
+            settings=AutomationSettings(randomize_layout=False, randomize_effects=False),
+            duration_seconds=None,
+            now=1.0,
+        )
+    except ValueError as exc:
+        assert "could load a playable clip" in str(exc)
+    else:
+        raise AssertionError("Auto Mode should reject a session with no loadable decks")
+
+    assert director.running is False
+    assert director._deck_due == {}
+
+
+def test_auto_layout_does_not_move_generator_layers(tmp_path) -> None:
+    asset = make_asset(tmp_path, "layout.mp4")
+    deck = FakeDeck("deck_a")
+    video = Layer(id="video-layer", source_type="video")
+    generator = Layer(
+        id="text-layer",
+        source_type="generator",
+        generator_type="text",
+        position=(0.3, 0.6),
+        scale=(0.7, 0.7),
+    )
+    director = AutomationDirector(seed=42)
+
+    director.start(
+        [asset],
+        [deck],
+        [video, generator],
+        EffectSettings(),
+        settings=AutomationSettings(
+            randomize_layout=True,
+            randomize_effects=False,
+            min_layout_interval=2.0,
+            max_layout_interval=2.0,
+        ),
+        duration_seconds=None,
+        now=1.0,
+    )
+
+    assert generator.position == (0.3, 0.6)
+    assert generator.scale == (0.7, 0.7)

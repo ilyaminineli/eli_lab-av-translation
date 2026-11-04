@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import random
 import time
 from collections.abc import Iterable
@@ -9,6 +10,8 @@ from pathlib import Path
 from core.composition import Layer
 from effects.settings import PRESETS, EffectSettings
 from media.models import MediaAsset
+
+_LOG = logging.getLogger(__name__)
 
 
 @dataclass
@@ -133,12 +136,16 @@ class AutomationDirector:
         for deck_id, deck in self._decks.items():
             if getattr(deck, "locked", False):
                 continue
-            self._load_random_segment(deck, None, started)
-            loaded += 1
+            if self._load_random_segment(deck, None, started):
+                loaded += 1
 
         if not loaded:
             self.running = False
-            raise ValueError("All video decks are locked. Unlock at least one deck.")
+            self._deck_due.clear()
+            raise ValueError(
+                "No unlocked video deck could load a playable clip. "
+                "Unlock a deck and check that the imported videos are readable."
+            )
 
         if self.settings.randomize_layout:
             self._randomize_layout()
@@ -191,53 +198,86 @@ class AutomationDirector:
             deck: object,
             current_asset_id: str | None,
             now: float,
-    ) -> None:
+    ) -> bool:
         if not self._assets:
-            return
-        switch = (
-                current_asset_id is None
-                or self.rng.random() < self.settings.clip_switch_probability
-        )
-        if not switch and current_asset_id:
-            current = next(
-                (asset for asset in self._assets if asset.id == current_asset_id),
-                None,
-            )
-            asset = current or self.rng.choice(self._assets)
-        else:
-            alternatives = [item for item in self._assets if item.id != current_asset_id]
-            asset = self.rng.choice(alternatives or self._assets)
+            return False
 
-        segment_start, segment_end = choose_random_segment(
-            asset.duration,
-            self.settings.min_segment_seconds,
-            self.settings.max_segment_seconds,
-            self.rng,
-        )
-        should_loop = self.rng.random() < self.settings.loop_probability
-        deck.load(
-            asset.path,
-            asset_id=asset.id,
-            collection_id=asset.collection_id,
-            segment_start=segment_start,
-            segment_end=segment_end,
-            loop=should_loop,
-        )
         deck_id = str(getattr(deck, "id"))
-        if not should_loop and segment_end is not None:
-            # A one-shot fragment advances as soon as it finishes instead of
-            # freezing on its last frame while waiting for the next random timer.
-            cut_delay = max(0.5, segment_end - segment_start)
-        else:
-            cut_delay = self._interval(
-                self.rng,
-                self.settings.min_cut_interval,
-                self.settings.max_cut_interval,
+        switch = (
+            current_asset_id is None
+            or self.rng.random() < self.settings.clip_switch_probability
+        )
+        current_asset = next(
+            (asset for asset in self._assets if asset.id == current_asset_id),
+            None,
+        )
+        if not switch and current_asset is not None:
+            ordered_assets = [current_asset]
+            ordered_assets.extend(
+                asset for asset in self._assets if asset.id != current_asset.id
             )
-        self._deck_due[deck_id] = now + cut_delay
+        else:
+            alternatives = [
+                asset for asset in self._assets if asset.id != current_asset_id
+            ]
+            self.rng.shuffle(alternatives)
+            if current_asset is not None:
+                alternatives.append(current_asset)
+            ordered_assets = alternatives or list(self._assets)
+
+        # A single corrupt or unreadable clip must not abort a whole Auto session.
+        for asset in ordered_assets:
+            segment_start, segment_end = choose_random_segment(
+                asset.duration,
+                self.settings.min_segment_seconds,
+                self.settings.max_segment_seconds,
+                self.rng,
+            )
+            should_loop = self.rng.random() < self.settings.loop_probability
+            try:
+                deck.load(
+                    asset.path,
+                    asset_id=asset.id,
+                    collection_id=asset.collection_id,
+                    segment_start=segment_start,
+                    segment_end=segment_end,
+                    loop=should_loop,
+                )
+            except Exception:
+                _LOG.exception(
+                    "Auto Mode could not load %s into %s; trying another clip",
+                    asset.path,
+                    deck_id,
+                )
+                continue
+
+            if not should_loop and segment_end is not None:
+                # One-shot fragments advance as soon as their out point is reached.
+                cut_delay = max(0.5, segment_end - segment_start)
+            else:
+                cut_delay = self._interval(
+                    self.rng,
+                    self.settings.min_cut_interval,
+                    self.settings.max_cut_interval,
+                )
+            self._deck_due[deck_id] = now + cut_delay
+            return True
+
+        self._deck_due[deck_id] = now + self._interval(
+            self.rng,
+            self.settings.min_cut_interval,
+            self.settings.max_cut_interval,
+        )
+        self.last_action = f"No readable footage found for {deck_id.upper()}"
+        return False
 
     def _randomize_layout(self) -> None:
-        active = [layer for layer in self._layers if not layer.locked]
+        # Auto Mode randomizes video layouts without disturbing authored generator
+        # typography and procedural graphics.
+        active = [
+            layer for layer in self._layers
+            if layer.source_type == "video" and not layer.locked
+        ]
         if not active:
             return
         patterns = [
@@ -294,9 +334,10 @@ class AutomationDirector:
             if current < due:
                 continue
             asset_id = getattr(deck, "asset_id", None)
-            self._load_random_segment(deck, asset_id, current)
-            self.last_action = f"Random cut · {deck_id.upper()}"
-            changed = True
+            loaded = self._load_random_segment(deck, asset_id, current)
+            if loaded:
+                self.last_action = f"Random cut · {deck_id.upper()}"
+            changed = changed or loaded
 
         if (
                 self.settings.randomize_layout

@@ -69,15 +69,17 @@ class GeneratorRasterizer:
         )
         image.fill(QColor(0, 0, 0, 0))
         painter = QPainter(image)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
-        if generator_type == "geometry":
-            self._draw_geometry(painter, settings)
-        elif generator_type == "text":
-            self._draw_text(painter, settings)
-        elif generator_type == "waveform":
-            self._draw_waveform(painter, settings)
-        painter.end()
+        try:
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+            painter.setRenderHint(QPainter.RenderHint.TextAntialiasing, True)
+            if generator_type == "geometry":
+                self._draw_geometry(painter, settings)
+            elif generator_type == "text":
+                self._draw_text(painter, settings)
+            elif generator_type == "waveform":
+                self._draw_waveform(painter, settings)
+        finally:
+            painter.end()
 
         rgba = image.bits().tobytes()
         pixels = np.frombuffer(rgba, dtype=np.uint8).reshape(
@@ -194,7 +196,8 @@ class GeneratorRasterizer:
         family = str(settings.get("font_family", "Arial"))
         font = QFont(family)
         font.setPixelSize(int(settings["font_size"]))
-        font.setWeight(int(settings["font_weight"]))
+        # PySide6 6.7+ requires the QFont.Weight enum rather than a plain int.
+        font.setWeight(QFont.Weight(int(settings["font_weight"])))
         font.setLetterSpacing(
             QFont.SpacingType.AbsoluteSpacing,
             float(settings["letter_spacing"]),

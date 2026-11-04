@@ -30,6 +30,7 @@ class RenderEngine:
         self.generator_rasterizer = GeneratorRasterizer()
         self._generator_signatures: dict[str, str] = {}
         self._generator_sources: dict[str, str] = {}
+        self._generator_errors: dict[str, str] = {}
 
     def initialize(self) -> None:
         try:
@@ -84,19 +85,38 @@ class RenderEngine:
         active_generator_ids = {layer.id for layer in generator_layers}
         for layer in generator_layers:
             source_id = layer.source_id or f"generator:{layer.id}"
-            fingerprint, pixels = self.generator_rasterizer.render(layer)
+            try:
+                fingerprint, pixels = self.generator_rasterizer.render(layer)
+            except Exception as exc:
+                message = str(exc)
+                if self._generator_errors.get(layer.id) != message:
+                    _LOG.exception(
+                        "Generator layer %s failed to render; skipping this layer",
+                        layer.name,
+                    )
+                self._generator_errors[layer.id] = message
+                self.compositor.remove_texture(source_id)
+                self._generator_signatures.pop(layer.id, None)
+                self._generator_sources.pop(layer.id, None)
+                continue
+
+            self._generator_errors.pop(layer.id, None)
             if self._generator_signatures.get(layer.id) != fingerprint:
                 self.compositor.update_texture(source_id, pixels)
                 uploaded_bytes += int(pixels.nbytes)
                 self._generator_signatures[layer.id] = fingerprint
                 self._generator_sources[layer.id] = source_id
 
-        removed_ids = set(self._generator_signatures) - active_generator_ids
+        tracked_generator_ids = (
+            set(self._generator_signatures) | set(self._generator_errors)
+        )
+        removed_ids = tracked_generator_ids - active_generator_ids
         for layer_id in removed_ids:
             source_id = self._generator_sources.pop(layer_id, None)
             if source_id:
                 self.compositor.remove_texture(source_id)
             self._generator_signatures.pop(layer_id, None)
+            self._generator_errors.pop(layer_id, None)
         self.generator_rasterizer.remove_missing(active_generator_ids)
 
         composite_started = time.perf_counter()
@@ -109,6 +129,8 @@ class RenderEngine:
             height,
             effects=effects,
             time_seconds=time.perf_counter(),
+            canvas_width=composition.width,
+            canvas_height=composition.height,
         )
         finished = time.perf_counter()
         self.last_composite_ms = (finished - composite_started) * 1000.0
@@ -121,6 +143,7 @@ class RenderEngine:
         self._uploaded_revisions.clear()
         self._generator_signatures.clear()
         self._generator_sources.clear()
+        self._generator_errors.clear()
         self.generator_rasterizer.clear()
         self.context = None
         self.initialized = False

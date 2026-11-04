@@ -43,7 +43,7 @@ class PerformanceManager:
     def randomize_layout(self, layers: Iterable[Layer]) -> int:
         changed = 0
         for layer in layers:
-            if layer.locked:
+            if layer.source_type != "video" or layer.locked:
                 continue
             layer.position = (
                 round(self.random.uniform(0.15, 0.85), 3),

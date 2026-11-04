@@ -74,7 +74,12 @@ def normalize_settings(generator_type: str, settings: dict[str, Any] | None) -> 
         result["rotation"] = max(-360.0, min(360.0, float(result["rotation"])))
     elif generator_type == "text":
         result["font_size"] = max(12, min(420, int(result["font_size"])))
-        result["font_weight"] = max(100, min(900, int(result["font_weight"])))
+        requested_weight = max(100, min(900, int(result["font_weight"])))
+        supported_weights = (100, 200, 300, 400, 500, 600, 700, 800, 900)
+        result["font_weight"] = min(
+            supported_weights,
+            key=lambda weight: abs(weight - requested_weight),
+        )
         result["letter_spacing"] = max(-8.0, min(48.0, float(result["letter_spacing"])))
         result["line_spacing"] = max(0.5, min(2.5, float(result["line_spacing"])))
         result["stroke_width"] = max(0.0, min(24.0, float(result["stroke_width"])))
