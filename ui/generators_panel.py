@@ -124,7 +124,7 @@ class GeneratorsPanel(QWidget):
         geometry_form = QFormLayout(self.geometry_group)
         self.geometry_pattern_combo = QComboBox()
         self.geometry_pattern_combo.addItems(
-            ["rings", "grid", "radial", "crosshatch", "polygon"]
+            ["rings", "grid", "radial", "crosshatch", "polygon", "spiral", "moire", "hexgrid"]
         )
         geometry_form.addRow("PATTERN", self.geometry_pattern_combo)
         self.geometry_density_slider, self.geometry_density_value = self._slider(
@@ -138,7 +138,9 @@ class GeneratorsPanel(QWidget):
         self.waveform_group = QGroupBox("WAVEFORM")
         waveform_form = QFormLayout(self.waveform_group)
         self.waveform_pattern_combo = QComboBox()
-        self.waveform_pattern_combo.addItems(["sine", "lissajous", "orbit"])
+        self.waveform_pattern_combo.addItems(
+            ["sine", "lissajous", "orbit", "radial", "rose"]
+        )
         waveform_form.addRow("PATTERN", self.waveform_pattern_combo)
         self.waveform_density_slider, self.waveform_density_value = self._slider(
             waveform_form, "TRACES", 1, 12, 5
