@@ -74,6 +74,7 @@ class MainWindow(QMainWindow):
 
         self.media_browser.assign_requested.connect(self.assign_media)
         self.media_browser.library_updated.connect(self.automation_panel.refresh_collections)
+        self.media_browser.library_updated.connect(self.refresh_automation_media_pool)
         self.deck_panel.action_requested.connect(self.deck_action)
         self.deck_panel.loop_changed.connect(self.set_deck_loop)
         self.transport_bar.random_set_requested.connect(self.randomize_decks)
@@ -190,6 +191,10 @@ class MainWindow(QMainWindow):
         except Exception as exc:
             _LOG.exception("Could not open projector output")
             QMessageBox.critical(self, "Projector output failed", str(exc))
+
+    def refresh_automation_media_pool(self) -> None:
+        if self.application.refresh_automation_media_pool():
+            self._refresh_automation_status()
 
     def assign_media(self, asset: object, deck_id: str) -> None:
         try:
