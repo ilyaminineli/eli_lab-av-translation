@@ -338,8 +338,7 @@ class AutomationDirector:
                             "collage_seed": self.rng.randrange(0, 2 ** 31 - 1),
                             "text_color_mode": self.rng.choice(("single", "alternate")),
                         })
-                        updated = True
-                    # Motion evolves on its own schedule even when the phrase is held.
+                    # Motion can vary even when the phrase itself is held.
                     values.update({
                         "text_animation": self.rng.choice(
                             ("type_on", "word_reveal", "line_wave", "jitter", "crawl", "glitch")
