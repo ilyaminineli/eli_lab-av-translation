@@ -1,0 +1,96 @@
+from __future__ import annotations
+
+from PySide6.QtCore import Signal
+from PySide6.QtWidgets import (
+    QComboBox, QLabel, QLineEdit, QListWidget, QListWidgetItem,
+    QMessageBox, QPushButton, QVBoxLayout, QWidget,
+)
+
+from core.application import Application
+
+
+class AssetLibraryPanel(QWidget):
+    """Browse indexed visual assets by semantic purpose and add them to a composition."""
+
+    composition_changed = Signal()
+
+    def __init__(self, application: Application, parent=None) -> None:
+        super().__init__(parent)
+        self.application = application
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(8, 8, 8, 8)
+        self.search_edit = QLineEdit()
+        self.search_edit.setPlaceholderText("Search textures, materials, masks…")
+        layout.addWidget(self.search_edit)
+        self.purpose_combo = QComboBox()
+        self.purpose_combo.addItem("All purposes", "")
+        for purpose in ("overlay", "texture", "background", "postproduction",
+                        "surface", "distress", "mask", "track matte",
+                        "material", "geometry", "particles", "atmosphere",
+                        "environment"):
+            self.purpose_combo.addItem(purpose.title(), purpose)
+        layout.addWidget(self.purpose_combo)
+        self.kind_combo = QComboBox()
+        self.kind_combo.addItem("All media", "")
+        self.kind_combo.addItem("Images", "image")
+        self.kind_combo.addItem("Videos", "video")
+        layout.addWidget(self.kind_combo)
+        self.asset_list = QListWidget()
+        layout.addWidget(self.asset_list, 1)
+        self.detail_label = QLabel("Select an asset to inspect its tags and intended uses.")
+        self.detail_label.setWordWrap(True)
+        layout.addWidget(self.detail_label)
+        self.add_button = QPushButton("ADD SELECTED AS OVERLAY")
+        self.add_button.setEnabled(False)
+        layout.addWidget(self.add_button)
+        self.search_edit.textChanged.connect(self.refresh)
+        self.purpose_combo.currentIndexChanged.connect(self.refresh)
+        self.kind_combo.currentIndexChanged.connect(self.refresh)
+        self.asset_list.currentItemChanged.connect(self._selection_changed)
+        self.add_button.clicked.connect(self.add_selected)
+        self.refresh()
+
+    def refresh(self, *_args) -> None:
+        selected_id = None
+        current = self.asset_list.currentItem()
+        if current is not None:
+            selected_id = current.data(256)
+        assets = self.application.search_visual_assets(
+            self.search_edit.text(),
+            purpose=self.purpose_combo.currentData() or None,
+            kind=self.kind_combo.currentData() or None,
+        )
+        self.asset_list.clear()
+        for asset in assets:
+            item = QListWidgetItem(f"{asset.name}  ·  {asset.category}  ·  {asset.kind}")
+            item.setData(256, asset.id)
+            self.asset_list.addItem(item)
+            if asset.id == selected_id:
+                self.asset_list.setCurrentItem(item)
+        if self.asset_list.count() == 0:
+            self.detail_label.setText("No indexed assets match this search.")
+        elif self.asset_list.currentItem() is None:
+            self.asset_list.setCurrentRow(0)
+
+    def _selection_changed(self, current, _previous=None) -> None:
+        asset_id = current.data(256) if current is not None else None
+        asset = next((item for item in self.application.visual_asset_index.assets
+                      if item.id == asset_id), None)
+        self.add_button.setEnabled(asset is not None)
+        if asset is not None:
+            self.detail_label.setText(
+                f"{asset.path}\nTags: {', '.join(asset.tags)}\n"
+                f"Purposes: {', '.join(asset.purposes)}"
+            )
+
+    def add_selected(self) -> None:
+        item = self.asset_list.currentItem()
+        if item is None:
+            return
+        try:
+            layer = self.application.add_library_asset_overlay(item.data(256))
+        except Exception as exc:
+            QMessageBox.warning(self, "Asset could not be added", str(exc))
+            return
+        self.composition_changed.emit()
+        self.detail_label.setText(f"Added {layer.name} as a composition overlay.")
