@@ -53,6 +53,8 @@ def import_aco_palette(path: str | Path) -> list[str]:
         offset += 4
         if version not in (1, 2) or count > 4096:
             break
+        if version == 2:
+            swatches.clear()
         for index in range(count):
             if offset + 10 > len(data):
                 raise ValueError("ACO palette is truncated.")
