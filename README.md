@@ -28,6 +28,9 @@ This development pass focuses on video, master effects, overlays and automation.
 - A separate fullscreen output window selectable by Windows display / projector.
 - Shared decoded-frame snapshots so preview and projector outputs show the same playback without competing for frames.
 - Effect and automation settings saved inside .eliav projects.
+- First-class transparent generator layers: procedural geometry, typographic art and waveform graphics.
+- GPU-side pulse, rotation, drift and flicker animation for generator layers.
+- Generator content, font choices, transforms, colour, outline and animation settings saved inside .eliav projects.
 
 ## Development roadmap
 
@@ -87,6 +90,19 @@ Use the **LIBRARY** menu in the Media Library panel to remove a selected importe
 ## Performance behaviour
 
 Preview decoding is currently capped at 30 output frames per second and 1920×1080 per deck; smaller sources remain at native size. These are preview/output limits only—the original files are not modified. The render status reports FPS, rolling per-second CPU-side decode and conversion costs, renderer CPU submission time, texture upload time and bandwidth, active deck count and dropped frames per second. These measurements help identify the next bottleneck; CPU-side render timing is not the same as a GPU timer query.
+
+## M2 generators and text art
+
+Open View → GENERATORS + TEXT ART to add a transparent Geometry, Text Art or Waveform layer. Generator layers appear in the normal LAYERS panel and can be positioned, scaled, rotated, blended, hidden and saved like footage layers.
+
+- **Geometry:** rings, grids, radial constructions, crosshatch and nested polygons.
+- **Text Art:** editable multiline text, typeface, weight, size, tracking, line spacing, alignment, outline and shadow.
+- **Waveform:** layered sine traces, Lissajous figures and orbit patterns.
+- **Animation:** pulse, rotate, drift and flicker. Static art is rasterized only when content settings change; animation is handled in the GPU compositing shader.
+
+Generators are independent composition layers, so they can appear above or below video and render in both preview and projector output. The initial M2 generator set is deliberately self-contained; audio-reactive modulation is reserved for M3.
+
+See [docs/M2_GENERATIVE_VISUALS.md](docs/M2_GENERATIVE_VISUALS.md) for details.
 
 ## Effects and overlays
 
