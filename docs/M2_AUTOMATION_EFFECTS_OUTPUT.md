@@ -93,6 +93,6 @@ Layer FX support ordered, up-to-eight-stage chains. The stage order is top-to-bo
 
 Overlay layers expose persisted in/out metadata, playback speed, frame hold, scene-sync intent and track-matte selection. Animated image playback responds live to speed and hold changes. Alpha and luma mattes sample another composition source by source ID. The application continues to publish one CPU frame snapshot per source to independent preview/projector GPU contexts.
 
-Auto Performance varies enabled per-layer FX independently of generator variation. A manual layer-FX edit starts a 30-second cooldown; locked layers are always excluded. The same scheduled mutation updates the shared composition model, so both output windows see the same state.
+Auto Performance varies enabled per-layer FX independently of generator variation, and has a separate overlay-transform/blend toggle. A manual layer-FX or overlay-control edit starts a 30-second cooldown; locked layers are always excluded. The same scheduled mutation updates the shared composition model, so both output windows see the same state.
 
 Overlay in/out are layer-local elapsed seconds from attachment and gate the shared CPU frame snapshot, so preview and projector hide/show the overlay together. Scene-sync remains a persisted intent for M3's scene/timeline clock; video-overlay source trimming is not yet implemented.
