@@ -36,6 +36,7 @@ class AutomationSettings:
     randomize_generators: bool = True
     randomize_text: bool = True
     randomize_layer_effects: bool = True
+    randomize_overlays: bool = True
     min_generator_interval: float = 18.0
     max_generator_interval: float = 42.0
     text_language: str = "bilingual"
@@ -379,6 +380,20 @@ class AutomationDirector:
                 if updated:
                     layer.generator_settings = normalize_settings(kind, values)
                     changed += 1
+
+            if (
+                self.settings.randomize_overlays
+                and layer.source_type == "overlay"
+                and time.time() >= float(getattr(layer, "overlay_manual_override_until", 0.0))
+            ):
+                layer.opacity = self.rng.uniform(0.82, 1.0)
+                layer.scale = tuple(
+                    max(0.05, min(2.0, value * self.rng.uniform(0.96, 1.04)))
+                    for value in layer.scale
+                )
+                layer.rotation += self.rng.uniform(-2.5, 2.5)
+                layer.blend_mode = self.rng.choice(("normal", "screen", "add", "multiply"))
+                changed += 1
 
             if (
                 self.settings.randomize_layer_effects
