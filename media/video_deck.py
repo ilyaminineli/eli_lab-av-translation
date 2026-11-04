@@ -143,7 +143,7 @@ class VideoDeck:
             return None
         return FrameSnapshot(self.frame_revision, self.current_frame)
 
-    def performance_stats(self) -> dict[str, int | bool]:
+    def performance_stats(self) -> dict[str, int | float | bool]:
         decoder = self.decoder
         return {
             "playing": self.is_playing,
