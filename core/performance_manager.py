@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import random
 from collections import defaultdict
-from typing import Iterable
+from collections.abc import Iterable
 
 from core.composition import Layer
 from media.models import MediaAsset
