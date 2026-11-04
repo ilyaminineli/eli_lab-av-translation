@@ -361,15 +361,22 @@ class AutomationDirector:
                     })
                     updated = True
                 elif self.settings.randomize_generators and kind == "geometry":
+                    motion = self.rng.choice(("rotate", "pulse", "drift", "warp"))
+                    motion_ranges = {
+                        "rotate": (20.0, 100.0),
+                        "pulse": (0.04, 0.22),
+                        "drift": (0.015, 0.07),
+                        "warp": (0.08, 0.42),
+                    }
                     values.update({
                         "pattern": self.rng.choice(
                             ("rings", "grid", "radial", "crosshatch", "spiral", "moire", "hexgrid")
                         ),
                         "density": self.rng.randint(6, 34),
                         "rotation": self.rng.uniform(-35, 35),
-                        "animation": self.rng.choice(("rotate", "pulse", "drift", "warp")),
+                        "animation": motion,
                         "animation_speed": self.rng.uniform(0.08, 1.8),
-                        "animation_amount": self.rng.uniform(0.02, 0.25),
+                        "animation_amount": self.rng.uniform(*motion_ranges[motion]),
                     })
                     updated = True
                 elif self.settings.randomize_generators and kind == "waveform":
