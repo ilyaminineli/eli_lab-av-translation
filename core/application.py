@@ -108,6 +108,11 @@ class Application:
             "dropped_frames": sum(int(item["dropped_frames"]) for item in deck_stats),
             "retired_workers": sum(int(item["retired_workers"]) for item in deck_stats),
             "published_frames": sum(int(item["published_frames"]) for item in deck_stats),
+            "decoded_frames": sum(int(item["decoded_frames"]) for item in deck_stats),
+            "decode_time_ms": sum(float(item["decode_time_ms"]) for item in deck_stats),
+            "conversion_time_ms": sum(
+                float(item["conversion_time_ms"]) for item in deck_stats
+            ),
             "skipped_output_frames": sum(
                 int(item["skipped_output_frames"]) for item in deck_stats
             ),
