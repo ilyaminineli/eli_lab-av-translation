@@ -234,7 +234,7 @@ def test_aco_import_reads_named_rgb_swatches_and_builds_four_colour_looks(tmp_pa
     payload = bytearray(struct.pack(">HH", 2, len(names)))
     for name, rgb in zip(names, colours):
         payload.extend(struct.pack(">5H", 0, *(value * 257 for value in rgb), 0))
-        encoded = name.encode("utf-16-be") + b"\\x00\\x00"
+        encoded = name.encode("utf-16-be") + bytes(2)
         payload.extend(struct.pack(">I", len(name) + 1))
         payload.extend(encoded)
     aco_path = tmp_path / "jp_palette.aco"
