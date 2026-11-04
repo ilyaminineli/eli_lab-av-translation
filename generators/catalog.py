@@ -20,6 +20,10 @@ _DEFAULTS: dict[str, dict[str, Any]] = {
     },
     "text": {
         "text": "THE SHAPE OF\nA VANISHING\nSIGNAL",
+        "text_pool_language": "bilingual",
+        "text_pool_theme": "random",
+        "text_pool_count": 16,
+        "text_pool_dictionary": True,
         "font_family": "Arial",
         "font_size": 148,
         "font_weight": 700,
@@ -100,6 +104,14 @@ def normalize_settings(generator_type: str, settings: dict[str, Any] | None) -> 
         result["line_width"] = max(0.5, min(24.0, float(result["line_width"])))
         result["rotation"] = max(-360.0, min(360.0, float(result["rotation"])))
     elif generator_type == "text":
+        result["text_pool_language"] = result.get("text_pool_language", "bilingual")
+        if result["text_pool_language"] not in {"english", "japanese", "bilingual"}:
+            result["text_pool_language"] = "bilingual"
+        result["text_pool_theme"] = result.get("text_pool_theme", "random")
+        if result["text_pool_theme"] not in {"random", "memory", "body", "signal", "ritual", "identity"}:
+            result["text_pool_theme"] = "random"
+        result["text_pool_count"] = max(1, min(60, int(result.get("text_pool_count", 16))))
+        result["text_pool_dictionary"] = bool(result.get("text_pool_dictionary", True))
         result["font_size"] = max(12, min(420, int(result["font_size"])))
         requested_weight = max(100, min(900, int(result["font_weight"])))
         supported_weights = (100, 200, 300, 400, 500, 600, 700, 800, 900)
