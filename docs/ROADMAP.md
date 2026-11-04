@@ -1,15 +1,15 @@
 # eli_lab AV Translation — Product Roadmap
 
-**Roadmap snapshot:** 4 November 2026  
-**Current priority:** finish and harden the video mixer before beginning audio-reactive or external-control work.
+**Roadmap snapshot:** 5 November 2026  
+**Current priority:** begin M3's source-independent performance-control foundation while keeping the Video Mixer hardware release gate open.
 
 ## Product goal
 
 Build a dependable Windows-first audiovisual performance instrument: import a large personal footage library, compose four independent video decks into a live GPU canvas, create expressive visual treatments, run semi-random or fully unattended performances, and route the result to a second display or projector.
 
-The roadmap is deliberately staged. M0–M2 establish a complete visual instrument. M3 and M4 add audio and Sonic Pi as control sources. M5 turns the application into a configurable live performance environment.
+The roadmap is deliberately staged. M0–M2 establish the visual instrument. M3 adds audio analysis and the normalized transport/scene/macro control foundation. M4 adds Sonic Pi as a timed, semantic OSC source for that same control layer. M5 turns the application into a configurable live performance environment.
 
-**Development rule:** do not divert the core effort into M3–M5 until the Video Mixer Completion Gate in this document has been met. The video mixer should be useful, predictable and resilient on its own.
+**Development rule:** the Video Mixer Completion Gate remains an independent release criterion and is not marked passed. M3 foundation work may proceed, but do not describe M0–M2 as release-ready until the Windows hardware and 60-minute validation has been completed.
 
 ---
 
@@ -20,9 +20,9 @@ The roadmap is deliberately staged. M0–M2 establish a complete visual instrume
 | M0 — Rendering Core | Core implemented; hardware hardening remains | PySide6 shell, OpenGL/ModernGL render contexts, canvas/layers, project persistence and fullscreen external output are present. |
 | M1 — Video Collage | Core implemented; reliability pass in progress | Folder indexing, four decoder decks, transforms, blending and random collage behaviour are present. Safe library cleanup, bounded import workers, decoder retirement and preview output limits are now implemented in the hardening branch. |
 | M2 — Generative Visuals | Initial generator layers implemented | GPU master looks plus first-class geometry, text-art and waveform layers with cached RGBA content, shader animation and project persistence. Particle simulation, imported image/animated overlays, vector paths and richer text motion remain. |
-| M3 — Audio Reactive Engine | Planned | No audio capture or analysis engine is included in the current video-focused build. |
-| M4 — Sonic Pi Integration | Planned | No OSC receiver or Sonic Pi event mapping is included in the current build. |
-| M5 — Performance Environment | Planned / foundations only | Full MIDI mapping, scene system, recording and advanced output routing remain future work. |
+| M3 — Audio-Reactive Engine & Control Foundation | Initial control-state foundation implemented | Bounded ControlEvent ingress, normalized transport/scene/macro state and UI-thread event draining exist. Audio capture, analysis, smoothing and visual modulation routes remain. |
+| M4 — Sonic Pi Integration | Planned | The SONATA patch has been inspected; it currently uses internal Sonic Pi cues/state and contains no OSC sender. Versioned OSC receiver, protocol and patch sender remain. |
+| M5 — Performance Environment | Planned / foundations only | Full MIDI mapping, preset/scene banks, recording and advanced output routing remain future work. |
 
 ### Observed machine test
 
@@ -268,25 +268,54 @@ Automation must never overwrite locked content, exceed configured safety ranges 
 
 ---
 
-# M3 — Audio Reactive Engine
+# M3 — Audio-Reactive Engine & Control Foundation
 
 ## Objective
 
-Introduce audio as an optional analysis and modulation source without making the video engine depend on audio being enabled.
+Add a source-independent performance control layer and optional audio analysis. Audio is the first live analysis source; internal test/replay sources validate the same contract. M4 will add Sonic Pi OSC as another source without changing the renderer or control-state model.
+
+## Implemented foundation slice
+
+- Validated `ControlEvent` messages with source, event kind, payload, sequence, session ID and receive timestamp.
+- Bounded, thread-safe `ControlEventQueue`.
+- Normalized performance state for BPM, beats per bar, beat/bar position, transport, scene, intensity, named macros and cues.
+- Per-source/session sequence de-duplication and range validation.
+- Application/UI-thread queue draining; the control adapter boundary does not call Qt or OpenGL.
+- Compact control-state status in the main status bar.
+
+These foundations do not yet capture audio or map macros to visual targets.
 
 ## Planned implementation
 
-- Audio input device selection and device-change handling.
-- Live input capture with clear permission and unavailable-device states.
-- FFT analysis and configurable low, mid and high frequency bands.
-- RMS / amplitude envelope, transient detection and beat / tempo estimation.
-- Smoothing, sensitivity, attack and release controls.
-- Modulation matrix routing audio signals to effect, generator, layer and automation parameters.
-- Mapping curves, ranges, inversion, hold and per-route enable/bypass.
-- Audio visualizers that can consume the same analysis bus.
-- Test signals and recorded fixtures so the engine can be tested without a microphone or external sound source.
+### Audio source and analysis
 
-**M3 exit condition:** audio devices can be changed safely, analysis remains stable over long sessions, and each modulation route can be inspected and disabled independently.
+- Input-device and supported system-loopback selection, plus device-change handling.
+- Dedicated capture worker with clear ownership, cancellation and unavailable-device states.
+- RMS / amplitude envelope and low, mid and high frequency bands.
+- Transient/onset strength and optional beat/tempo estimate with confidence.
+- Smoothing, sensitivity, attack and release controls.
+- Synthetic signals and recorded fixtures for repeatable tests.
+
+### Modulation and visual control
+
+- A modulation matrix with an explicit source registry and explicit visual-target registry.
+- Target scaling, mapping curves, inversion, smoothing, hold and independent bypass.
+- Intensity ceilings, lock handling and manual-override precedence.
+- Initial targets for master looks, generator motion/density, selected layer controls and Auto Performance intensity/timing.
+- Internal transport clock, scene profiles, macro controls and quantized beat/bar/phrase changes.
+- Live monitor for input source, BPM, bar, scene, intensity and macro values.
+- Persist mapping configuration and scene profiles, not live device handles or analysis buffers.
+
+### Test and reliability
+
+- Device loss/reconnect and rapid source switching tests.
+- Long-running capture and bounded-buffer tests.
+- Deterministic replay for the same normalized events produced by live sources.
+- No audio capture, analysis or mapping work on the Qt paint path.
+
+**M3 exit condition:** audio sources can be selected and recovered safely; analysis is stable and inspectable; normalized events can be replayed; routes are range-limited, bypassable and respect locks/manual overrides; the transport/scene/macro contract is ready for M4.
+
+See [M3 Audio-Reactive Foundation](M3_AUDIO_REACTIVE_FOUNDATION.md).
 
 ---
 
@@ -294,20 +323,39 @@ Introduce audio as an optional analysis and modulation source without making the
 
 ## Objective
 
-Allow Sonic Pi to control the visual instrument through a documented, versioned OSC protocol.
+Make Sonic Pi a first-class, time-aware control source for the visual instrument using a documented, versioned OSC protocol. Sonic Pi remains responsible for audio synthesis and musical structure; AV Translation receives only high-level transport, scene and macro intent.
+
+## SONATA patch requirements
+
+The inspected `SONATA_expanded.rb` patch runs at 92 BPM, uses a four-beat bar clock, progresses through 16 named scenes across 384 bars, and updates energy/cutoff macros once per bar. It contains 93 live loops, but its cues and shared variables are internal to Sonic Pi. No OSC sender is present yet.
+
+M4 should add a small sender at the existing musical control points—not a packet for every synth/drum loop:
+
+- Patch start / stop and tempo.
+- One bar clock event per bar.
+- Scene ID and scene intensity from `sp_scene`.
+- Normalized energy and cutoff macros from the macro-motion loop.
+- Optional phrase/cue events for quantized visual changes.
 
 ## Planned implementation
 
-- OSC receiver with configurable bind address and port.
-- Explicit event namespace rather than undocumented one-off message names.
-- Parameter translation and range normalization.
-- Beat, bar, cue and scene events.
-- Mapping from OSC events to effects, generators, deck actions and automation scenes.
-- Connection / heartbeat status, message logging and malformed-packet handling.
-- A local test sender and documented example Sonic Pi snippets.
-- Optional beat synchronization and quantized scene switching.
+- OSC receiver on a configurable local bind address and dedicated port (loopback by default).
+- Versioned namespace, initially `/eli_lab/v1`.
+- Translation into the M3 `ControlEvent` contract.
+- Transport start/stop/tempo, bar position, scene select/intensity, named macro and cue events.
+- Session IDs and per-session sequence numbers for restart-safe de-duplication.
+- Connection freshness / heartbeat indicator, last-message diagnostics and bounded event ingress.
+- Strict type/range/name validation, rate limits and malformed-packet handling.
+- Local test sender and protocol tests that do not require Sonic Pi.
+- Patch helper for optional OSC output, explicit host/port and a safe no-AV fallback.
+- Quantized scene changes and macro smoothing using the M3 transport state.
+- Manual override, lock, hold and intensity ceiling precedence.
 
-**M4 exit condition:** the protocol is documented, testable without Sonic Pi, resilient to missing or malformed messages and does not block video rendering.
+OSC workers only submit normalized events. They must never mutate widgets, composition state or OpenGL resources directly.
+
+**M4 exit condition:** the protocol is documented and versioned; the receiver is testable without Sonic Pi; the SONATA patch sends start/bar/scene/macro/end events aligned to its musical clock; missing or malformed packets are recoverable; and video rendering remains non-blocking.
+
+See [SONATA Expanded integration notes](SONIC_PI_SONATA_INTEGRATION.md).
 
 ---
 
@@ -346,13 +394,13 @@ Package the visual, audio and external-control systems into a flexible live perf
 
 ## Immediate next implementation order
 
-1. Validate the thumbnail fix, folder removal and full-library reset on Windows; add cancellation and better progress for very large imports.
-2. Measure the new CPU/upload/drop counters with the user's representative four-clip composition and compare preview-only vs projector output.
-3. Finish decoder lifecycle tests and add explicit end-of-stream, seek and variable-frame-rate fixtures.
-4. Mixer ergonomics: aspect handling, layer selection, hold/freeze and transitions.
-5. Auto Mode refinement: weighted selection, cooldowns, manual override and scene coherence.
-6. Expand M2 with particles, richer vector/text systems, imported alpha overlays and user-defined generator presets.
-7. Projector / 60-minute soak testing and performance diagnostics.
-8. Declare the Video Mixer complete only after the release criterion is met; then begin M3.
+1. Keep the remaining Video Mixer Gate A/B/C/D work visible and complete the Windows hardware validation; the release gate remains open.
+2. Finish the M3 control-state tests, then add the internal clock/replay source and performance-state monitor.
+3. Add the M3 audio capture source and analysis bus with device recovery and bounded buffering.
+4. Add the M3 modulation registry, target mappings, smoothing, safe ranges and manual takeover rules.
+5. Use synthetic fixtures to validate audio-reactive and scene/macro behavior before live input testing.
+6. Start M4 with the versioned OSC receiver and local test sender.
+7. Adapt SONATA at its central scene, bar and macro points; do not instrument all 93 live loops.
+8. Complete a real 92 BPM / 384-bar rehearsal, verify scene/phrase timing, then test missing-packet and disconnect recovery.
 
-This order is intentional: the goal is to finish a polished, expressive and reliable video instrument—not to start the audio roadmap while the visual foundation is still being hardened.
+M3 is the control foundation and audio-analysis source. M4 is the explicit Sonic Pi integration milestone. The two share the normalized event/state contract; neither needs to change the GPU renderer.
