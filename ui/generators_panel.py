@@ -19,9 +19,9 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QSlider,
     QSpinBox,
-    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
