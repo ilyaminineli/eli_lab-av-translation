@@ -33,6 +33,16 @@ def _classify(path: Path, root: Path) -> tuple[str, tuple[str, ...], tuple[str, 
     purposes = {"overlay", "texture"}
     if any(word in context for word in ("paper", "film", "grunge", "ink", "fabric")):
         purposes.update(("postproduction", "surface", "distress"))
+    if "normal" in context:
+        purposes.update(("normal map", "material"))
+    if "roughness" in context:
+        purposes.update(("roughness map", "material"))
+    if "displacement" in context or "height map" in context:
+        purposes.update(("displacement map", "geometry", "material"))
+    if "ambient occlusion" in context or "ao" in path.stem.lower().split("_"):
+        purposes.update(("ambient occlusion", "material"))
+    if "specular" in context:
+        purposes.update(("specular map", "material"))
     if any(word in context for word in ("mask", "matte", "alpha", "silhouette")):
         purposes.update(("mask", "track matte"))
     if any(word in context for word in ("metal", "wood", "stone", "concrete", "bark", "clay")):
