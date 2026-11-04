@@ -323,7 +323,7 @@ class MainWindow(QMainWindow):
             self.effects_panel.sync_from_settings()
             self.automation_panel.set_running(
                 True,
-                f"Running · {count} deck(s) automated. Layouts and looks will change on their own.",
+                f"Running · {count} deck(s) automated. Layouts, generator text and layer FX will evolve automatically.",
             )
             self._refresh_automation_status()
         except Exception as exc:
@@ -346,6 +346,7 @@ class MainWindow(QMainWindow):
             self.deck_panel.refresh()
             self.layer_panel.refresh()
             self.effects_panel.sync_from_settings()
+            self.generators_panel.refresh()
         if was_running and not self.application.automation.running:
             self.automation_panel.set_running(
                 False,
