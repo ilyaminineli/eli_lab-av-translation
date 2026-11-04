@@ -45,8 +45,11 @@ class ControlEvent:
         source = str(self.source).strip()
         if not _NAME_PATTERN.fullmatch(source):
             raise ValueError("Control event source must be a short identifier.")
-        if self.sequence is not None and int(self.sequence) < 0:
-            raise ValueError("Control event sequence must be non-negative.")
+        if self.sequence is not None:
+            if isinstance(self.sequence, bool) or not isinstance(self.sequence, int):
+                raise ValueError("Control event sequence must be an integer.")
+            if self.sequence < 0:
+                raise ValueError("Control event sequence must be non-negative.")
         if not math.isfinite(float(self.received_at)):
             raise ValueError("Control event timestamp must be finite.")
         session_id = str(self.session_id).strip()
@@ -69,8 +72,6 @@ class ControlEvent:
         object.__setattr__(self, "source", source)
         object.__setattr__(self, "session_id", session_id)
         object.__setattr__(self, "payload", clean_payload)
-        if self.sequence is not None:
-            object.__setattr__(self, "sequence", int(self.sequence))
         object.__setattr__(self, "received_at", float(self.received_at))
 
 
@@ -151,6 +152,23 @@ class PerformanceControlState:
         return value
 
     @staticmethod
+    def _integer(
+            payload: dict[str, Any],
+            key: str,
+            default: int | None = None,
+            minimum: int | None = None,
+            maximum: int | None = None,
+    ) -> int:
+        raw = payload.get(key, default)
+        if isinstance(raw, bool) or not isinstance(raw, int):
+            raise ValueError(f"Control field {key!r} must be an integer.")
+        if minimum is not None and raw < minimum:
+            raise ValueError(f"Control field {key!r} is below its safe range.")
+        if maximum is not None and raw > maximum:
+            raise ValueError(f"Control field {key!r} is above its safe range.")
+        return raw
+
+    @staticmethod
     def _identifier(payload: dict[str, Any], key: str) -> str:
         value = payload.get(key)
         if not isinstance(value, str) or not _NAME_PATTERN.fullmatch(value):
@@ -168,62 +186,73 @@ class PerformanceControlState:
         return True
 
     def apply(self, event: ControlEvent) -> bool:
-        """Apply one validated event; return False for stale duplicate sequences."""
+        """Apply one event atomically; return False for stale duplicate sequences."""
         if not self._read_sequence(event):
             return False
 
         payload = event.payload
+        updates: dict[str, Any] = {}
         if event.kind == "transport.start":
-            self.bpm = self._number(payload, "bpm", self.bpm, 20.0, 300.0)
-            self.beats_per_bar = int(
-                self._number(payload, "beats_per_bar", self.beats_per_bar, 1.0, 16.0)
+            updates["bpm"] = self._number(payload, "bpm", self.bpm, 20.0, 300.0)
+            updates["beats_per_bar"] = self._integer(
+                payload, "beats_per_bar", self.beats_per_bar, 1, 16
             )
-            self.transport_running = True
+            updates["transport_running"] = True
         elif event.kind == "transport.stop":
-            self.transport_running = False
+            updates["transport_running"] = False
         elif event.kind == "transport.tempo":
-            self.bpm = self._number(payload, "bpm", minimum=20.0, maximum=300.0)
+            updates["bpm"] = self._number(payload, "bpm", minimum=20.0, maximum=300.0)
         elif event.kind == "clock.beat":
-            self.beat_index = int(
-                self._number(payload, "beat_index", minimum=0, maximum=15)
-            )
+            beat = self._integer(payload, "beat_index", minimum=0, maximum=15)
+            if beat >= self.beats_per_bar:
+                raise ValueError("Beat index must be inside the current bar.")
+            updates["beat_index"] = beat
             if "bar_index" in payload:
-                self.bar_index = int(
-                    self._number(payload, "bar_index", minimum=0, maximum=10_000_000)
+                updates["bar_index"] = self._integer(
+                    payload, "bar_index", minimum=0, maximum=10_000_000
                 )
         elif event.kind == "clock.bar":
-            self.bar_index = int(
-                self._number(payload, "bar_index", minimum=0, maximum=10_000_000)
+            updates["bar_index"] = self._integer(
+                payload, "bar_index", minimum=0, maximum=10_000_000
             )
-            self.beat_index = 0
+            updates["beat_index"] = 0
             if "bpm" in payload:
-                self.bpm = self._number(payload, "bpm", minimum=20.0, maximum=300.0)
-            if "beats_per_bar" in payload:
-                self.beats_per_bar = int(
-                    self._number(payload, "beats_per_bar", minimum=1.0, maximum=16.0)
+                updates["bpm"] = self._number(
+                    payload, "bpm", minimum=20.0, maximum=300.0
                 )
-            self.transport_running = True
+            if "beats_per_bar" in payload:
+                updates["beats_per_bar"] = self._integer(
+                    payload, "beats_per_bar", minimum=1, maximum=16
+                )
+            updates["transport_running"] = True
         elif event.kind == "scene.select":
-            self.scene_id = self._identifier(payload, "scene_id")
-            self.intensity = self._number(
+            updates["scene_id"] = self._identifier(payload, "scene_id")
+            updates["intensity"] = self._number(
                 payload, "intensity", 0.0, minimum=0.0, maximum=1.0
             )
             if "bar_index" in payload:
-                self.bar_index = int(
-                    self._number(payload, "bar_index", minimum=0, maximum=10_000_000)
+                updates["bar_index"] = self._integer(
+                    payload, "bar_index", minimum=0, maximum=10_000_000
                 )
         elif event.kind == "scene.intensity":
-            self.intensity = self._number(
+            updates["intensity"] = self._number(
                 payload, "intensity", minimum=0.0, maximum=1.0
             )
         elif event.kind == "macro.set":
             macro = self._identifier(payload, "name")
-            value = self._number(payload, "value", minimum=0.0, maximum=1.0)
-            self.macros[macro] = value
+            updates["macro"] = (
+                macro,
+                self._number(payload, "value", minimum=0.0, maximum=1.0),
+            )
         elif event.kind == "cue.trigger":
-            self.last_cue = self._identifier(payload, "name")
-        elif event.kind == "source.heartbeat":
-            pass
+            updates["last_cue"] = self._identifier(payload, "name")
+
+        for name, value in updates.items():
+            if name == "macro":
+                macro_name, macro_value = value
+                self.macros[macro_name] = macro_value
+            else:
+                setattr(self, name, value)
 
         self.source_id = event.source
         self.last_event_at = event.received_at
