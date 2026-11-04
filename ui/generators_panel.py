@@ -62,7 +62,7 @@ class GeneratorsPanel(QWidget):
         root.setContentsMargins(8, 8, 8, 8)
         root.setSpacing(7)
 
-        add_group = QGroupBox("ADD GENERATOR LAYER")
+        add_group = QGroupBox("ADD GENERATOR / OVERLAY")
         add_layout = QVBoxLayout(add_group)
         row_one = QHBoxLayout()
         self.add_geometry_button = QPushButton("+ GEOMETRY")
@@ -76,7 +76,7 @@ class GeneratorsPanel(QWidget):
         row_two.addWidget(self.add_particles_button)
         row_three = QHBoxLayout()
         self.add_overlay_button = QPushButton("+ IMAGE / VIDEO OVERLAY")
-        self.remove_button = QPushButton("REMOVE SELECTED")
+        self.remove_button = QPushButton("REMOVE SELECTED LAYER")
         row_three.addWidget(self.add_overlay_button)
         row_three.addWidget(self.remove_button)
         add_layout.addLayout(row_one)
@@ -94,6 +94,7 @@ class GeneratorsPanel(QWidget):
         text_form = QFormLayout(self.text_group)
         self.text_edit = QPlainTextEdit()
         self.text_edit.setMaximumBlockCount(32)
+        self.text_edit.setPlaceholderText("Enter multiline text or regenerate from the bilingual pool…")
         self.text_edit.setMinimumHeight(84)
         self.text_edit.setMaximumHeight(120)
         text_form.addRow("CONTENT", self.text_edit)
@@ -553,8 +554,15 @@ class GeneratorsPanel(QWidget):
         self.load_selected()
 
     def select_layer(self, layer_id: str) -> None:
-        index = self.layer_combo.findData(layer_id)
-        if index < 0 or index == self.layer_combo.currentIndex():
+        index = self.layer_combo.findData(layer_id) if layer_id else -1
+        if index < 0:
+            if self.layer_combo.currentIndex() >= 0:
+                self.layer_combo.blockSignals(True)
+                self.layer_combo.setCurrentIndex(-1)
+                self.layer_combo.blockSignals(False)
+                self.load_selected()
+            return
+        if index == self.layer_combo.currentIndex():
             return
         self.layer_combo.setCurrentIndex(index)
 
