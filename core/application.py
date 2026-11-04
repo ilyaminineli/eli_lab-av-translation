@@ -38,6 +38,7 @@ class Application:
         }
         self._frame_snapshots: dict[str, FrameSnapshot] = {}
         self._overlay_frames: dict[str, FrameSnapshot] = {}
+        self._overlay_started_at: dict[str, float] = {}
         self._overlay_images: dict[str, ImageOverlayPlayer] = {}
         self._overlay_videos: dict[str, VideoDeck] = {}
         self._automation_collection_id: str | None = None
@@ -139,6 +140,8 @@ class Application:
         )
         layer.overlay_kind = kind
         layer.source_type = "overlay"
+        import time
+        self._overlay_started_at[layer.id] = time.perf_counter()
         layer.source_id = f"overlay:{layer.id}"
         if kind == "video":
             deck = VideoDeck(f"overlay_{layer.id}")
@@ -161,6 +164,7 @@ class Application:
         if deck is not None:
             deck.close()
         self._overlay_frames.pop(layer_id, None)
+        self._overlay_started_at.pop(layer_id, None)
 
     def _clear_overlays(self) -> None:
         for layer_id in tuple(self._overlay_images):
@@ -238,10 +242,19 @@ class Application:
     def current_frames(self) -> dict[str, FrameSnapshot]:
         # Both outputs consume the same CPU snapshots; each owns separate GL textures.
         frames = dict(self._frame_snapshots)
-        frames.update({
-            f"overlay:{layer_id}": snapshot
-            for layer_id, snapshot in self._overlay_frames.items()
-        })
+        import time
+        now = time.perf_counter()
+        for layer_id, snapshot in self._overlay_frames.items():
+            layer = self.composition.get_layer(layer_id)
+            started = self._overlay_started_at.get(layer_id, now)
+            if layer is None:
+                continue
+            elapsed = now - started
+            if elapsed < layer.overlay_in:
+                continue
+            if layer.overlay_out is not None and elapsed >= layer.overlay_out:
+                continue
+            frames[f"overlay:{layer_id}"] = snapshot
         return frames
 
     def performance_snapshot(self) -> dict[str, int | float]:
