@@ -39,7 +39,10 @@ class Layer:
     def __post_init__(self) -> None:
         self.opacity = min(1.0, max(0.0, float(self.opacity)))
         self.overlay_in = max(0.0, float(self.overlay_in))
-        self.overlay_out = None if self.overlay_out is None else max(self.overlay_in, float(self.overlay_out))
+        self.overlay_out = (
+            None if self.overlay_out is None
+            else max(self.overlay_in, float(self.overlay_out))
+        )
         self.overlay_speed = max(0.1, min(4.0, float(self.overlay_speed)))
         self.overlay_frame_hold = max(1, min(24, int(self.overlay_frame_hold)))
         if self.overlay_mask_mode not in {"none", "alpha", "luma"}:
