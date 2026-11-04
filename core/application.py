@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -29,6 +30,7 @@ class Application:
 
     def __init__(self) -> None:
         self.events = EventBus()
+        self._animation_started_at = time.perf_counter()
         self.project_manager = ProjectManager()
         self.media_library = MediaLibrary()
         texture_root = Path(__file__).resolve().parents[1] / "resources" / "textures"
@@ -67,6 +69,9 @@ class Application:
                     z_index=index,
                 )
             )
+
+    def animation_time(self) -> float:
+        return max(0.0, time.perf_counter() - self._animation_started_at)
 
     def set_window(self, window: Any) -> None:
         self.window = window
