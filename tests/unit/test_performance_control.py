@@ -25,7 +25,7 @@ def test_control_event_validates_protocol_fields() -> None:
         ControlEvent("python.exec", "sonicpi")
 
     with pytest.raises(ValueError):
-        ControlEvent("scene.select", "sonicpi", {"scene_id": "../bad"})
+        ControlEvent("scene.select", "sonicpi", {"bad/key": "value"})
 
 
 def test_control_queue_is_bounded_and_drains_in_order() -> None:
@@ -188,3 +188,15 @@ def test_invalid_event_does_not_partially_change_state_or_consume_sequence() -> 
     assert state.apply(valid_start) is True
     assert state.bpm == 92.0
     assert state.transport_running is True
+
+
+
+def test_scene_event_rejects_invalid_scene_identifier() -> None:
+    state = PerformanceControlState()
+    event = ControlEvent(
+        "scene.select",
+        "sonicpi",
+        {"scene_id": "../bad", "intensity": 0.5},
+    )
+    with pytest.raises(ValueError):
+        state.apply(event)
