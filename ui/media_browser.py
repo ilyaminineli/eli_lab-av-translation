@@ -237,6 +237,12 @@ class MediaBrowser(QWidget):
         self._thumbnail_workers.pop(asset_id, None)
         self._thumbnail_pending.discard(asset_id)
         if isinstance(thumbnail_path, str) and thumbnail_path:
+            # A folder may have been removed while its thumbnail was decoding.
+            # Do not leave the late result behind as an unreferenced cache file.
+            if self.library.get_asset(asset_id) is None:
+                Path(thumbnail_path).unlink(missing_ok=True)
+                self._pump_thumbnail_queue()
+                return
             self.library.update_thumbnail(asset_id, thumbnail_path)
             for index in range(self.asset_list.count()):
                 item = self.asset_list.item(index)
