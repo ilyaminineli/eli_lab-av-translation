@@ -7,6 +7,7 @@ from generators.catalog import (
     GENERATOR_TYPES,
     animation_code,
     default_generator_settings,
+    text_animation_code,
     normalize_settings,
 )
 
@@ -143,3 +144,70 @@ def test_new_generator_patterns_survive_normalization(
 def test_unknown_generator_pattern_returns_to_safe_default() -> None:
     assert normalize_settings("geometry", {"pattern": "invalid"})["pattern"] == "rings"
     assert normalize_settings("waveform", {"pattern": "invalid"})["pattern"] == "sine"
+
+
+def test_particle_generator_settings_are_bounded() -> None:
+    settings = normalize_settings("particles", {
+        "density": 500,
+        "speed": 9.0,
+        "size": -1.0,
+        "spread": 2.0,
+        "trail": -0.5,
+        "mode": "unknown",
+    })
+
+    assert settings["density"] == 120
+    assert settings["speed"] == 2.0
+    assert settings["size"] == 0.02
+    assert settings["spread"] == 1.0
+    assert settings["trail"] == 0.0
+    assert settings["mode"] == "drift"
+
+
+def test_text_animation_modes_map_to_gpu_codes() -> None:
+    expected = {
+        "none": 0,
+        "type_on": 1,
+        "word_reveal": 2,
+        "line_wave": 3,
+        "jitter": 4,
+        "crawl": 5,
+        "glitch": 6,
+    }
+    for mode, code in expected.items():
+        assert text_animation_code({"text_animation": mode}) == code
+
+
+def test_text_animation_changes_do_not_invalidate_static_raster() -> None:
+    from core.composition import Layer
+    from generators.rasterizer import GeneratorRasterizer
+
+    settings = default_generator_settings("text")
+    layer = Layer(
+        id="animated-text",
+        source_type="generator",
+        generator_type="text",
+        generator_settings=settings,
+    )
+    original = GeneratorRasterizer.fingerprint(layer)
+    layer.generator_settings["text_animation"] = "line_wave"
+    layer.generator_settings["text_animation_speed"] = 4.0
+    layer.generator_settings["text_animation_amount"] = 0.1
+
+    assert GeneratorRasterizer.fingerprint(layer) == original
+
+
+def test_text_layout_changes_invalidate_static_raster() -> None:
+    from core.composition import Layer
+    from generators.rasterizer import GeneratorRasterizer
+
+    layer = Layer(
+        id="collage-text",
+        source_type="generator",
+        generator_type="text",
+        generator_settings=default_generator_settings("text"),
+    )
+    first = GeneratorRasterizer.fingerprint(layer)
+    layer.generator_settings["text_layout"] = "collage"
+
+    assert GeneratorRasterizer.fingerprint(layer) != first
