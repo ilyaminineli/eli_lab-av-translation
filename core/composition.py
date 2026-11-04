@@ -23,6 +23,9 @@ class Layer:
     z_index: int = 0
     generator_type: str | None = None
     generator_settings: dict[str, Any] = field(default_factory=dict)
+    layer_effects: dict[str, Any] = field(default_factory=dict)
+    overlay_path: str | None = None
+    overlay_kind: str | None = None
 
     def __post_init__(self) -> None:
         self.opacity = min(1.0, max(0.0, float(self.opacity)))
@@ -42,11 +45,14 @@ class Layer:
         allowed = {
             "id", "name", "source_type", "source_id", "visible", "locked",
             "opacity", "blend_mode", "position", "scale", "rotation", "z_index",
-            "generator_type", "generator_settings",
+            "generator_type", "generator_settings", "layer_effects",
+            "overlay_path", "overlay_kind",
         }
         values = {key: value for key, value in data.items() if key in allowed}
         if not isinstance(values.get("generator_settings", {}), dict):
             values["generator_settings"] = {}
+        if not isinstance(values.get("layer_effects", {}), dict):
+            values["layer_effects"] = {}
         return cls(**values)
 
 
