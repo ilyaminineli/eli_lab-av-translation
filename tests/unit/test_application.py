@@ -1,4 +1,3 @@
-from core.application import Application
 from core.composition import Composition
 
 

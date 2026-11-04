@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import os
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
 
 from media.models import MediaAsset
 
