@@ -15,17 +15,17 @@
 ## First test workflow
 
 1. Launch the application.
-2. Add a local folder containing video files.
+2. Drag a local video folder into the Media Library, or use Add Media Folder.
 3. Wait for indexing and thumbnails.
 4. Double-click a clip to assign it to the selected deck.
 5. Repeat for the other decks.
-6. Adjust visibility, opacity and blend mode from the Layers dock.
+6. Adjust visibility, opacity, blend mode and transforms in the Layers dock.
 7. Use Random Set and Randomize Layout.
 8. Save a project as .eliav, close the application and reopen it.
 
-## Limitations of the first test build
+## Playback limitations
 
 - Audio playback is not included; video is treated as a visual source.
-- Reverse playback, speed control, masks, transitions and external output are not included.
+- Reverse playback and variable-speed playback are not included.
 - Playback performance depends on CPU decoding capability and source codec.
 - The application currently targets an OpenGL 3.3 Core context.

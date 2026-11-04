@@ -3,8 +3,8 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QKeySequence
+from PySide6.QtCore import QTimer, Qt
+from PySide6.QtGui import QAction, QGuiApplication, QKeySequence
 from PySide6.QtWidgets import (
     QDockWidget,
     QFileDialog,
@@ -15,9 +15,12 @@ from PySide6.QtWidgets import (
 )
 
 from core.application import Application
+from ui.automation_panel import AutomationPanel
 from ui.deck_panel import DeckPanel
+from ui.effects_panel import EffectsPanel
 from ui.layer_panel import LayerPanel
 from ui.media_browser import MediaBrowser
+from ui.output_window import OutputWindowManager
 from ui.performance_view import PerformanceView
 from ui.transport_bar import TransportBar
 
@@ -28,9 +31,10 @@ class MainWindow(QMainWindow):
     def __init__(self, application: Application) -> None:
         super().__init__()
         self.application = application
+        self.output_manager = OutputWindowManager(application, self)
         self.setWindowTitle("ELI LAB AV Translation")
-        self.resize(1500, 920)
-        self.setMinimumSize(1050, 680)
+        self.resize(1600, 980)
+        self.setMinimumSize(1100, 700)
 
         self.performance_view = PerformanceView(application, self)
         self.setCentralWidget(self.performance_view)
@@ -47,6 +51,17 @@ class MainWindow(QMainWindow):
         self.layer_dock = self._make_dock("LAYERS", self.layer_panel)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.layer_dock)
 
+        self.effects_panel = EffectsPanel(application.effects, self)
+        self.effects_dock = self._make_dock("EFFECTS + OVERLAYS", self.effects_panel)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.effects_dock)
+        self.tabifyDockWidget(self.layer_dock, self.effects_dock)
+
+        self.automation_panel = AutomationPanel(application.media_library, self)
+        self.automation_dock = self._make_dock("AUTO PERFORMANCE", self.automation_panel)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.automation_dock)
+        self.tabifyDockWidget(self.effects_dock, self.automation_dock)
+        self.layer_dock.raise_()
+
         self.transport_bar = TransportBar(self)
         toolbar = QToolBar("Performance")
         toolbar.setMovable(False)
@@ -58,11 +73,14 @@ class MainWindow(QMainWindow):
         self.performance_view.render_status_changed.connect(self.status_label.setText)
 
         self.media_browser.assign_requested.connect(self.assign_media)
+        self.media_browser.library_updated.connect(self.automation_panel.refresh_collections)
         self.deck_panel.action_requested.connect(self.deck_action)
         self.deck_panel.loop_changed.connect(self.set_deck_loop)
         self.transport_bar.random_set_requested.connect(self.randomize_decks)
         self.transport_bar.random_layout_requested.connect(self.randomize_layout)
         self.transport_bar.lock_all_requested.connect(self.lock_all)
+        self.automation_panel.start_requested.connect(self.start_automation)
+        self.automation_panel.stop_requested.connect(self.stop_automation)
 
         self._create_actions()
         self.setDockOptions(
@@ -71,9 +89,19 @@ class MainWindow(QMainWindow):
             | QMainWindow.DockOption.AllowNestedDocks
         )
 
+        self._runtime_timer = QTimer(self)
+        self._runtime_timer.setInterval(16)
+        self._runtime_timer.timeout.connect(self._runtime_tick)
+        self._runtime_timer.start()
+
+        self._status_timer = QTimer(self)
+        self._status_timer.setInterval(500)
+        self._status_timer.timeout.connect(self._refresh_automation_status)
+        self._status_timer.start()
+
     def _make_dock(self, title: str, widget) -> QDockWidget:
         dock = QDockWidget(title, self)
-        dock.setObjectName(title.lower().replace(" ", "_"))
+        dock.setObjectName(title.lower().replace(" ", "_").replace("+", "plus").replace(" ", "_"))
         dock.setWidget(widget)
         dock.setAllowedAreas(
             Qt.DockWidgetArea.LeftDockWidgetArea
@@ -116,14 +144,48 @@ class MainWindow(QMainWindow):
         file_menu.addAction(exit_action)
 
         view_menu = self.menuBar().addMenu("&View")
-        view_menu.addAction(self.media_dock.toggleViewAction())
-        view_menu.addAction(self.deck_dock.toggleViewAction())
-        view_menu.addAction(self.layer_dock.toggleViewAction())
+        for dock in (
+            self.media_dock,
+            self.deck_dock,
+            self.layer_dock,
+            self.effects_dock,
+            self.automation_dock,
+        ):
+            view_menu.addAction(dock.toggleViewAction())
+
+        output_menu = view_menu.addMenu("PROJECTOR OUTPUT")
+        screens = QGuiApplication.screens()
+        for index, screen in enumerate(screens, start=1):
+            geometry = screen.geometry()
+            label = (
+                f"Display {index} · {screen.name()} "
+                f"({geometry.width()}×{geometry.height()})"
+            )
+            action = QAction(label, self)
+            action.triggered.connect(
+                lambda checked=False, target=screen: self.open_projector_output(target)
+            )
+            output_menu.addAction(action)
+        output_menu.addSeparator()
+        close_output_action = QAction("Close Projector Output", self)
+        close_output_action.triggered.connect(self.output_manager.close)
+        output_menu.addAction(close_output_action)
 
         help_menu = self.menuBar().addMenu("&Help")
         about_action = QAction("&About", self)
         about_action.triggered.connect(self.show_about)
         help_menu.addAction(about_action)
+
+    def open_projector_output(self, screen) -> None:
+        try:
+            self.output_manager.open_on_screen(screen)
+            self.statusBar().showMessage(
+                f"Projector output opened on {screen.name()}. Press Escape on the output to close it.",
+                6000,
+            )
+        except Exception as exc:
+            _LOG.exception("Could not open projector output")
+            QMessageBox.critical(self, "Projector output failed", str(exc))
 
     def assign_media(self, asset: object, deck_id: str) -> None:
         try:
@@ -177,6 +239,61 @@ class MainWindow(QMainWindow):
         self.deck_panel.refresh()
         self.layer_panel.refresh()
 
+    def start_automation(
+        self,
+        collection_id: str | None,
+        duration_seconds: float | None,
+        settings,
+    ) -> None:
+        try:
+            count = self.application.start_automation(
+                collection_id=collection_id,
+                settings=settings,
+                duration_seconds=duration_seconds,
+            )
+            self.deck_panel.refresh()
+            self.layer_panel.refresh()
+            self.effects_panel.sync_from_settings()
+            self.automation_panel.set_running(
+                True,
+                f"Running · {count} deck(s) automated. Layouts and looks will change on their own.",
+            )
+            self._refresh_automation_status()
+        except Exception as exc:
+            _LOG.exception("Could not start automation")
+            QMessageBox.warning(self, "Automation could not start", str(exc))
+
+    def stop_automation(self) -> None:
+        self.application.stop_automation()
+        self.automation_panel.set_running(False, "Stopped · video decks keep their current playback.")
+
+    def _runtime_tick(self) -> None:
+        self.application.refresh_frames()
+        was_running = self.application.automation.running
+        changed = self.application.tick_automation()
+        if changed:
+            self.deck_panel.refresh()
+            self.layer_panel.refresh()
+            self.effects_panel.sync_from_settings()
+        if was_running and not self.application.automation.running:
+            self.automation_panel.set_running(
+                False,
+                self.application.automation.last_action,
+            )
+
+    def _refresh_automation_status(self) -> None:
+        director = self.application.automation
+        if not director.running:
+            return
+        remaining = director.remaining_seconds()
+        if remaining is None:
+            time_label = "until stopped"
+        else:
+            minutes = int(remaining // 60)
+            seconds = int(remaining % 60)
+            time_label = f"{minutes:02d}:{seconds:02d} remaining"
+        self.automation_panel.set_status(f"RUNNING · {director.last_action} · {time_label}")
+
     def new_project(self) -> None:
         answer = QMessageBox.question(
             self,
@@ -188,6 +305,8 @@ class MainWindow(QMainWindow):
         self.application.reset_project()
         self.deck_panel.refresh()
         self.layer_panel.refresh()
+        self.effects_panel.sync_from_settings()
+        self.automation_panel.set_running(False, "Ready · import footage to begin.")
         self.statusBar().showMessage("New composition created.", 3000)
 
     def open_project(self) -> None:
@@ -203,6 +322,7 @@ class MainWindow(QMainWindow):
             self.application.load_project(path)
             self.deck_panel.refresh()
             self.layer_panel.refresh()
+            self.effects_panel.sync_from_settings()
             self.statusBar().showMessage(f"Opened {Path(path).name}", 4000)
         except Exception as exc:
             _LOG.exception("Could not open project %s", path)
@@ -239,12 +359,15 @@ class MainWindow(QMainWindow):
         QMessageBox.about(
             self,
             "About ELI LAB AV Translation",
-            "ELI LAB AV Translation 0.1.0\n"
-            "A modular live audiovisual compositor.\n\n"
-            "M0: rendering core · M1: video collage",
+            "ELI LAB AV Translation 0.2.0\n"
+            "Automated video collage, master effects and projector output.\n\n"
+            "Audio and Sonic Pi features remain separate future milestones.",
         )
 
     def closeEvent(self, event) -> None:
+        self._runtime_timer.stop()
+        self._status_timer.stop()
+        self.output_manager.close()
         self.performance_view.shutdown_renderer()
         self.application.shutdown()
         super().closeEvent(event)

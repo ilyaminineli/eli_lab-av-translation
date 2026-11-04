@@ -11,12 +11,24 @@ _LOG = logging.getLogger(__name__)
 
 
 class VideoDecoder:
-    """Timestamp-paced PyAV decoder running outside the Qt/GPU render thread."""
+    """Timestamp-paced PyAV decoder with optional random in/out segment looping."""
 
-    def __init__(self, path: str | Path, frame_queue: FrameQueue, loop: bool = True) -> None:
+    def __init__(
+        self,
+        path: str | Path,
+        frame_queue: FrameQueue,
+        loop: bool = True,
+        segment_start: float = 0.0,
+        segment_end: float | None = None,
+    ) -> None:
         self.path = Path(path).expanduser().resolve()
         self.frame_queue = frame_queue
-        self.loop = loop
+        self.loop = bool(loop)
+        self.segment_start = max(0.0, float(segment_start))
+        self.segment_end = (
+            max(self.segment_start + 0.05, float(segment_end))
+            if segment_end is not None else None
+        )
         self._condition = threading.Condition()
         self._thread: threading.Thread | None = None
         self._running = False
@@ -83,7 +95,8 @@ class VideoDecoder:
             self._condition.notify_all()
 
     def set_loop(self, enabled: bool) -> None:
-        self.loop = bool(enabled)
+        with self._condition:
+            self.loop = bool(enabled)
 
     def stop(self, timeout: float = 2.0) -> None:
         with self._condition:
@@ -129,7 +142,7 @@ class VideoDecoder:
                 self._playing = False
             return
 
-        seek_to = 0.0
+        seek_to = self.segment_start
         while True:
             with self._condition:
                 if not self._running:
@@ -151,7 +164,7 @@ class VideoDecoder:
 
                     average_rate = float(stream.average_rate) if stream.average_rate else 30.0
                     first_timestamp: float | None = None
-                    timeline_start = time.monotonic()
+                    timeline_start = 0.0
                     frame_index = 0
                     restart = False
 
@@ -161,7 +174,7 @@ class VideoDecoder:
                                 return
                             pending_seek = self._seek_request
                         if pending_seek is not None:
-                            seek_to = self._take_seek_request(0.0)
+                            seek_to = self._take_seek_request(seek_to)
                             restart = True
                             break
 
@@ -169,15 +182,23 @@ class VideoDecoder:
                             timestamp = float(frame.pts * stream.time_base)
                         else:
                             timestamp = frame_index / max(average_rate, 0.1)
+                        frame_index += 1
+
+                        if timestamp + 0.03 < seek_to:
+                            continue
+                        if self.segment_end is not None and timestamp >= self.segment_end:
+                            break
+
                         if first_timestamp is None:
                             first_timestamp = timestamp
+                            timeline_start = time.monotonic()
 
                         due = timeline_start + (timestamp - first_timestamp)
                         wait_result = self._wait_for_deadline(due)
                         if wait_result == "stop":
                             return
                         if wait_result == "seek":
-                            seek_to = self._take_seek_request(0.0)
+                            seek_to = self._take_seek_request(seek_to)
                             restart = True
                             break
 
@@ -191,12 +212,13 @@ class VideoDecoder:
                                 timestamp=timestamp,
                             )
                         )
-                        frame_index += 1
 
                 if restart:
                     continue
-                if self.loop:
-                    seek_to = 0.0
+                with self._condition:
+                    should_loop = self.loop
+                if should_loop:
+                    seek_to = self.segment_start
                     continue
                 with self._condition:
                     self._playing = False

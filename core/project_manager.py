@@ -8,17 +8,21 @@ from typing import Any
 from core.composition import Composition
 
 PROJECT_FORMAT = "eli_lab_av_translation"
-PROJECT_SCHEMA_VERSION = 1
+PROJECT_SCHEMA_VERSION = 2
 
 
 class ProjectManager:
     """Read/write portable project files without copying source media."""
+
+    def __init__(self) -> None:
+        self.last_app_state: dict[str, Any] = {}
 
     def save(
         self,
         path: str | Path,
         composition: Composition,
         decks: list[dict[str, Any]] | None = None,
+        app_state: dict[str, Any] | None = None,
     ) -> Path:
         destination = Path(path).expanduser().resolve()
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -28,6 +32,7 @@ class ProjectManager:
             "project": {"name": composition.name},
             "composition": composition.to_dict(),
             "decks": decks or [],
+            "app_state": app_state or {},
         }
         temporary = destination.with_name(destination.name + ".tmp")
         try:
@@ -56,4 +61,7 @@ class ProjectManager:
         decks = payload.get("decks", [])
         if not isinstance(decks, list):
             raise ValueError("Project deck data must be a list.")
+        self.last_app_state = payload.get("app_state", {})
+        if not isinstance(self.last_app_state, dict):
+            self.last_app_state = {}
         return composition, decks
