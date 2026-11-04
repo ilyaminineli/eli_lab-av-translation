@@ -47,7 +47,7 @@ The editor includes reproducible-ready text pools in English, Japanese or biling
 - Identity / 自己
 - Random mix
 
-Generated text is inserted into the editable text field and stored in the project. It does not regenerate on every frame. The collage arrangement uses a saved seed so a saved project retains the same composition until the user requests another random text set.
+Generated text is inserted into the editable text field and stored in the project. Regeneration is manual or scheduled by Auto Performance; it never occurs per frame. The repository's local English wordlists and Japanese reading/kanji lists can enrich the curated phrase sets, with the curated pools retained as a fallback. The dictionary checkbox lets the user opt out. Language, theme, fragment count and dictionary preference are saved with generator settings. The collage arrangement uses a saved seed so a saved project retains the same composition until the user requests another random text set.
 
 ### Waveform
 
@@ -123,7 +123,7 @@ Available looks: Clean, 16mm Film, VHS / Tape, CRT, Bleach Bypass, Dream Haze, D
 
 Layer settings and media references are stored in .eliav projects. Older projects load with neutral defaults for the added layer fields.
 
-## Remaining M2 work
+## Auto Performance integration\n\nAuto Performance can now vary generators, regenerate text pools and mix independent per-layer FX. Generator changes are scheduled separately from footage cuts, layout changes and master looks. Text generation draws from the curated English/Japanese pools plus optional local dictionary files; all results are saved as ordinary generator settings and therefore survive project save/load. Locked layers are excluded from automation.\n\n## Remaining M2 work
 
 - General particle simulation with emitter shapes, lifetime/velocity curves and force fields.
 - More compact and densely packed typographic layout solvers, text paths, variable fonts and vertical CJK composition.
@@ -131,6 +131,6 @@ Layer settings and media references are stored in .eliav projects. Older project
 - More animated overlay controls: in/out timing, playback speed, frame hold, mask/track matte and sync options.
 - Per-layer effect stage ordering and user-saveable FX chain presets.
 - User-defined generator presets and scene banks.
-- Automation integration for generator/text/overlay scene variation with manual override and lock respect.
+- Auto Performance can periodically vary geometry, waveform, particle and text generator settings, regenerate bilingual dictionary-backed text, and vary enabled per-layer FX presets. Each generator/FX variation has a separate interval; locked layers are never changed. The UI exposes generator/text and layer-FX variation toggles.
 
 Audio reactivity remains M3; Sonic Pi control remains M4.
