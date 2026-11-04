@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -418,6 +420,7 @@ class LayerPanel(QWidget):
         self.application.layer_manager.update_layer(
             layer.id,
             layer_effects=normalize_layer_effects(values),
+            fx_manual_override_until=time.time() + 30.0,
         )
 
     def _layer_fx_enabled_changed(self, enabled: bool) -> None:
@@ -434,6 +437,7 @@ class LayerPanel(QWidget):
         self.application.layer_manager.update_layer(
             layer.id,
             layer_effects=apply_layer_effect_preset(name),
+            fx_manual_override_until=time.time() + 30.0,
         )
         self._loading = True
         self._load_layer_effects(layer)
