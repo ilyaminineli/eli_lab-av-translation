@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from media.frame_queue import FrameQueue
 from media.video_deck import VideoDeck
 
 
