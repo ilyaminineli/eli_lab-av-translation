@@ -328,6 +328,10 @@ class GeneratorsPanel(QWidget):
         self.overlay_frame_hold_spin.setRange(1, 24)
         self.overlay_loop_check = QCheckBox("Loop playback")
         self.overlay_scene_sync_check = QCheckBox("Sync to scene changes")
+        self.overlay_scene_sync_check.setEnabled(False)
+        self.overlay_scene_sync_check.setToolTip(
+            "Scene-clock synchronization is not connected in the Video Mixer milestone."
+        )
         self.overlay_mask_mode = QComboBox()
         self.overlay_mask_mode.addItem("No matte", "none")
         self.overlay_mask_mode.addItem("Alpha matte", "alpha")
@@ -641,17 +645,24 @@ class GeneratorsPanel(QWidget):
                 control.blockSignals(False)
 
             is_video = layer.overlay_kind == "video"
-            self.overlay_speed_spin.setEnabled(not is_video)
-            self.overlay_frame_hold_spin.setEnabled(not is_video)
+            image_player = self.application._overlay_images.get(layer.id)
+            is_animated_image = bool(image_player and image_player.animated)
+            self.overlay_speed_spin.setEnabled(is_animated_image)
+            self.overlay_frame_hold_spin.setEnabled(is_animated_image)
+            self.overlay_loop_check.setEnabled(is_video or is_animated_image)
             if is_video:
                 self.overlay_hint.setText(
                     "Video overlays support looping and local in/out timing. "
-                    "Playback speed is not yet available for video sources."
+                    "Playback speed and frame hold are not available for video sources yet."
+                )
+            elif is_animated_image:
+                self.overlay_hint.setText(
+                    "Animated images support playback speed, frame hold and looping."
                 )
             else:
                 self.overlay_hint.setText(
-                    "Animated images support playback speed, frame hold and looping. "
-                    "Still images remain static."
+                    "Still images use local in/out timing, opacity, blend and matte. "
+                    "Playback speed, frame hold and looping do not apply."
                 )
             self.hint_label.setText(
                 f"Editing {layer.name} · opacity and blend mode update live."
