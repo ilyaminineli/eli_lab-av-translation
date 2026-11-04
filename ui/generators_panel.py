@@ -343,6 +343,7 @@ class GeneratorsPanel(QWidget):
                 self.stroke_color,
                 self.primary_color,
                 self.secondary_color,
+                self.background_color,
                 self.animation_combo,
                 self.text_animation_combo,
                 self.geometry_pattern_combo,
