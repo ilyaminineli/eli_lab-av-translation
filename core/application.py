@@ -17,6 +17,7 @@ from generators.catalog import GENERATOR_TYPES, default_generator_settings
 from media.frame_queue import FrameSnapshot
 from media.image_overlay import ImageOverlayPlayer
 from media.library import MediaLibrary
+from media.asset_index import VisualAssetIndex
 from media.scanner import SUPPORTED_VIDEO_EXTENSIONS
 from media.video_deck import VideoDeck
 
@@ -30,6 +31,9 @@ class Application:
         self.events = EventBus()
         self.project_manager = ProjectManager()
         self.media_library = MediaLibrary()
+        texture_root = Path(__file__).resolve().parents[1] / "resources" / "textures"
+        self.visual_asset_index = VisualAssetIndex([texture_root])
+        self.visual_asset_index.scan()
         self.performance_manager = PerformanceManager()
         self.automation = AutomationDirector()
         self.effects = EffectSettings()
@@ -98,6 +102,16 @@ class Application:
         layer.source_id = f"generator:{layer.id}"
         self.events.publish("generator.added", layer=layer)
         return layer
+
+    def search_visual_assets(self, query: str = "", purpose: str | None = None,
+                             kind: str | None = None, category: str | None = None):
+        return self.visual_asset_index.search(query, purpose, kind, category)
+
+    def add_library_asset_overlay(self, asset_id: str) -> Layer:
+        asset = next((item for item in self.visual_asset_index.assets if item.id == asset_id), None)
+        if asset is None:
+            raise KeyError(f"Unknown visual asset: {asset_id}")
+        return self.add_media_overlay(asset.path)
 
     def add_media_overlay(self, path: str | Path) -> Layer:
         source = Path(path).expanduser().resolve()
