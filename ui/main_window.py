@@ -90,7 +90,8 @@ class MainWindow(QMainWindow):
         )
 
         self._runtime_timer = QTimer(self)
-        self._runtime_timer.setInterval(16)
+        # Refresh queues and automation at the configured render cadence.
+        self._runtime_timer.setInterval(33)
         self._runtime_timer.timeout.connect(self._runtime_tick)
         self._runtime_timer.start()
 
