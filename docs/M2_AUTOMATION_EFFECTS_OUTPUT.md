@@ -95,4 +95,4 @@ Overlay layers expose persisted in/out metadata, playback speed, frame hold, sce
 
 Auto Performance varies enabled per-layer FX independently of generator variation. A manual layer-FX edit starts a 30-second cooldown; locked layers are always excluded. The same scheduled mutation updates the shared composition model, so both output windows see the same state.
 
-The in/out and scene-sync fields are stored and exposed as timeline contracts; M3's scene/timeline clock will provide their absolute scheduling semantics and video-overlay trim seeking. This is an explicit boundary rather than pretending that a static project clock exists in M2.
+Overlay in/out are layer-local elapsed seconds from attachment and gate the shared CPU frame snapshot, so preview and projector hide/show the overlay together. Scene-sync remains a persisted intent for M3's scene/timeline clock; video-overlay source trimming is not yet implemented.
