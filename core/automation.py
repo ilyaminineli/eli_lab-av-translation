@@ -323,7 +323,11 @@ class AutomationDirector:
                 kind = layer.generator_type
                 values = normalize_settings(kind, layer.generator_settings)
                 updated = False
-                if kind == "text" and self.settings.randomize_text:
+                if (
+                    kind == "text"
+                    and self.settings.randomize_text
+                    and bool(values.get("text_auto_regenerate", True))
+                ):
                     values.update({
                         "text": random_text_sample(
                             str(values.get("text_pool_language", self.settings.text_language)),
