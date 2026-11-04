@@ -56,7 +56,9 @@ class AutomationSettings:
         self.min_effect_interval = max(2.0, float(self.min_effect_interval))
         self.max_effect_interval = max(self.min_effect_interval, float(self.max_effect_interval))
         self.min_generator_interval = max(3.0, float(self.min_generator_interval))
-        self.max_generator_interval = max(self.min_generator_interval, float(self.max_generator_interval))
+        self.max_generator_interval = max(
+            self.min_generator_interval, float(self.max_generator_interval)
+        )
         if self.text_language not in {"english", "japanese", "bilingual"}:
             self.text_language = "bilingual"
         if self.text_theme not in {"random", "memory", "body", "signal", "ritual", "identity"}:
@@ -331,7 +333,11 @@ class AutomationDirector:
                     values.update(random_palette_look(self.rng))
                     updated = True
 
-                if self.settings.randomize_generators and kind == "text" and self.settings.randomize_text:
+                if (
+                    self.settings.randomize_generators
+                    and kind == "text"
+                    and self.settings.randomize_text
+                ): 
                     if bool(values.get("text_auto_regenerate", True)):
                         values.update({
                             "text": random_text_sample(
@@ -365,7 +371,9 @@ class AutomationDirector:
                     updated = True
                 elif self.settings.randomize_generators and kind == "waveform":
                     values.update({
-                        "pattern": self.rng.choice(("sine", "lissajous", "orbit", "radial", "rose")),
+                        "pattern": self.rng.choice(
+                            ("sine", "lissajous", "orbit", "radial", "rose")
+                        ),
                         "density": self.rng.randint(2, 9),
                         "amplitude": self.rng.uniform(0.08, 0.38),
                         "frequency": self.rng.uniform(0.8, 8.0),
@@ -469,7 +477,11 @@ class AutomationDirector:
 
         if (
                 (
-                        self.settings.randomize_generators or self.settings.randomize_palette or self.settings.randomize_layer_effects or self.settings.randomize_overlays)
+                        self.settings.randomize_generators
+                        or self.settings.randomize_palette
+                        or self.settings.randomize_layer_effects
+                        or self.settings.randomize_overlays
+                )
                 and self._generators_due is not None
                 and current >= self._generators_due
         ):
