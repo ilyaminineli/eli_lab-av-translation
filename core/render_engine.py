@@ -109,6 +109,8 @@ class RenderEngine:
             height,
             effects=effects,
             time_seconds=time.perf_counter(),
+            canvas_width=composition.width,
+            canvas_height=composition.height,
         )
         finished = time.perf_counter()
         self.last_composite_ms = (finished - composite_started) * 1000.0
