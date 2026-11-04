@@ -175,19 +175,20 @@ class PerformanceControlState:
             raise ValueError(f"Control field {key!r} must be a short identifier.")
         return value
 
-    def _read_sequence(self, event: ControlEvent) -> bool:
+    def _sequence_is_fresh(self, event: ControlEvent) -> bool:
         if event.sequence is None:
             return True
         key = (event.source, event.session_id)
         previous = self._last_sequences.get(key, -1)
-        if event.sequence <= previous:
-            return False
-        self._last_sequences[key] = event.sequence
-        return True
+        return event.sequence > previous
+
+    def _record_sequence(self, event: ControlEvent) -> None:
+        if event.sequence is not None:
+            self._last_sequences[(event.source, event.session_id)] = event.sequence
 
     def apply(self, event: ControlEvent) -> bool:
         """Apply one event atomically; return False for stale duplicate sequences."""
-        if not self._read_sequence(event):
+        if not self._sequence_is_fresh(event):
             return False
 
         payload = event.payload
@@ -254,6 +255,7 @@ class PerformanceControlState:
             else:
                 setattr(self, name, value)
 
+        self._record_sequence(event)
         self.source_id = event.source
         self.last_event_at = event.received_at
         self.last_event_kind = event.kind
