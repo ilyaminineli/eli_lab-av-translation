@@ -44,27 +44,17 @@ class AutomationSettings:
 
     def normalize(self) -> None:
         self.min_segment_seconds = max(0.5, float(self.min_segment_seconds))
-        self.max_segment_seconds = max(
-            self.min_segment_seconds, float(self.max_segment_seconds)
-        )
+        self.max_segment_seconds = max(self.min_segment_seconds, float(self.max_segment_seconds))
         self.min_cut_interval = max(1.0, float(self.min_cut_interval))
         self.max_cut_interval = max(self.min_cut_interval, float(self.max_cut_interval))
         self.loop_probability = max(0.0, min(1.0, float(self.loop_probability)))
-        self.clip_switch_probability = max(
-            0.0, min(1.0, float(self.clip_switch_probability))
-        )
+        self.clip_switch_probability = max(0.0, min(1.0, float(self.clip_switch_probability)))
         self.min_layout_interval = max(2.0, float(self.min_layout_interval))
-        self.max_layout_interval = max(
-            self.min_layout_interval, float(self.max_layout_interval)
-        )
+        self.max_layout_interval = max(self.min_layout_interval, float(self.max_layout_interval))
         self.min_effect_interval = max(2.0, float(self.min_effect_interval))
-        self.max_effect_interval = max(
-            self.min_effect_interval, float(self.max_effect_interval)
-        )
+        self.max_effect_interval = max(self.min_effect_interval, float(self.max_effect_interval))
         self.min_generator_interval = max(3.0, float(self.min_generator_interval))
-        self.max_generator_interval = max(
-            self.min_generator_interval, float(self.max_generator_interval)
-        )
+        self.max_generator_interval = max(self.min_generator_interval, float(self.max_generator_interval))
         if self.text_language not in {"english", "japanese", "bilingual"}:
             self.text_language = "bilingual"
         if self.text_theme not in {"random", "memory", "body", "signal", "ritual", "identity"}:
