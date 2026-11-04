@@ -161,7 +161,9 @@ class MediaLibrary:
                 """
                 DELETE FROM collections
                 WHERE id NOT IN (SELECT DISTINCT collection_id FROM assets)
-                """
+                  AND id != ?
+                """,
+                (collection_id,),
             )
         return assets
 
