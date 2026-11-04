@@ -7,6 +7,7 @@ from PySide6.QtCore import QTimer, Signal
 from PySide6.QtGui import QColor, QFont, QPainter
 from PySide6.QtOpenGLWidgets import QOpenGLWidget
 
+from config import RENDER_TARGET_FPS
 from core.application import Application
 from core.render_engine import RenderEngine
 
@@ -25,11 +26,14 @@ class PerformanceView(QOpenGLWidget):
         self._initialization_error: str | None = None
         self._last_fps_time = time.perf_counter()
         self._frame_count = 0
+        self._render_time_sum_ms = 0.0
+        self._upload_time_sum_ms = 0.0
         self.setMinimumSize(640, 360)
         self.setObjectName("masterPerformanceView")
 
         self._timer = QTimer(self)
-        self._timer.setInterval(16)
+        interval_ms = max(1, round(1000.0 / max(1, RENDER_TARGET_FPS)))
+        self._timer.setInterval(interval_ms)
         self._timer.timeout.connect(self.update)
         self._timer.start()
 
@@ -73,13 +77,26 @@ class PerformanceView(QOpenGLWidget):
             return
 
         self._frame_count += 1
+        self._render_time_sum_ms += self.engine.last_render_ms
+        self._upload_time_sum_ms += self.engine.last_upload_ms
         elapsed = time.perf_counter() - self._last_fps_time
         if elapsed >= 1.0:
             fps = self._frame_count / elapsed
+            average_render_ms = self._render_time_sum_ms / max(1, self._frame_count)
+            average_upload_ms = self._upload_time_sum_ms / max(1, self._frame_count)
+            stats = self.application.performance_snapshot()
             self._frame_count = 0
+            self._render_time_sum_ms = 0.0
+            self._upload_time_sum_ms = 0.0
             self._last_fps_time = time.perf_counter()
             self.render_status_changed.emit(
-                f"{fps:0.1f} FPS · {self.engine.renderer_name}"
+                (
+                    f"{fps:0.1f} FPS · CPU {average_render_ms:0.1f} ms "
+                    f"(upload {average_upload_ms:0.1f} ms) · "
+                    f"{stats['playing_decks']} decks · "
+                    f"drop {stats['dropped_frames']} · "
+                    f"{self.engine.renderer_name}"
+                )
             )
 
     def _paint_message(self, title: str, detail: str) -> None:
