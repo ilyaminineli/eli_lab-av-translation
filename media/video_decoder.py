@@ -280,8 +280,8 @@ class VideoDecoder:
                             conversion_started = time.perf_counter()
                             pixels = self._preview_pixels(frame)
                             self.conversion_time_ms += (
-                                                               time.perf_counter() - conversion_started
-                                                       ) * 1000.0
+                                time.perf_counter() - conversion_started
+                            ) * 1000.0
                             height, width, _ = pixels.shape
                             self.frame_queue.push_latest(
                                 VideoFrameData(
