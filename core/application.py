@@ -100,6 +100,19 @@ class Application:
         # Each output has its own GPU context and upload revision.
         return dict(self._frame_snapshots)
 
+    def performance_snapshot(self) -> dict[str, int]:
+        deck_stats = [deck.performance_stats() for deck in self.decks.values()]
+        return {
+            "playing_decks": sum(bool(item["playing"]) for item in deck_stats),
+            "queue_depth": sum(int(item["queue_depth"]) for item in deck_stats),
+            "dropped_frames": sum(int(item["dropped_frames"]) for item in deck_stats),
+            "retired_workers": sum(int(item["retired_workers"]) for item in deck_stats),
+            "published_frames": sum(int(item["published_frames"]) for item in deck_stats),
+            "skipped_output_frames": sum(
+                int(item["skipped_output_frames"]) for item in deck_stats
+            ),
+        }
+
     def start_automation(
             self,
             collection_id: str | None = None,
