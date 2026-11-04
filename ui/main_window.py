@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 from config import APP_VERSION
 from core.application import Application
 from ui.automation_panel import AutomationPanel
+from ui.asset_library_panel import AssetLibraryPanel
 from ui.deck_panel import DeckPanel
 from ui.effects_panel import EffectsPanel
 from ui.generators_panel import GeneratorsPanel
@@ -44,6 +45,11 @@ class MainWindow(QMainWindow):
         self.media_browser = MediaBrowser(application.media_library, self)
         self.media_dock = self._make_dock("MEDIA LIBRARY", self.media_browser)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.media_dock)
+
+        self.asset_library_panel = AssetLibraryPanel(application, self)
+        self.asset_library_dock = self._make_dock("VISUAL ASSET LIBRARY", self.asset_library_panel)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.asset_library_dock)
+        self.tabifyDockWidget(self.media_dock, self.asset_library_dock)
 
         self.deck_panel = DeckPanel(application, self)
         self.deck_dock = self._make_dock("VIDEO DECKS", self.deck_panel)
@@ -91,6 +97,8 @@ class MainWindow(QMainWindow):
         self.automation_panel.stop_requested.connect(self.stop_automation)
         self.generators_panel.composition_changed.connect(self.layer_panel.refresh)
         self.layer_panel.layers_changed.connect(self.generators_panel.refresh)
+        self.asset_library_panel.composition_changed.connect(self.layer_panel.refresh)
+        self.asset_library_panel.composition_changed.connect(self.generators_panel.refresh)
 
         self._create_actions()
         self.setDockOptions(
@@ -161,6 +169,7 @@ class MainWindow(QMainWindow):
         view_menu = self.menuBar().addMenu("&View")
         for dock in (
                 self.media_dock,
+                self.asset_library_dock,
                 self.deck_dock,
                 self.layer_dock,
                 self.effects_dock,
