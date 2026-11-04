@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QToolBar,
 )
 
+from config import APP_VERSION
 from core.application import Application
 from ui.automation_panel import AutomationPanel
 from ui.deck_panel import DeckPanel
@@ -327,7 +328,6 @@ class MainWindow(QMainWindow):
         self.layer_panel.refresh()
         self.effects_panel.sync_from_settings()
         self.generators_panel.refresh()
-        self.layer_panel.refresh()
         self.automation_panel.set_running(False, "Ready · import footage to begin.")
         self.statusBar().showMessage("New composition created.", 3000)
 
@@ -346,7 +346,6 @@ class MainWindow(QMainWindow):
             self.layer_panel.refresh()
             self.effects_panel.sync_from_settings()
             self.generators_panel.refresh()
-            self.layer_panel.refresh()
             self.statusBar().showMessage(f"Opened {Path(path).name}", 4000)
         except Exception as exc:
             _LOG.exception("Could not open project %s", path)
