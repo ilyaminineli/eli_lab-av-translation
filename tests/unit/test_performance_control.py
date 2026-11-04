@@ -158,3 +158,33 @@ def test_transport_stop_and_reset_restore_safe_idle_state() -> None:
     assert state.scene_id == "idle"
     assert state.intensity == 0.0
     assert state.macros == {}
+
+
+
+def test_invalid_event_does_not_partially_change_state_or_consume_sequence() -> None:
+    state = PerformanceControlState()
+    invalid_start = ControlEvent(
+        "transport.start",
+        "sonicpi",
+        {"bpm": 92, "beats_per_bar": 24},
+        sequence=100,
+        session_id="sonata",
+    )
+
+    with pytest.raises(ValueError):
+        state.apply(invalid_start)
+
+    assert state.bpm == 120.0
+    assert state.beats_per_bar == 4
+    assert state.transport_running is False
+
+    valid_start = ControlEvent(
+        "transport.start",
+        "sonicpi",
+        {"bpm": 92, "beats_per_bar": 4},
+        sequence=99,
+        session_id="sonata",
+    )
+    assert state.apply(valid_start) is True
+    assert state.bpm == 92.0
+    assert state.transport_running is True
