@@ -9,6 +9,9 @@ from pathlib import Path
 
 from core.composition import Layer
 from effects.settings import PRESETS, EffectSettings
+from effects.layer_settings import LAYER_EFFECT_PRESETS, apply_layer_effect_preset
+from generators.catalog import GENERATOR_TYPES, normalize_settings
+from generators.text_pools import random_text_sample
 from media.models import MediaAsset
 
 _LOG = logging.getLogger(__name__)
@@ -30,6 +33,14 @@ class AutomationSettings:
     max_layout_interval: float = 32.0
     min_effect_interval: float = 10.0
     max_effect_interval: float = 26.0
+    randomize_generators: bool = True
+    randomize_text: bool = True
+    randomize_layer_effects: bool = True
+    min_generator_interval: float = 18.0
+    max_generator_interval: float = 42.0
+    text_language: str = "bilingual"
+    text_theme: str = "random"
+    text_fragments: int = 16
 
     def normalize(self) -> None:
         self.min_segment_seconds = max(0.5, float(self.min_segment_seconds))
@@ -50,6 +61,15 @@ class AutomationSettings:
         self.max_effect_interval = max(
             self.min_effect_interval, float(self.max_effect_interval)
         )
+        self.min_generator_interval = max(3.0, float(self.min_generator_interval))
+        self.max_generator_interval = max(
+            self.min_generator_interval, float(self.max_generator_interval)
+        )
+        if self.text_language not in {"english", "japanese", "bilingual"}:
+            self.text_language = "bilingual"
+        if self.text_theme not in {"random", "memory", "body", "signal", "ritual", "identity"}:
+            self.text_theme = "random"
+        self.text_fragments = max(1, min(60, int(self.text_fragments)))
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -92,6 +112,7 @@ class AutomationDirector:
         self._deck_due: dict[str, float] = {}
         self._layout_due: float | None = None
         self._effects_due: float | None = None
+        self._generators_due: float | None = None
 
     @staticmethod
     def _interval(rng: random.Random, low: float, high: float) -> float:
@@ -160,6 +181,11 @@ class AutomationDirector:
             self.rng,
             self.settings.min_effect_interval,
             self.settings.max_effect_interval,
+        )
+        self._generators_due = started + self._interval(
+            self.rng,
+            self.settings.min_generator_interval,
+            self.settings.max_generator_interval,
         )
         self.last_action = f"Automation started · {loaded} deck(s)"
         return loaded
@@ -310,6 +336,70 @@ class AutomationDirector:
         names = [name for name in PRESETS if name != "Clean"]
         self._effects.apply_preset(self.rng.choice(names))
 
+    def _randomize_generators(self) -> int:
+        changed = 0
+        for layer in self._layers:
+            if layer.locked or not layer.visible:
+                continue
+            if layer.source_type == "generator" and layer.generator_type in GENERATOR_TYPES:
+                kind = layer.generator_type
+                values = normalize_settings(kind, layer.generator_settings)
+                if kind == "text" and self.settings.randomize_text:
+                    values.update({
+                        "text": random_text_sample(
+                            self.settings.text_language,
+                            self.settings.text_theme,
+                            self.settings.text_fragments,
+                            seed=self.rng.randrange(0, 2 ** 31 - 1),
+                        ),
+                        "text_layout": self.rng.choice(("single", "collage")),
+                        "collage_seed": self.rng.randrange(0, 2 ** 31 - 1),
+                        "text_color_mode": self.rng.choice(("single", "alternate")),
+                        "text_animation": self.rng.choice(
+                            ("type_on", "word_reveal", "line_wave", "jitter", "crawl", "glitch")
+                        ),
+                        "text_animation_speed": self.rng.uniform(0.35, 2.8),
+                        "text_animation_amount": self.rng.uniform(0.015, 0.12),
+                    })
+                elif kind == "geometry":
+                    values.update({
+                        "pattern": self.rng.choice(
+                            ("rings", "grid", "radial", "crosshatch", "spiral", "moire", "hexgrid")
+                        ),
+                        "density": self.rng.randint(6, 34),
+                        "rotation": self.rng.uniform(-35, 35),
+                    })
+                elif kind == "waveform":
+                    values.update({
+                        "pattern": self.rng.choice(("sine", "lissajous", "orbit", "radial", "rose")),
+                        "density": self.rng.randint(2, 9),
+                        "amplitude": self.rng.uniform(0.08, 0.38),
+                        "frequency": self.rng.uniform(0.8, 8.0),
+                        "phase_offset": self.rng.uniform(0.0, 6.283),
+                    })
+                elif kind == "particles":
+                    values.update({
+                        "density": self.rng.randint(16, 100),
+                        "speed": self.rng.uniform(0.05, 0.8),
+                        "size": self.rng.uniform(0.06, 0.36),
+                        "spread": self.rng.uniform(0.15, 0.9),
+                        "trail": self.rng.uniform(0.05, 0.65),
+                        "mode": self.rng.choice(("drift", "rise", "fall", "orbit")),
+                    })
+                layer.generator_settings = normalize_settings(kind, values)
+                changed += 1
+            if self.settings.randomize_layer_effects and layer.source_type in {
+                "video", "generator", "overlay"
+            }:
+                # Do not activate FX on a pristine layer unexpectedly; vary stacks that
+                # are already part of the composition.
+                fx = layer.layer_effects if isinstance(layer.layer_effects, dict) else {}
+                if fx.get("enabled", False):
+                    preset_names = [name for name in LAYER_EFFECT_PRESETS if name != "Clean"]
+                    layer.layer_effects = apply_layer_effect_preset(self.rng.choice(preset_names))
+                    changed += 1
+        return changed
+
     def tick(self, now: float | None = None) -> bool:
         if not self.running:
             return False
@@ -366,6 +456,21 @@ class AutomationDirector:
             )
             self.last_action = f"Overlay look · {self._effects.preset_name}"
             changed = True
+
+        if (
+                self.settings.randomize_generators
+                and self._generators_due is not None
+                and current >= self._generators_due
+        ):
+            count = self._randomize_generators()
+            self._generators_due = current + self._interval(
+                self.rng,
+                self.settings.min_generator_interval,
+                self.settings.max_generator_interval,
+            )
+            if count:
+                self.last_action = f"Generators / text / layer FX varied · {count} change(s)"
+                changed = True
         return changed
 
     def stop(self) -> None:
