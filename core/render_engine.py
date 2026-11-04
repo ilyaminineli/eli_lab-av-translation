@@ -107,7 +107,10 @@ class RenderEngine:
                 self._generator_signatures[layer.id] = fingerprint
                 self._generator_sources[layer.id] = source_id
 
-        removed_ids = set(self._generator_signatures) - active_generator_ids
+        tracked_generator_ids = (
+            set(self._generator_signatures) | set(self._generator_errors)
+        )
+        removed_ids = tracked_generator_ids - active_generator_ids
         for layer_id in removed_ids:
             source_id = self._generator_sources.pop(layer_id, None)
             if source_id:
