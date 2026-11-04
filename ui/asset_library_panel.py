@@ -3,6 +3,7 @@ from __future__ import annotations
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QComboBox,
+    QFileDialog,
     QLabel,
     QLineEdit,
     QListWidget,
@@ -33,11 +34,13 @@ class AssetLibraryPanel(QWidget):
         layout.addWidget(self.add_folder_button)
         self.purpose_combo = QComboBox()
         self.purpose_combo.addItem("All purposes", "")
-        for purpose in ("overlay", "texture", "background", "postproduction",
-                        "surface", "distress", "mask", "track matte",
-                        "material", "geometry", "particles", "atmosphere",
-                        "environment", "normal map", "roughness map",
-                        "displacement map", "ambient occlusion", "specular map"):
+        for purpose in (
+            "overlay", "texture", "background", "postproduction", "surface",
+            "distress", "mask", "track matte", "material", "geometry",
+            "particles", "atmosphere", "environment", "normal map",
+            "roughness map", "displacement map", "ambient occlusion",
+            "specular map",
+        ):
             self.purpose_combo.addItem(purpose.title(), purpose)
         layout.addWidget(self.purpose_combo)
         self.kind_combo = QComboBox()
