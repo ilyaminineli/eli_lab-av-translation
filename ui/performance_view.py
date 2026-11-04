@@ -24,6 +24,7 @@ class PerformanceView(QOpenGLWidget):
         self.application = application
         self.engine = RenderEngine()
         self._initialization_error: str | None = None
+        self._last_render_error: str | None = None
         self._last_fps_time = time.perf_counter()
         self._frame_count = 0
         self._render_time_sum_ms = 0.0
@@ -78,9 +79,17 @@ class PerformanceView(QOpenGLWidget):
                 effects=self.application.effects,
             )
         except Exception as exc:
-            self._initialization_error = str(exc)
-            _LOG.exception("Render frame failed")
+            message = str(exc)
+            if message != self._last_render_error:
+                _LOG.exception("Render frame failed; keeping the renderer alive for recovery")
+                self.render_status_changed.emit(f"Render error · {message}")
+            self._last_render_error = message
+            self._paint_message("RENDER FRAME FAILED", message)
             return
+
+        if self._last_render_error is not None:
+            _LOG.info("Renderer recovered after transient frame error")
+            self._last_render_error = None
 
         self._frame_count += 1
         self._render_time_sum_ms += self.engine.last_render_ms
