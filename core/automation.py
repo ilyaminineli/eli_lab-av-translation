@@ -462,7 +462,7 @@ class AutomationDirector:
             changed = True
 
         if (
-            (self.settings.randomize_generators or self.settings.randomize_layer_effects)
+            (self.settings.randomize_generators or self.settings.randomize_layer_effects or self.settings.randomize_overlays)
             and self._generators_due is not None
             and current >= self._generators_due
         ):
