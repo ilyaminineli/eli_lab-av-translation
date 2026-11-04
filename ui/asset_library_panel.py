@@ -29,12 +29,15 @@ class AssetLibraryPanel(QWidget):
         self.search_edit = QLineEdit()
         self.search_edit.setPlaceholderText("Search textures, materials, masks…")
         layout.addWidget(self.search_edit)
+        self.add_folder_button = QPushButton("ADD ASSET FOLDER…")
+        layout.addWidget(self.add_folder_button)
         self.purpose_combo = QComboBox()
         self.purpose_combo.addItem("All purposes", "")
         for purpose in ("overlay", "texture", "background", "postproduction",
                         "surface", "distress", "mask", "track matte",
                         "material", "geometry", "particles", "atmosphere",
-                        "environment"):
+                        "environment", "normal map", "roughness map",
+                        "displacement map", "ambient occlusion", "specular map"):
             self.purpose_combo.addItem(purpose.title(), purpose)
         layout.addWidget(self.purpose_combo)
         self.kind_combo = QComboBox()
@@ -51,11 +54,24 @@ class AssetLibraryPanel(QWidget):
         self.add_button.setEnabled(False)
         layout.addWidget(self.add_button)
         self.search_edit.textChanged.connect(self.refresh)
+        self.add_folder_button.clicked.connect(self.add_folder)
         self.purpose_combo.currentIndexChanged.connect(self.refresh)
         self.kind_combo.currentIndexChanged.connect(self.refresh)
         self.asset_list.currentItemChanged.connect(self._selection_changed)
         self.add_button.clicked.connect(self.add_selected)
         self.refresh()
+
+    def add_folder(self) -> None:
+        folder = QFileDialog.getExistingDirectory(self, "Add visual asset folder")
+        if not folder:
+            return
+        try:
+            count = self.application.add_visual_asset_root(folder)
+        except (OSError, ValueError) as exc:
+            QMessageBox.warning(self, "Asset folder could not be indexed", str(exc))
+            return
+        self.refresh()
+        self.detail_label.setText(f"Indexed {count} visual assets across all library folders.")
 
     def refresh(self, *_args) -> None:
         selected_id = None
