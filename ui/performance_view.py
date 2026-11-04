@@ -28,6 +28,12 @@ class PerformanceView(QOpenGLWidget):
         self._frame_count = 0
         self._render_time_sum_ms = 0.0
         self._upload_time_sum_ms = 0.0
+        self._upload_bytes_sum = 0
+        self._last_decode_time_ms = 0.0
+        self._last_conversion_time_ms = 0.0
+        self._last_decoded_frames = 0
+        self._last_published_frames = 0
+        self._last_dropped_frames = 0
         self.setMinimumSize(640, 360)
         self.setObjectName("masterPerformanceView")
 
@@ -79,29 +85,54 @@ class PerformanceView(QOpenGLWidget):
         self._frame_count += 1
         self._render_time_sum_ms += self.engine.last_render_ms
         self._upload_time_sum_ms += self.engine.last_upload_ms
+        self._upload_bytes_sum += self.engine.last_upload_bytes
         elapsed = time.perf_counter() - self._last_fps_time
         if elapsed >= 1.0:
             fps = self._frame_count / elapsed
             average_render_ms = self._render_time_sum_ms / max(1, self._frame_count)
             average_upload_ms = self._upload_time_sum_ms / max(1, self._frame_count)
             stats = self.application.performance_snapshot()
+            upload_megabytes_per_second = (
+                self._upload_bytes_sum / max(elapsed, 0.001) / (1024.0 * 1024.0)
+            )
             self._frame_count = 0
             self._render_time_sum_ms = 0.0
             self._upload_time_sum_ms = 0.0
+            self._upload_bytes_sum = 0
             self._last_fps_time = time.perf_counter()
-            decode_ms_per_frame = (
-                float(stats["decode_time_ms"]) / max(1, int(stats["decoded_frames"]))
+
+            decode_time_delta = max(
+                0.0, float(stats["decode_time_ms"]) - self._last_decode_time_ms
             )
-            convert_ms_per_frame = (
-                float(stats["conversion_time_ms"]) / max(1, int(stats["published_frames"]))
+            conversion_time_delta = max(
+                0.0,
+                float(stats["conversion_time_ms"]) - self._last_conversion_time_ms,
             )
+            decoded_frames_delta = max(
+                0, int(stats["decoded_frames"]) - self._last_decoded_frames
+            )
+            published_frames_delta = max(
+                0, int(stats["published_frames"]) - self._last_published_frames
+            )
+            dropped_frames_delta = max(
+                0, int(stats["dropped_frames"]) - self._last_dropped_frames
+            )
+            self._last_decode_time_ms = float(stats["decode_time_ms"])
+            self._last_conversion_time_ms = float(stats["conversion_time_ms"])
+            self._last_decoded_frames = int(stats["decoded_frames"])
+            self._last_published_frames = int(stats["published_frames"])
+            self._last_dropped_frames = int(stats["dropped_frames"])
+
+            decode_ms_per_frame = decode_time_delta / max(1, decoded_frames_delta)
+            convert_ms_per_frame = conversion_time_delta / max(1, published_frames_delta)
             status = (
                 f"{fps:0.1f} FPS · decode {decode_ms_per_frame:0.1f} "
                 f"ms/f · convert {convert_ms_per_frame:0.1f} ms/f · "
                 f"render CPU {average_render_ms:0.1f} ms "
-                f"(upload {average_upload_ms:0.1f} ms) · "
+                f"(upload {average_upload_ms:0.1f} ms / "
+                f"{upload_megabytes_per_second:0.0f} MB/s) · "
                 f"{stats['playing_decks']} decks · "
-                f"drop {stats['dropped_frames']} · "
+                f"drop {dropped_frames_delta}/s · "
                 f"{self.engine.renderer_name}"
             )
             self.render_status_changed.emit(status)
