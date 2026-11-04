@@ -222,7 +222,7 @@ class GeneratorRasterizer:
         else:
             x_anchor = self.width / 2.0
 
-        for line in lines:
+        for line_index, line in enumerate(lines):
             path = QPainterPath()
             advance = metrics.horizontalAdvance(line)
             if alignment == "left":
@@ -242,7 +242,13 @@ class GeneratorRasterizer:
                     path,
                     self._pen(str(settings["stroke_color"]), stroke_width),
                 )
-            painter.fillPath(path, self._color(str(settings["primary_color"])))
+            fill_color = str(settings["primary_color"])
+            if (
+                settings.get("text_color_mode") == "alternate"
+                and line_index % 2 == 1
+            ):
+                fill_color = str(settings.get("secondary_color", fill_color))
+            painter.fillPath(path, self._color(fill_color))
             y += line_height
 
     def _draw_waveform(self, painter: QPainter, settings: dict[str, Any]) -> None:
