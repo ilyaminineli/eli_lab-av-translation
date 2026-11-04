@@ -449,8 +449,9 @@ class LayerPanel(QWidget):
 
     def _add_fx_stage(self) -> None:
         kind = self.fx_stage_type.currentData()
-        item = QListWidgetItem(f'{EFFECT_STAGE_TYPES[kind]} · 1.00')
-        item.setData(Qt.ItemDataRole.UserRole, {"type": kind, "amount": 1.0, "enabled": True})
+        amount = {"contrast": 0.0, "saturation": 0.0, "brightness": 0.5}.get(kind, 1.0)
+        item = QListWidgetItem(f'{EFFECT_STAGE_TYPES[kind]} · {amount:.2f}')
+        item.setData(Qt.ItemDataRole.UserRole, {"type": kind, "amount": amount, "enabled": True})
         item.setCheckState(Qt.CheckState.Checked)
         self.fx_stage_list.addItem(item)
         self._commit_fx_stages()
