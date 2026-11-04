@@ -374,6 +374,7 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event) -> None:
         self._runtime_timer.stop()
         self._status_timer.stop()
+        self.media_browser.shutdown_workers()
         self.output_manager.close()
         self.performance_view.shutdown_renderer()
         self.application.shutdown()
