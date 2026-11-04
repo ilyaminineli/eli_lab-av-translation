@@ -205,6 +205,7 @@ void main() {
 }
 """
 
+
 def canvas_fit_scale(
         output_width: int,
         output_height: int,

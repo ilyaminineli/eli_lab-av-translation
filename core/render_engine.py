@@ -108,7 +108,7 @@ class RenderEngine:
                 self._generator_sources[layer.id] = source_id
 
         tracked_generator_ids = (
-            set(self._generator_signatures) | set(self._generator_errors)
+                set(self._generator_signatures) | set(self._generator_errors)
         )
         removed_ids = tracked_generator_ids - active_generator_ids
         for layer_id in removed_ids:

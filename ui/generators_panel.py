@@ -79,10 +79,10 @@ class GeneratorsPanel(QWidget):
 
         self.weight_combo = QComboBox()
         for label, value in (
-            ("Regular", 400),
-            ("Medium", 500),
-            ("Bold", 700),
-            ("Black", 900),
+                ("Regular", 400),
+                ("Medium", 500),
+                ("Bold", 700),
+                ("Black", 900),
         ):
             self.weight_combo.addItem(label, value)
         text_form.addRow("WEIGHT", self.weight_combo)

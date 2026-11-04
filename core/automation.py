@@ -204,8 +204,8 @@ class AutomationDirector:
 
         deck_id = str(getattr(deck, "id"))
         switch = (
-            current_asset_id is None
-            or self.rng.random() < self.settings.clip_switch_probability
+                current_asset_id is None
+                or self.rng.random() < self.settings.clip_switch_probability
         )
         current_asset = next(
             (asset for asset in self._assets if asset.id == current_asset_id),

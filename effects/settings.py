@@ -164,15 +164,15 @@ class EffectSettings:
         self.tint = max(-1.0, min(1.0, float(self.tint)))
         self.hue = max(-180.0, min(180.0, float(self.hue)))
         for name in (
-            "vignette",
-            "grain",
-            "scanlines",
-            "chromatic",
-            "glitch",
-            "pixelate",
-            "posterize",
-            "invert",
-            "halftone",
-            "solarize",
+                "vignette",
+                "grain",
+                "scanlines",
+                "chromatic",
+                "glitch",
+                "pixelate",
+                "posterize",
+                "invert",
+                "halftone",
+                "solarize",
         ):
             setattr(self, name, max(0.0, min(1.0, float(getattr(self, name)))))

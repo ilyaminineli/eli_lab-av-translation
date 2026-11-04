@@ -297,8 +297,8 @@ class GeneratorRasterizer:
                 )
             fill_color = str(settings["primary_color"])
             if (
-                settings.get("text_color_mode") == "alternate"
-                and line_index % 2 == 1
+                    settings.get("text_color_mode") == "alternate"
+                    and line_index % 2 == 1
             ):
                 fill_color = str(settings.get("secondary_color", fill_color))
             painter.fillPath(path, self._color(fill_color))
@@ -329,30 +329,30 @@ class GeneratorRasterizer:
                 elif pattern == "radial":
                     angle = progress * math.tau
                     radius = min(width, height) * (
-                        0.12 + 0.30 * (
+                            0.12 + 0.30 * (
                             0.5 + 0.5 * math.sin(angle * frequency + offset)
-                        )
+                    )
                     )
                     x = width / 2.0 + math.cos(angle + offset) * radius
                     y = height / 2.0 + math.sin(angle + offset) * radius
                 elif pattern == "rose":
                     angle = progress * math.tau * max(1.0, frequency)
                     radius = min(width, height) * (
-                        0.12 + 0.28 * (0.5 + 0.5 * math.cos(5.0 * angle + offset))
+                            0.12 + 0.28 * (0.5 + 0.5 * math.cos(5.0 * angle + offset))
                     )
                     x = width / 2.0 + math.cos(angle + offset) * radius
                     y = height / 2.0 + math.sin(angle + offset) * radius
                 elif pattern == "orbit":
                     angle = progress * math.tau
                     radius = min(width, height) * (
-                        0.12 + 0.28 * (0.5 + 0.5 * math.sin(angle * frequency + offset))
+                            0.12 + 0.28 * (0.5 + 0.5 * math.sin(angle * frequency + offset))
                     )
                     x = width / 2.0 + math.cos(angle + offset) * radius
                     y = height / 2.0 + math.sin(angle + offset) * radius
                 else:
                     x = width * progress
                     envelope = 0.35 + 0.65 * (
-                        math.sin(math.pi * progress) ** 0.5
+                            math.sin(math.pi * progress) ** 0.5
                     )
                     y = center_y + math.sin(
                         progress * math.tau * frequency + offset
