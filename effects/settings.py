@@ -98,7 +98,6 @@ PRESETS: dict[str, dict[str, float | bool]] = {
         "hue": 18.0,
         "grain": 0.08,
     },
-}
     "Sakura Fade": {
         "brightness": 0.035,
         "contrast": 0.94,
@@ -136,6 +135,7 @@ PRESETS: dict[str, dict[str, float | bool]] = {
         "grain": 0.06,
         "chromatic": 0.04,
     },
+}
 
 
 @dataclass
