@@ -549,11 +549,16 @@ class GeneratorsPanel(QWidget):
         self.animation_combo.setCurrentText(str(values["animation"]))
         self.speed_slider.setValue(round(float(values["animation_speed"]) * 100))
         amount = float(values["animation_amount"])
-        if values["animation"] == "rotate":
-            amount_value = round(min(100.0, amount / 3.6))
-        else:
-            amount_value = round(min(100.0, amount / 0.45 * 100.0))
-        self.amount_slider.setValue(amount_value)
+        amount_ranges = {
+            "rotate": 180.0,
+            "pulse": 0.25,
+            "drift": 0.08,
+            "warp": 0.45,
+            "flicker": 1.0,
+            "none": 0.45,
+        }
+        amount_range = amount_ranges.get(str(values["animation"]), 0.45)
+        self.amount_slider.setValue(round(max(0.0, min(100.0, amount / amount_range * 100.0))))
         self._loading = False
 
     def _palette_changed(self, name: str) -> None:
@@ -579,8 +584,16 @@ class GeneratorsPanel(QWidget):
             "animation_speed": self.speed_slider.value() / 100.0,
         })
         amount = self.amount_slider.value() / 100.0
-        settings["animation_amount"] = (
-            amount * 3.6 if settings["animation"] == "rotate" else amount * 0.45
+        amount_ranges = {
+            "rotate": 180.0,
+            "pulse": 0.25,
+            "drift": 0.08,
+            "warp": 0.45,
+            "flicker": 1.0,
+            "none": 0.45,
+        }
+        settings["animation_amount"] = amount * amount_ranges.get(
+            str(settings["animation"]), 0.45
         )
 
         if generator_type == "text":
