@@ -390,6 +390,130 @@ class AutomationDirector:
                     changed += 1
         return changed
 
+    def _randomize_generators(self) -> int:
+        changed = 0
+        for layer in self._layers:
+            if layer.locked or not layer.visible:
+                continue
+            if layer.source_type == "generator" and layer.generator_type in GENERATOR_TYPES:
+                kind = layer.generator_type
+                values = normalize_settings(kind, layer.generator_settings)
+                if kind == "text" and self.settings.randomize_text:
+                    values.update({
+                        "text": random_text_sample(
+                            self.settings.text_language,
+                            self.settings.text_theme,
+                            self.settings.text_fragments,
+                            seed=self.rng.randrange(0, 2 ** 31 - 1),
+                        ),
+                        "text_layout": self.rng.choice(("single", "collage")),
+                        "collage_seed": self.rng.randrange(0, 2 ** 31 - 1),
+                        "text_color_mode": self.rng.choice(("single", "alternate")),
+                        "text_animation": self.rng.choice(
+                            ("type_on", "word_reveal", "line_wave", "jitter", "crawl", "glitch")
+                        ),
+                        "text_animation_speed": self.rng.uniform(0.35, 2.8),
+                        "text_animation_amount": self.rng.uniform(0.015, 0.12),
+                    })
+                    layer.generator_settings = normalize_settings(kind, values)
+                    changed += 1
+                elif kind == "geometry":
+                    values.update({
+                        "pattern": self.rng.choice(
+                            ("rings", "grid", "radial", "crosshatch", "spiral", "moire", "hexgrid")
+                        ),
+                        "density": self.rng.randint(6, 34),
+                        "rotation": self.rng.uniform(-35, 35),
+                    })
+                    layer.generator_settings = normalize_settings(kind, values)
+                    changed += 1
+                elif kind == "waveform":
+                    values.update({
+                        "pattern": self.rng.choice(("sine", "lissajous", "orbit", "radial", "rose")),
+                        "density": self.rng.randint(2, 9),
+                        "amplitude": self.rng.uniform(0.08, 0.38),
+                        "frequency": self.rng.uniform(0.8, 8.0),
+                        "phase_offset": self.rng.uniform(0.0, 6.283),
+                    })
+                    layer.generator_settings = normalize_settings(kind, values)
+                    changed += 1
+                elif kind == "particles":
+                    values.update({
+                        "density": self.rng.randint(16, 100),
+                        "speed": self.rng.uniform(0.05, 0.8),
+                        "size": self.rng.uniform(0.06, 0.36),
+                        "spread": self.rng.uniform(0.15, 0.9),
+                        "trail": self.rng.uniform(0.05, 0.65),
+                        "mode": self.rng.choice(("drift", "rise", "fall", "orbit")),
+                    })
+                    layer.generator_settings = normalize_settings(kind, values)
+                    changed += 1
+
+            if self.settings.randomize_layer_effects and layer.source_type in {
+                "video", "generator", "overlay"
+            }:
+                fx = layer.layer_effects if isinstance(layer.layer_effects, dict) else {}
+                if fx.get("enabled", False):
+                    preset_names = [name for name in LAYER_EFFECT_PRESETS if name != "Clean"]
+                    layer.layer_effects = apply_layer_effect_preset(
+                        self.rng.choice(preset_names)
+                    )
+                    changed += 1
+        return changed
+
+    def tick(self, now: float | None = None) -> bool:
+        if not self.running:
+            return False
+        current = time.monotonic() if now is None else float(now)
+        if self.ends_at is not None and current >= self.ends_at:
+            self.running = False
+            self.last_action = "Automation session completed"
+            return True
+
+        changed = False
+        for deck_id, deck in self._decks.items():
+            if getattr(deck, "locked", False):
+                continue
+            due = self._deck_due.get(deck_id)
+            if due is None:
+                self._deck_due[deck_id] = current + self._interval(
+                    self.rng, self.settings.min_cut_interval, self.settings.max_cut_interval
+                )
+                continue
+            if current < due:
+                continue
+            asset_id = getattr(deck, "asset_id", None)
+            loaded = self._load_random_segment(deck, asset_id, current)
+            if loaded:
+                self.last_action = f"Random cut · {deck_id.upper()}"
+            changed = changed or loaded
+
+        if self.settings.randomize_layout and self._layout_due is not None and current >= self._layout_due:
+            self._randomize_layout()
+            self._layout_due = current + self._interval(
+                self.rng, self.settings.min_layout_interval, self.settings.max_layout_interval
+            )
+            self.last_action = "Collage layout changed"
+            changed = True
+
+        if self.settings.randomize_effects and self._effects_due is not None and current >= self._effects_due:
+            self._randomize_effects()
+            self._effects_due = current + self._interval(
+                self.rng, self.settings.min_effect_interval, self.settings.max_effect_interval
+            )
+            self.last_action = f"Overlay look · {self._effects.preset_name}"
+            changed = True
+
+        if self.settings.randomize_generators and self._generators_due is not None and current >= self._generators_due:
+            count = self._randomize_generators()
+            self._generators_due = current + self._interval(
+                self.rng, self.settings.min_generator_interval, self.settings.max_generator_interval
+            )
+            if count:
+                self.last_action = f"Generators / text / layer FX varied · {count} change(s)"
+                changed = True
+        return changed
+
     def tick(self, now: float | None = None) -> bool:
         if not self.running:
             return False
