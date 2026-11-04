@@ -527,3 +527,27 @@ def test_overlay_automation_varies_transform_but_respects_manual_cooldown(tmp_pa
     overlay.overlay_manual_override_until = 0.0
     assert director.tick(now=7.0) is True
     assert (overlay.opacity, overlay.scale, overlay.rotation, overlay.blend_mode) != original
+
+
+def test_auto_performance_can_vary_palette_without_changing_generator_parameters(tmp_path) -> None:
+    from generators.catalog import default_generator_settings
+    from generators.palettes import JP_PALETTE_LOOKS
+
+    asset = make_asset(tmp_path, "palette-only.mp4")
+    deck = FakeDeck("deck_a")
+    layer = Layer(id="geometry-palette", source_type="generator", generator_type="geometry",
+                  generator_settings=default_generator_settings("geometry"))
+    original_pattern = layer.generator_settings["pattern"]
+    director = AutomationDirector(seed=32)
+    director.start([asset], [deck], [layer], EffectSettings(),
+                   settings=AutomationSettings(randomize_layout=False, randomize_effects=False,
+                       randomize_generators=False, randomize_text=False,
+                       randomize_palette=True, randomize_layer_effects=False,
+                       randomize_overlays=False, min_generator_interval=2.0,
+                       max_generator_interval=2.0),
+                   duration_seconds=None, now=1.0)
+    assert director.tick(now=4.0) is True
+    assert layer.generator_settings["pattern"] == original_pattern
+    assert layer.generator_settings["primary_color"] in {
+        colour for palette in JP_PALETTE_LOOKS.values() for colour in palette
+    }
