@@ -12,8 +12,9 @@ from media.frame_queue import VideoFrameData
 class ImageOverlayPlayer:
     """Read a still or Qt-supported animated image and publish RGBA frames."""
 
-    def __init__(self, path: str | Path) -> None:
+    def __init__(self, path: str | Path, loop: bool = True) -> None:
         self.path = Path(path).expanduser().resolve()
+        self.loop = bool(loop)
         if not self.path.is_file():
             raise FileNotFoundError(self.path)
         self.reader = QImageReader(str(self.path))
@@ -70,10 +71,11 @@ class ImageOverlayPlayer:
         image = self.reader.read()
         if image.isNull():
             self._completed_loops += 1
-            if self._loop_count >= 0 and self._completed_loops >= self._loop_count:
+            if not self.loop and self._completed_loops >= max(1, self._loop_count):
                 self._finished = True
                 return None
             if not self.reader.jumpToImage(0):
+                self._finished = True
                 return None
             image = self.reader.read()
             if image.isNull():
