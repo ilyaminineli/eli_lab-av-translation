@@ -57,9 +57,16 @@ class ImageOverlayPlayer:
             return 0.1
         return max(0.02, min(10.0, delay_ms / 1000.0)) / self.speed * self.frame_hold
 
-    def configure_playback(self, speed: float, frame_hold: int) -> None:
+    def configure_playback(
+            self,
+            speed: float,
+            frame_hold: int,
+            loop: bool | None = None,
+    ) -> None:
         self.speed = max(0.1, min(4.0, float(speed)))
         self.frame_hold = max(1, min(24, int(frame_hold)))
+        if loop is not None:
+            self.loop = bool(loop)
 
     @property
     def frame(self) -> VideoFrameData:
