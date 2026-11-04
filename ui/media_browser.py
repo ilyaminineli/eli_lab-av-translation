@@ -168,6 +168,7 @@ class MediaBrowser(QWidget):
         folder = self._scan_queue.popleft()
         self._scan_active = True
         self.add_folder_button.setEnabled(False)
+        self.library_tools_button.setEnabled(False)
         self.status_label.setText(
             f"Scanning {Path(folder).name}… "
             f"{len(self._scan_queue)} folder(s) queued."
@@ -183,8 +184,11 @@ class MediaBrowser(QWidget):
             self._scan_queued.discard(str(Path(self._scan_worker.folder).resolve()).casefold())
         self._scan_worker = None
         self._scan_active = False
-        self.add_folder_button.setEnabled(True)
-        self._start_next_scan()
+        if self._scan_queue:
+            self._start_next_scan()
+        else:
+            self.add_folder_button.setEnabled(True)
+            self.library_tools_button.setEnabled(True)
 
     def dragEnterEvent(self, event) -> None:
         if any(url.isLocalFile() for url in event.mimeData().urls()):
