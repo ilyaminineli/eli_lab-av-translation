@@ -15,10 +15,10 @@ from core.performance_manager import PerformanceManager
 from core.project_manager import ProjectManager
 from effects.settings import EffectSettings
 from generators.catalog import GENERATOR_TYPES, default_generator_settings
+from media.asset_index import VisualAssetIndex
 from media.frame_queue import FrameSnapshot
 from media.image_overlay import ImageOverlayPlayer
 from media.library import MediaLibrary
-from media.asset_index import VisualAssetIndex
 from media.scanner import SUPPORTED_VIDEO_EXTENSIONS
 from media.video_deck import VideoDeck
 
@@ -163,7 +163,9 @@ class Application:
         self._overlay_started_at[layer.id] = time.perf_counter()
         layer.source_id = f"overlay:{layer.id}"
         if kind == "video":
-            deck = VideoDeck(f"overlay_{layer.id}")
+            deck = VideoDeck(
+                f"overlay_{layer.id}"
+            )
             deck.load(source, loop=True)
             self._overlay_videos[layer.id] = deck
             self._overlay_frames.pop(layer.id, None)
