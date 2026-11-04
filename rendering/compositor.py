@@ -654,11 +654,16 @@ class Compositor:
                 layer_texture.use(location=1)
             else:
                 self.particle_stub.use(location=1)
-            mask_texture = self.source_textures.get(layer.overlay_mask_source) if layer.overlay_mask_source else None
+            mask_texture = (
+                self.source_textures.get(layer.overlay_mask_source)
+                if layer.overlay_mask_source else None
+            )
             if mask_texture is not None and layer.overlay_mask_mode in {"alpha", "luma"}:
                 mask_texture.use(location=2)
                 self.composite_program["u_mask_enabled"].value = 1
-                self.composite_program["u_mask_mode"].value = 2 if layer.overlay_mask_mode == "luma" else 1
+                self.composite_program["u_mask_mode"].value = (
+                    2 if layer.overlay_mask_mode == "luma" else 1
+                )
             else:
                 self.particle_stub.use(location=2)
                 self.composite_program["u_mask_enabled"].value = 0
@@ -724,8 +729,12 @@ class Compositor:
             stage_types = [stage_codes[stage["type"]] for stage in active_stages]
             stage_amounts = [float(stage["amount"]) for stage in active_stages]
             self.composite_program["u_fx_stage_count"].value = len(stage_types)
-            self.composite_program["u_fx_stage_type"].value = tuple(stage_types + [0] * (8 - len(stage_types)))
-            self.composite_program["u_fx_stage_amount"].value = tuple(stage_amounts + [0.0] * (8 - len(stage_amounts)))
+            self.composite_program["u_fx_stage_type"].value = tuple(
+                stage_types + [0] * (8 - len(stage_types))
+            )
+            self.composite_program["u_fx_stage_amount"].value = tuple(
+                stage_amounts + [0.0] * (8 - len(stage_amounts))
+            )
             self.composite_program["u_layer_fx_enabled"].value = int(layer_fx["enabled"])
             for uniform, key in (
                     ("u_layer_fx_mix", "mix"),
