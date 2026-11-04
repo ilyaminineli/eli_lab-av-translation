@@ -177,3 +177,38 @@ def test_automation_randomizes_layout_and_effects(tmp_path) -> None:
     assert director.tick(now=4.0) is True
     assert layer.position != original_position or layer.scale != (1.0, 1.0)
     assert effects.preset_name != "Clean"
+
+
+
+def test_one_shot_fragment_advances_when_segment_finishes(tmp_path) -> None:
+    asset = make_asset(tmp_path, "one-shot.mp4", duration=60.0)
+    deck = FakeDeck("deck_a")
+    director = AutomationDirector(seed=4)
+    settings = AutomationSettings(
+        min_segment_seconds=4.0,
+        max_segment_seconds=4.0,
+        min_cut_interval=30.0,
+        max_cut_interval=30.0,
+        loop_probability=0.0,
+        clip_switch_probability=0.0,
+        randomize_layout=False,
+        randomize_effects=False,
+    )
+
+    director.start(
+        [asset],
+        [deck],
+        [Layer(id="layer-a")],
+        EffectSettings(),
+        settings=settings,
+        duration_seconds=None,
+        now=50.0,
+    )
+    assert deck.loop is False
+    assert deck.segment_end is not None
+    expected_cut = 50.0 + (deck.segment_end - deck.segment_start)
+
+    assert director.tick(now=expected_cut - 0.1) is False
+    assert deck.load_count == 1
+    assert director.tick(now=expected_cut + 0.1) is True
+    assert deck.load_count == 2

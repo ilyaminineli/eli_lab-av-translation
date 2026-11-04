@@ -195,11 +195,17 @@ class AutomationDirector:
             loop=should_loop,
         )
         deck_id = str(getattr(deck, "id"))
-        self._deck_due[deck_id] = now + self._interval(
-            self.rng,
-            self.settings.min_cut_interval,
-            self.settings.max_cut_interval,
-        )
+        if not should_loop and segment_end is not None:
+            # A one-shot fragment advances as soon as it finishes instead of
+            # freezing on its last frame while waiting for the next random timer.
+            cut_delay = max(0.5, segment_end - segment_start)
+        else:
+            cut_delay = self._interval(
+                self.rng,
+                self.settings.min_cut_interval,
+                self.settings.max_cut_interval,
+            )
+        self._deck_due[deck_id] = now + cut_delay
 
     def _randomize_layout(self) -> None:
         active = [layer for layer in self._layers if not layer.locked]
