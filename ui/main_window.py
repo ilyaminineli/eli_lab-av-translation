@@ -34,7 +34,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.application = application
         self.output_manager = OutputWindowManager(application, self)
-        self.setWindowTitle("eli_lab AV Translation")
+        self.setWindowTitle(f"eli_lab AV Translation {APP_VERSION}")
         self.resize(1600, 980)
         self.setMinimumSize(1100, 700)
 
