@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, fields
 
-
 PRESETS: dict[str, dict[str, float | bool]] = {
     "Clean": {},
     "16mm Film": {
