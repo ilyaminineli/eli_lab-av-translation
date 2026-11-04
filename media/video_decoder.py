@@ -50,6 +50,8 @@ class VideoDecoder:
         self.decoded_frames = 0
         self.published_frames = 0
         self.skipped_output_frames = 0
+        self.decode_time_ms = 0.0
+        self.conversion_time_ms = 0.0
 
     @property
     def is_playing(self) -> bool:
@@ -91,6 +93,8 @@ class VideoDecoder:
             self.decoded_frames = 0
             self.published_frames = 0
             self.skipped_output_frames = 0
+            self.decode_time_ms = 0.0
+            self.conversion_time_ms = 0.0
             thread = threading.Thread(
                 target=self._decode_loop,
                 name=f"VideoDecoder-{self.path.name}",
@@ -216,7 +220,17 @@ class VideoDecoder:
                         last_published_timestamp: float | None = None
                         restart = False
 
-                        for frame in container.decode(stream):
+                        frame_iterator = iter(container.decode(stream))
+                        while True:
+                            decode_started = time.perf_counter()
+                            try:
+                                frame = next(frame_iterator)
+                            except StopIteration:
+                                break
+                            self.decode_time_ms += (
+                                time.perf_counter() - decode_started
+                            ) * 1000.0
+
                             with self._condition:
                                 if not self._running:
                                     return
@@ -263,7 +277,11 @@ class VideoDecoder:
                                 self.skipped_output_frames += 1
                                 continue
 
+                            conversion_started = time.perf_counter()
                             pixels = self._preview_pixels(frame)
+                            self.conversion_time_ms += (
+                                time.perf_counter() - conversion_started
+                            ) * 1000.0
                             height, width, _ = pixels.shape
                             self.frame_queue.push_latest(
                                 VideoFrameData(
