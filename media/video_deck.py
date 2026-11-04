@@ -38,7 +38,8 @@ class VideoDeck:
         if not stopped:
             self._retired_decoders.append(decoder)
             _LOG.debug(
-                "%s decoder is still exiting; replacement playback is isolated on a new frame queue",
+                "%s decoder is still exiting; replacement playback is "
+                "isolated on a new frame queue",
                 self.id,
             )
         self._reap_retired_decoders()
