@@ -109,7 +109,9 @@ def normalize_settings(generator_type: str, settings: dict[str, Any] | None) -> 
         if result["text_pool_language"] not in {"english", "japanese", "bilingual"}:
             result["text_pool_language"] = "bilingual"
         result["text_pool_theme"] = result.get("text_pool_theme", "random")
-        if result["text_pool_theme"] not in {"random", "memory", "body", "signal", "ritual", "identity"}:
+        if result["text_pool_theme"] not in {
+            "random", "memory", "body", "signal", "ritual", "identity"
+        }:
             result["text_pool_theme"] = "random"
         result["text_pool_count"] = max(1, min(60, int(result.get("text_pool_count", 16))))
         result["text_pool_dictionary"] = bool(result.get("text_pool_dictionary", True))
