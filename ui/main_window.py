@@ -124,7 +124,7 @@ class MainWindow(QMainWindow):
 
         self._create_actions()
         saved_geometry = self._ui_settings.value("ui/main_window_geometry")
-        saved_state = self._ui_settings.value("ui/main_window_state_v2")
+        saved_state = self._ui_settings.value("ui/main_window_state_v3")
         restored = False
         if saved_geometry and saved_state:
             restored = (
@@ -537,7 +537,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:
         self._ui_settings.setValue("ui/main_window_geometry", self.saveGeometry())
-        self._ui_settings.setValue("ui/main_window_state_v2", self.saveState(2))
+        self._ui_settings.setValue("ui/main_window_state_v3", self.saveState(3))
         self._runtime_timer.stop()
         self._status_timer.stop()
         self.media_browser.shutdown_workers()
