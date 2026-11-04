@@ -24,7 +24,6 @@ def test_random_text_sample_clamps_count_and_unknown_values() -> None:
     assert len(sample.splitlines()) == 1
 
 
-
 def test_dictionary_candidates_are_optional_and_seeded(tmp_path) -> None:
     dictionary = tmp_path / "dictionary"
     dictionary.mkdir()

@@ -8,8 +8,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from core.composition import Layer
-from effects.settings import PRESETS, EffectSettings
 from effects.layer_settings import LAYER_EFFECT_PRESETS, apply_layer_effect_preset
+from effects.settings import PRESETS, EffectSettings
 from generators.catalog import GENERATOR_TYPES, normalize_settings
 from generators.text_pools import random_text_sample
 from media.models import MediaAsset
@@ -64,6 +64,7 @@ class AutomationSettings:
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
+
 
 def choose_random_segment(
         duration: float | None,
@@ -382,9 +383,9 @@ class AutomationDirector:
                     changed += 1
 
             if (
-                self.settings.randomize_overlays
-                and layer.source_type == "overlay"
-                and time.time() >= float(getattr(layer, "overlay_manual_override_until", 0.0))
+                    self.settings.randomize_overlays
+                    and layer.source_type == "overlay"
+                    and time.time() >= float(getattr(layer, "overlay_manual_override_until", 0.0))
             ):
                 layer.opacity = self.rng.uniform(0.82, 1.0)
                 layer.scale = tuple(
@@ -396,9 +397,9 @@ class AutomationDirector:
                 changed += 1
 
             if (
-                self.settings.randomize_layer_effects
-                and time.time() >= float(getattr(layer, "fx_manual_override_until", 0.0))
-                and layer.source_type in {"video", "generator", "overlay"}
+                    self.settings.randomize_layer_effects
+                    and time.time() >= float(getattr(layer, "fx_manual_override_until", 0.0))
+                    and layer.source_type in {"video", "generator", "overlay"}
             ):
                 fx = layer.layer_effects if isinstance(layer.layer_effects, dict) else {}
                 if fx.get("enabled", False):
@@ -438,9 +439,9 @@ class AutomationDirector:
             changed = changed or loaded
 
         if (
-            self.settings.randomize_layout
-            and self._layout_due is not None
-            and current >= self._layout_due
+                self.settings.randomize_layout
+                and self._layout_due is not None
+                and current >= self._layout_due
         ):
             self._randomize_layout()
             self._layout_due = current + self._interval(
@@ -450,9 +451,9 @@ class AutomationDirector:
             changed = True
 
         if (
-            self.settings.randomize_effects
-            and self._effects_due is not None
-            and current >= self._effects_due
+                self.settings.randomize_effects
+                and self._effects_due is not None
+                and current >= self._effects_due
         ):
             self._randomize_effects()
             self._effects_due = current + self._interval(
@@ -462,9 +463,10 @@ class AutomationDirector:
             changed = True
 
         if (
-            (self.settings.randomize_generators or self.settings.randomize_layer_effects or self.settings.randomize_overlays)
-            and self._generators_due is not None
-            and current >= self._generators_due
+                (
+                        self.settings.randomize_generators or self.settings.randomize_layer_effects or self.settings.randomize_overlays)
+                and self._generators_due is not None
+                and current >= self._generators_due
         ):
             count = self._randomize_generators()
             self._generators_due = current + self._interval(

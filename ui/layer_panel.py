@@ -338,7 +338,8 @@ class LayerPanel(QWidget):
             for candidate in self.application.composition.layers:
                 if candidate.id != layer.id and candidate.source_id:
                     self.overlay_mask_source.addItem(candidate.name, candidate.source_id)
-            self.overlay_mask_source.setCurrentIndex(max(0, self.overlay_mask_source.findData(layer.overlay_mask_source)))
+            self.overlay_mask_source.setCurrentIndex(
+                max(0, self.overlay_mask_source.findData(layer.overlay_mask_source)))
             for control in (self.overlay_in_spin, self.overlay_out_spin, self.overlay_speed_spin,
                             self.overlay_frame_hold_spin, self.overlay_scene_sync_check,
                             self.overlay_mask_mode, self.overlay_mask_source):
@@ -370,7 +371,8 @@ class LayerPanel(QWidget):
             label.setText(f"{title}  {value}")
         self.layer_fx_preset.blockSignals(True)
         imported = self.application.composition.metadata.get("layer_fx_presets", {})
-        known_names = list(LAYER_EFFECT_PRESETS) + ["Xerox Stack", "Negative Print", "Signal Scan"] + (list(imported) if isinstance(imported, dict) else [])
+        known_names = list(LAYER_EFFECT_PRESETS) + ["Xerox Stack", "Negative Print", "Signal Scan"] + (
+            list(imported) if isinstance(imported, dict) else [])
         self.layer_fx_preset.clear()
         self.layer_fx_preset.addItems(list(dict.fromkeys(known_names)) + ["Custom"])
         self.layer_fx_preset.setCurrentText("Custom")
@@ -479,21 +481,27 @@ class LayerPanel(QWidget):
             QMessageBox.warning(self, "FX chain", str(exc))
 
     def _export_fx_presets(self) -> None:
-        path, _ = QFileDialog.getSaveFileName(self, "Export project FX presets", "layer-fx-presets.json", "JSON (*.json)")
+        path, _ = QFileDialog.getSaveFileName(self, "Export project FX presets", "layer-fx-presets.json",
+                                              "JSON (*.json)")
         if not path:
             return
         import json
         presets = {
-            "Xerox Stack": [{"type": "monochrome", "amount": 1.0, "enabled": True}, {"type": "threshold", "amount": 0.45, "enabled": True}],
-            "Negative Print": [{"type": "invert", "amount": 1.0, "enabled": True}, {"type": "posterize", "amount": 0.55, "enabled": True}],
-            "Signal Scan": [{"type": "hue", "amount": 0.22, "enabled": True}, {"type": "scanlines", "amount": 0.7, "enabled": True}],
+            "Xerox Stack": [{"type": "monochrome", "amount": 1.0, "enabled": True},
+                            {"type": "threshold", "amount": 0.45, "enabled": True}],
+            "Negative Print": [{"type": "invert", "amount": 1.0, "enabled": True},
+                               {"type": "posterize", "amount": 0.55, "enabled": True}],
+            "Signal Scan": [{"type": "hue", "amount": 0.22, "enabled": True},
+                            {"type": "scanlines", "amount": 0.7, "enabled": True}],
         }
         imported = self.application.composition.metadata.get("layer_fx_presets", {})
         if isinstance(imported, dict):
             presets.update(imported)
         try:
             from pathlib import Path
-            Path(path).write_text(json.dumps({"format": "eli_lab_layer_fx_presets", "version": 1, "presets": presets}, ensure_ascii=False, indent=2), encoding="utf-8")
+            Path(path).write_text(
+                json.dumps({"format": "eli_lab_layer_fx_presets", "version": 1, "presets": presets}, ensure_ascii=False,
+                           indent=2), encoding="utf-8")
         except OSError as exc:
             QMessageBox.warning(self, "FX presets", str(exc))
 

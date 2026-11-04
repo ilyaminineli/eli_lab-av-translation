@@ -379,7 +379,8 @@ class GeneratorsPanel(QWidget):
         count = int(self.random_count_combo.currentData())
         self._collage_seed = random.randrange(0, 2 ** 31 - 1)
         self.text_edit.setPlainText(
-            random_text_sample(language, theme, count, self._collage_seed, use_dictionary=self.dictionary_check.isChecked())
+            random_text_sample(language, theme, count, self._collage_seed,
+                               use_dictionary=self.dictionary_check.isChecked())
         )
         self.text_layout_combo.setCurrentIndex(
             max(0, self.text_layout_combo.findData("collage"))
@@ -470,9 +471,12 @@ class GeneratorsPanel(QWidget):
 
         if generator_type == "text":
             self.text_edit.setPlainText(str(values["text"]))
-            self.random_language_combo.setCurrentIndex(max(0, self.random_language_combo.findData(values.get("text_pool_language", "bilingual"))))
-            self.random_theme_combo.setCurrentIndex(max(0, self.random_theme_combo.findData(values.get("text_pool_theme", "random"))))
-            self.random_count_combo.setCurrentIndex(max(0, self.random_count_combo.findData(int(values.get("text_pool_count", 16)))))
+            self.random_language_combo.setCurrentIndex(
+                max(0, self.random_language_combo.findData(values.get("text_pool_language", "bilingual"))))
+            self.random_theme_combo.setCurrentIndex(
+                max(0, self.random_theme_combo.findData(values.get("text_pool_theme", "random"))))
+            self.random_count_combo.setCurrentIndex(
+                max(0, self.random_count_combo.findData(int(values.get("text_pool_count", 16)))))
             self.dictionary_check.setChecked(bool(values.get("text_pool_dictionary", True)))
             self.auto_text_check.setChecked(bool(values.get("text_auto_regenerate", True)))
             self.text_layout_combo.setCurrentIndex(

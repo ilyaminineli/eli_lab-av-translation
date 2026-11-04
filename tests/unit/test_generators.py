@@ -133,8 +133,8 @@ def test_invalid_text_colour_mode_falls_back_to_single_colour() -> None:
     ],
 )
 def test_new_generator_patterns_survive_normalization(
-    generator_type: str,
-    pattern: str,
+        generator_type: str,
+        pattern: str,
 ) -> None:
     settings = normalize_settings(generator_type, {"pattern": pattern})
 

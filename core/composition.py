@@ -60,7 +60,8 @@ class Layer:
         allowed = {
             "id", "name", "source_type", "source_id", "visible", "locked",
             "opacity", "blend_mode", "position", "scale", "rotation", "z_index",
-            "generator_type", "generator_settings", "layer_effects", "fx_manual_override_until", "overlay_manual_override_until",
+            "generator_type", "generator_settings", "layer_effects", "fx_manual_override_until",
+            "overlay_manual_override_until",
             "overlay_path", "overlay_kind", "overlay_in", "overlay_out",
             "overlay_speed", "overlay_frame_hold", "overlay_scene_sync",
             "overlay_mask_mode", "overlay_mask_source",

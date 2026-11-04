@@ -24,7 +24,7 @@ def test_still_image_overlay_loads_transparent_rgba_frame(tmp_path) -> None:
     assert frame.pixels.dtype == np.uint8
     assert frame.pixels[0, 0, 3] == 0
     assert frame.pixels[1, 1, 3] > 0
-    assert player.update(now=10**9) is None
+    assert player.update(now=10 ** 9) is None
     player.close()
 
 

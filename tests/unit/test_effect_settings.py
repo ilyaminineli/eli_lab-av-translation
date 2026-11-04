@@ -26,7 +26,6 @@ def test_effect_settings_round_trip_and_clamp() -> None:
     assert "unknown" not in settings.to_dict()
 
 
-
 def test_new_effect_controls_are_clamped_and_round_trip() -> None:
     settings = EffectSettings.from_dict({
         "enabled": False,
@@ -117,13 +116,13 @@ def test_post_shader_declares_every_new_effect_uniform() -> None:
     from rendering.compositor import _POST_FRAGMENT
 
     for uniform in (
-        "u_mix",
-        "u_exposure",
-        "u_temperature",
-        "u_tint",
-        "u_hue",
-        "u_halftone",
-        "u_solarize",
+            "u_mix",
+            "u_exposure",
+            "u_temperature",
+            "u_tint",
+            "u_hue",
+            "u_halftone",
+            "u_solarize",
     ):
         assert f"uniform float {uniform};" in _POST_FRAGMENT
         assert uniform in _POST_FRAGMENT

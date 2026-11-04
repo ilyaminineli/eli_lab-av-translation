@@ -50,13 +50,13 @@ def test_layer_effect_shader_contains_independent_processing_stages() -> None:
     from rendering.compositor import _COMPOSITE_FRAGMENT
 
     for symbol in (
-        "u_layer_fx_enabled",
-        "u_layer_fx_mix",
-        "u_layer_fx_monochrome",
-        "u_layer_fx_threshold",
-        "u_layer_fx_posterize",
-        "u_layer_fx_chromatic",
-        "layer_color_effects",
+            "u_layer_fx_enabled",
+            "u_layer_fx_mix",
+            "u_layer_fx_monochrome",
+            "u_layer_fx_threshold",
+            "u_layer_fx_posterize",
+            "u_layer_fx_chromatic",
+            "layer_color_effects",
     ):
         assert symbol in _COMPOSITE_FRAGMENT
 

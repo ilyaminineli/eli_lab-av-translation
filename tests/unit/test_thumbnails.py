@@ -39,8 +39,8 @@ class _Container:
 
 
 def test_generate_thumbnail_accepts_non_contiguous_rgb_frame(
-    tmp_path,
-    monkeypatch,
+        tmp_path,
+        monkeypatch,
 ) -> None:
     # A sliced view has gaps between its columns and is not C-contiguous.
     source = np.zeros((36, 64, 3), dtype=np.uint8)

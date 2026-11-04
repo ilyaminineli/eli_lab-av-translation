@@ -67,8 +67,8 @@ class _FakeDecoder:
 
 
 def test_replacing_deck_uses_isolated_queue_and_retires_old_decoder(
-    tmp_path,
-    monkeypatch,
+        tmp_path,
+        monkeypatch,
 ) -> None:
     from media import video_deck
 

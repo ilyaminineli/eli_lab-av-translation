@@ -26,13 +26,13 @@ class FakeDeck:
     load_count: int = 0
 
     def load(
-        self,
-        path: str,
-        asset_id: str | None = None,
-        collection_id: str | None = None,
-        segment_start: float = 0.0,
-        segment_end: float | None = None,
-        loop: bool | None = None,
+            self,
+            path: str,
+            asset_id: str | None = None,
+            collection_id: str | None = None,
+            segment_start: float = 0.0,
+            segment_end: float | None = None,
+            loop: bool | None = None,
     ) -> None:
         self.path = path
         self.asset_id = asset_id
@@ -179,7 +179,6 @@ def test_automation_randomizes_layout_and_effects(tmp_path) -> None:
     assert effects.preset_name != "Clean"
 
 
-
 def test_one_shot_fragment_advances_when_segment_finishes(tmp_path) -> None:
     asset = make_asset(tmp_path, "one-shot.mp4", duration=60.0)
     deck = FakeDeck("deck_a")
@@ -256,6 +255,7 @@ def test_live_media_pool_refresh_does_not_interrupt_current_clip(tmp_path) -> No
     assert director.tick(now=100.0) is False
     assert deck.asset_id == second.id
     assert deck.load_count == 2
+
 
 def test_deck_unlocked_after_session_start_joins_automation(tmp_path) -> None:
     asset = make_asset(tmp_path, "unlocked-later.mp4")
@@ -380,7 +380,6 @@ def test_auto_layout_does_not_move_generator_layers(tmp_path) -> None:
     assert generator.scale == (0.7, 0.7)
 
 
-
 def test_automation_varies_text_and_generator_settings_but_respects_layer_locks(tmp_path) -> None:
     asset = make_asset(tmp_path, "generator-auto.mp4")
     deck = FakeDeck("deck_a")
@@ -424,7 +423,6 @@ def test_automation_can_randomize_independent_layer_effects(tmp_path) -> None:
     original = dict(layer.layer_effects)
     assert director.tick(now=4.0) is True
     assert layer.layer_effects != original or layer.layer_effects["enabled"]
-
 
 
 def test_automation_varies_text_and_respects_layer_locks(tmp_path) -> None:
