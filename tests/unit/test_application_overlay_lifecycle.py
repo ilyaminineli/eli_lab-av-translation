@@ -39,6 +39,15 @@ def test_application_adds_shared_still_overlay_and_releases_it(tmp_path) -> None
     assert layer.source_id in frames
     assert layer.id in application._overlay_images
 
+    layer.overlay_in = 60.0
+    assert layer.source_id not in application.current_frames()
+    layer.overlay_in = 0.0
+    layer.overlay_out = 0.01
+    application._overlay_started_at[layer.id] -= 1.0
+    assert layer.source_id not in application.current_frames()
+    layer.overlay_out = None
+    assert layer.source_id in application.current_frames()
+
     removed = application.remove_layer(layer.id)
 
     assert removed is True
