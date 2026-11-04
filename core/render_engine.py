@@ -63,6 +63,7 @@ class RenderEngine:
             width: int,
             height: int,
             effects: EffectSettings | None = None,
+            time_seconds: float | None = None,
     ) -> None:
         if not self.initialized or self.compositor is None:
             return
@@ -145,7 +146,8 @@ class RenderEngine:
             width,
             height,
             effects=effects,
-            time_seconds=max(0.0, time.perf_counter() - self._time_origin),
+            time_seconds=(max(0.0, float(time_seconds)) if time_seconds is not None
+                          else max(0.0, time.perf_counter() - self._time_origin)),
             canvas_width=composition.width,
             canvas_height=composition.height,
         )
