@@ -85,6 +85,12 @@ class RenderEngine:
         active_generator_ids = {layer.id for layer in generator_layers}
         for layer in generator_layers:
             source_id = layer.source_id or f"generator:{layer.id}"
+            if layer.generator_type == "particles":
+                self.compositor.remove_texture(source_id)
+                self._generator_signatures.pop(layer.id, None)
+                self._generator_sources.pop(layer.id, None)
+                self._generator_errors.pop(layer.id, None)
+                continue
             try:
                 fingerprint, pixels = self.generator_rasterizer.render(layer)
             except Exception as exc:
