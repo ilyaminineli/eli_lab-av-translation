@@ -29,6 +29,7 @@ class ImageOverlayPlayer:
         self._revision = 1
         self._loop_count = self.reader.loopCount()
         self._completed_loops = 0
+        self._finished = False
 
     @staticmethod
     def _convert(image: QImage) -> np.ndarray:
@@ -61,7 +62,7 @@ class ImageOverlayPlayer:
         return self._revision
 
     def update(self, now: float | None = None) -> VideoFrameData | None:
-        if not self.animated:
+        if not self.animated or self._finished:
             return None
         current = time.perf_counter() if now is None else float(now)
         if current < self._next_frame_at:
@@ -70,6 +71,7 @@ class ImageOverlayPlayer:
         if image.isNull():
             self._completed_loops += 1
             if self._loop_count >= 0 and self._completed_loops >= self._loop_count:
+                self._finished = True
                 return None
             if not self.reader.jumpToImage(0):
                 return None
