@@ -30,6 +30,7 @@ from core.application import Application
 from effects.layer_settings import (
     LAYER_EFFECT_PRESETS,
     EFFECT_STAGE_TYPES,
+    apply_effect_chain_preset,
     normalize_layer_effects,
 )
 
@@ -367,7 +368,7 @@ class LayerPanel(QWidget):
             label.setText(f"{title}  {value}")
         self.layer_fx_preset.blockSignals(True)
         imported = self.application.composition.metadata.get("layer_fx_presets", {})
-        known_names = list(LAYER_EFFECT_PRESETS) + (list(imported) if isinstance(imported, dict) else [])
+        known_names = list(LAYER_EFFECT_PRESETS) + ["Xerox Stack", "Negative Print", "Signal Scan"] + (list(imported) if isinstance(imported, dict) else [])
         self.layer_fx_preset.clear()
         self.layer_fx_preset.addItems(list(dict.fromkeys(known_names)) + ["Custom"])
         self.layer_fx_preset.setCurrentText("Custom")
@@ -529,6 +530,8 @@ class LayerPanel(QWidget):
         if isinstance(imported, dict) and name in imported:
             stages = normalize_layer_effects({"stages": imported[name]})["stages"]
             values = normalize_layer_effects({"enabled": bool(stages), "stages": stages})
+        elif name in {"Xerox Stack", "Negative Print", "Signal Scan"}:
+            values = apply_effect_chain_preset(name)
         else:
             values = apply_layer_effect_preset(name)
         self.application.layer_manager.update_layer(
