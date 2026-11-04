@@ -10,7 +10,6 @@ from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import (
     QColor,
     QFont,
-    QFontDatabase,
     QFontMetricsF,
     QImage,
     QPainter,
@@ -39,12 +38,17 @@ class GeneratorRasterizer:
 
     @staticmethod
     def fingerprint(layer: Layer) -> str:
+        settings = normalize_settings(
+            layer.generator_type or "geometry",
+            layer.generator_settings,
+        )
+        # Animation is evaluated in the compositor, so it must not invalidate
+        # the static raster texture or trigger another CPU-side text/shape pass.
+        for key in ("animation", "animation_speed", "animation_amount"):
+            settings.pop(key, None)
         payload = {
             "type": layer.generator_type,
-            "settings": normalize_settings(
-                layer.generator_type or "geometry",
-                layer.generator_settings,
-            ),
+            "settings": settings,
             "size": [GENERATOR_WIDTH, GENERATOR_HEIGHT],
         }
         encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
@@ -241,18 +245,35 @@ class GeneratorRasterizer:
         frequency = float(settings["frequency"])
         phase = float(settings["phase_offset"])
         line_width = float(settings["line_width"])
+        pattern = str(settings.get("pattern", "sine"))
         for band in range(density):
             normalized = (band + 0.5) / density
             center_y = normalized * height
             offset = band * phase
             path = QPainterPath()
-            for step in range(321):
-                x = width * step / 320.0
-                normalized_x = x / width
-                envelope = 0.35 + 0.65 * (math.sin(math.pi * normalized_x) ** 0.5)
-                y = center_y + math.sin(
-                    normalized_x * math.tau * frequency + offset
-                ) * amplitude * envelope
+            for step in range(481):
+                progress = step / 480.0
+                if pattern == "lissajous":
+                    angle = progress * math.tau * max(1.0, frequency)
+                    x = width / 2.0 + math.sin(angle + offset) * width * 0.42
+                    y = height / 2.0 + math.sin(
+                        angle * 1.5 + offset + phase
+                    ) * height * 0.38
+                elif pattern == "orbit":
+                    angle = progress * math.tau
+                    radius = min(width, height) * (
+                        0.12 + 0.28 * (0.5 + 0.5 * math.sin(angle * frequency + offset))
+                    )
+                    x = width / 2.0 + math.cos(angle + offset) * radius
+                    y = height / 2.0 + math.sin(angle + offset) * radius
+                else:
+                    x = width * progress
+                    envelope = 0.35 + 0.65 * (
+                        math.sin(math.pi * progress) ** 0.5
+                    )
+                    y = center_y + math.sin(
+                        progress * math.tau * frequency + offset
+                    ) * amplitude * envelope
                 if step == 0:
                     path.moveTo(x, y)
                 else:
