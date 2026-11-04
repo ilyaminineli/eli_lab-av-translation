@@ -5,6 +5,7 @@ from typing import Any
 
 LAYER_EFFECT_DEFAULTS: dict[str, Any] = {
     "enabled": False,
+    "stages": [],
     "mix": 1.0,
     "monochrome": 0.0,
     "invert": 0.0,
@@ -58,6 +59,8 @@ def normalize_layer_effects(settings: dict[str, Any] | None) -> dict[str, Any]:
             if key in result
         })
     result["enabled"] = bool(result["enabled"])
+    raw_stages = result.get("stages", [])
+    result["stages"] = normalize_effect_stages(raw_stages)
     for key in (
             "mix", "monochrome", "invert", "threshold", "posterize",
             "scanlines", "chromatic",
@@ -76,4 +79,65 @@ def apply_layer_effect_preset(name: str) -> dict[str, Any]:
     values = default_layer_effects()
     values["enabled"] = name != "Clean"
     values.update(LAYER_EFFECT_PRESETS[name])
+    return normalize_layer_effects(values)
+
+
+EFFECT_STAGE_TYPES = {
+    "monochrome": "Monochrome",
+    "invert": "Negative",
+    "threshold": "Threshold",
+    "posterize": "Posterize",
+    "scanlines": "Scanlines",
+    "hue": "Hue shift",
+}
+
+
+def normalize_effect_stages(stages: object) -> list[dict[str, Any]]:
+    """Normalize ordered layer FX stages. The list order is the render order."""
+    if not isinstance(stages, list):
+        return []
+    normalized = []
+    for item in stages[:8]:
+        if not isinstance(item, dict):
+            continue
+        kind = str(item.get("type", ""))
+        if kind not in EFFECT_STAGE_TYPES:
+            continue
+        try:
+            amount = float(item.get("amount", 1.0))
+        except (TypeError, ValueError):
+            amount = 1.0
+        normalized.append({
+            "type": kind,
+            "amount": max(0.0, min(1.0, amount)),
+            "enabled": bool(item.get("enabled", True)),
+        })
+    return normalized
+
+
+def default_effect_chain() -> list[dict[str, Any]]:
+    return [
+        {"type": "monochrome", "amount": 1.0, "enabled": True},
+        {"type": "threshold", "amount": 0.45, "enabled": True},
+    ]
+
+
+def apply_effect_chain_preset(name: str) -> dict[str, Any]:
+    chains = {
+        "Xerox Stack": default_effect_chain(),
+        "Negative Print": [
+            {"type": "invert", "amount": 1.0, "enabled": True},
+            {"type": "posterize", "amount": 0.55, "enabled": True},
+        ],
+        "Signal Scan": [
+            {"type": "hue", "amount": 0.22, "enabled": True},
+            {"type": "scanlines", "amount": 0.7, "enabled": True},
+        ],
+        "Clean": [],
+    }
+    if name not in chains:
+        raise KeyError(f"Unknown effect chain preset: {name}")
+    values = default_layer_effects()
+    values["enabled"] = bool(chains[name])
+    values["stages"] = deepcopy(chains[name])
     return normalize_layer_effects(values)
