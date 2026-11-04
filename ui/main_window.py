@@ -168,8 +168,10 @@ class MainWindow(QMainWindow):
         output_menu.aboutToShow.connect(
             lambda menu=output_menu: self._populate_projector_menu(menu)
         )
-        QGuiApplication.screenAdded.connect(self._display_configuration_changed)
-        QGuiApplication.screenRemoved.connect(self._display_configuration_changed)
+        gui_application = QGuiApplication.instance()
+        if gui_application is not None:
+            gui_application.screenAdded.connect(self._display_configuration_changed)
+            gui_application.screenRemoved.connect(self._display_configuration_changed)
 
         help_menu = self.menuBar().addMenu("&Help")
         about_action = QAction("&About", self)
