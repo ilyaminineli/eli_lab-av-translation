@@ -6,6 +6,7 @@ import time
 from PySide6.QtCore import QTimer, Signal
 from PySide6.QtGui import QColor, QFont, QPainter
 from PySide6.QtOpenGLWidgets import QOpenGLWidget
+from PySide6.QtWidgets import QSizePolicy
 
 from config import RENDER_TARGET_FPS
 from core.application import Application
