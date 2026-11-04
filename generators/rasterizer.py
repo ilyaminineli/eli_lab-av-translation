@@ -95,8 +95,13 @@ class GeneratorRasterizer:
     def clear(self) -> None:
         self._cache.clear()
 
+    @staticmethod
+    def _color(value: str, fallback: str = "#E8E4DA") -> QColor:
+        color = QColor(value)
+        return color if color.isValid() else QColor(fallback)
+
     def _pen(self, color: str, width: float) -> QPen:
-        pen = QPen(QColor(color))
+        pen = QPen(self._color(color))
         pen.setWidthF(float(width))
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
@@ -234,7 +239,7 @@ class GeneratorRasterizer:
                     path,
                     self._pen(str(settings["stroke_color"]), stroke_width),
                 )
-            painter.fillPath(path, QColor(str(settings["primary_color"])))
+            painter.fillPath(path, self._color(str(settings["primary_color"])))
             y += line_height
 
     def _draw_waveform(self, painter: QPainter, settings: dict[str, Any]) -> None:
