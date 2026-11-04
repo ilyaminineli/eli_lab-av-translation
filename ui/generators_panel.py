@@ -490,6 +490,8 @@ class GeneratorsPanel(QWidget):
                         values.get("text_pool_language", "bilingual")
                     ),
                 )
+            )
+                )
             self.random_theme_combo.setCurrentIndex(
                 max(0, self.random_theme_combo.findData(values.get("text_pool_theme", "random"))))
             self.random_count_combo.setCurrentIndex(
