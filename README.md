@@ -2,7 +2,7 @@
 
 A Windows-first live video collage and VJ performance environment. Drop in a footage folder, choose a session rhythm, start automation and send the same GPU composition to a separate fullscreen display or projector.
 
-This development pass focuses on video, master effects, overlays and automation. Audio analysis, audio playback and Sonic Pi control are intentionally outside this milestone.
+M0–M2 establish the visual instrument. M3 is now in development: it adds a source-independent performance-control foundation and optional audio analysis. M4 will add Sonic Pi as a timed OSC control source. Audio playback remains the responsibility of Sonic Pi or another external audio application.
 
 ## Current implementation
 
@@ -37,7 +37,7 @@ This development pass focuses on video, master effects, overlays and automation.
 
 ## Development roadmap
 
-See [docs/ROADMAP.md](docs/ROADMAP.md) for the complete M0–M5 plan, implementation status and the Video Mixer Completion Gate. The current priority is to finish and harden M0–M2 before starting audio-reactive and Sonic Pi work.
+See [docs/ROADMAP.md](docs/ROADMAP.md) for the M0–M5 plan, implementation status and the Video Mixer Completion Gate. The visual release gate remains open while M3 control/audio foundations proceed.
 
 ## System requirements
 
@@ -104,9 +104,17 @@ Open View → GENERATORS + TEXT ART to add a transparent Geometry, Text Art, Wav
 - **Particles:** a GPU-generated procedural field with drift, rise, fall or orbit motion and trails.
 - **Animation:** pulse, rotate, drift and flicker. Static art is rasterized only when content settings change; animation is handled in the GPU compositing shader.
 
-Generators and media overlays are independent composition layers, so they can appear above or below video and render in both preview and projector output. Animated image playback depends on the image formats enabled by the installed Qt image plugins. Audio-reactive modulation is reserved for M3.
+Generators and media overlays are independent composition layers, so they can appear above or below video and render in both preview and projector output. Animated image playback depends on the image formats enabled by the installed Qt image plugins.
 
 See [docs/M2_GENERATIVE_VISUALS.md](docs/M2_GENERATIVE_VISUALS.md) for details.
+
+## M3 performance control foundation
+
+M3 has started with a renderer-independent control contract: bounded control-event ingress, a normalized transport/scene/intensity/macro state and UI-thread event draining. Audio capture, analysis, modulation routing and mapping persistence are still planned. See [M3 Audio-Reactive Foundation](docs/M3_AUDIO_REACTIVE_FOUNDATION.md).
+
+## M4 Sonic Pi integration
+
+The SONATA Expanded patch has been inspected as the first target. It uses a 92 BPM bar clock, 16 scenes, and energy/cutoff macros, but currently has no OSC sender. M4 will add a versioned OSC bridge at those high-level musical control points. See [SONATA integration notes](docs/SONIC_PI_SONATA_INTEGRATION.md).
 
 ## Effects and overlays
 
