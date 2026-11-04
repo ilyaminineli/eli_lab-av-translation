@@ -5,7 +5,8 @@ import numpy as np
 
 from core.composition import Layer
 from effects.settings import EffectSettings
-from generators.catalog import animation_code
+from effects.layer_settings import normalize_layer_effects
+from generators.catalog import animation_code, text_animation_code
 
 _VERTEX_SHADER = """#version 330
 in vec2 in_position;
@@ -30,9 +31,125 @@ uniform float u_time;
 uniform int u_animation;
 uniform float u_animation_speed;
 uniform float u_animation_amount;
+uniform int u_generator_type;
+uniform int u_text_animation;
+uniform float u_text_animation_speed;
+uniform float u_text_animation_amount;
+uniform float u_text_animation_columns;
+uniform float u_particle_density;
+uniform float u_particle_speed;
+uniform float u_particle_size;
+uniform float u_particle_spread;
+uniform float u_particle_trail;
+uniform int u_particle_mode;
+uniform vec3 u_particle_primary;
+uniform vec3 u_particle_secondary;
+uniform int u_layer_fx_enabled;
+uniform float u_layer_fx_mix;
+uniform float u_layer_fx_monochrome;
+uniform float u_layer_fx_invert;
+uniform float u_layer_fx_threshold;
+uniform float u_layer_fx_posterize;
+uniform float u_layer_fx_hue;
+uniform float u_layer_fx_saturation;
+uniform float u_layer_fx_contrast;
+uniform float u_layer_fx_brightness;
+uniform float u_layer_fx_scanlines;
+uniform float u_layer_fx_chromatic;
 
 in vec2 v_uv;
 out vec4 frag_color;
+
+float hash21(vec2 p) {
+    p = fract(p * vec2(123.34, 456.21));
+    p += dot(p, p + 45.32);
+    return fract(p.x * p.y);
+}
+
+vec4 particle_field(vec2 uv) {
+    vec2 grid = vec2(
+        max(4.0, u_particle_density),
+        max(3.0, u_particle_density * 0.5625)
+    );
+    vec2 cell = floor(uv * grid);
+    vec2 cell_size = 1.0 / grid;
+    float alpha = 0.0;
+    vec3 particle_color = u_particle_primary;
+    for (int y = -1; y <= 1; y++) {
+        for (int x = -1; x <= 1; x++) {
+            vec2 id = cell + vec2(float(x), float(y));
+            float seed = hash21(id);
+            vec2 jitter = vec2(
+                hash21(id + vec2(17.0, 3.0)),
+                hash21(id + vec2(7.0, 29.0))
+            );
+            vec2 point = (id + jitter) / grid;
+            float phase = u_time * u_particle_speed * 0.22 + seed * 6.28318;
+            if (u_particle_mode == 1) {
+                point.y = fract(point.y - phase / 6.28318);
+            } else if (u_particle_mode == 2) {
+                point.y = fract(point.y + phase / 6.28318);
+            } else {
+                point.y = fract(point.y + sin(phase) * u_particle_spread * 0.08);
+                point.x = fract(point.x + cos(phase * 0.7) * u_particle_spread * 0.08);
+            }
+            float radius = max(cell_size.x, cell_size.y) * u_particle_size * 0.23;
+            vec2 delta = uv - point;
+            float distance_to_point = length(delta);
+            float core = 1.0 - smoothstep(radius * 0.28, radius, distance_to_point);
+            float tail = 0.0;
+            if (u_particle_trail > 0.001) {
+                float along = max(0.0, -delta.y) / max(radius, 0.0001);
+                float across = abs(delta.x) / max(radius * 0.34, 0.0001);
+                tail = exp(-along * 1.8) * (1.0 - smoothstep(0.5, 1.5, across));
+                tail *= smoothstep(0.0, 0.22, along) * u_particle_trail;
+            }
+            float coverage = max(core, tail);
+            if (coverage > alpha) {
+                alpha = coverage;
+                particle_color = mix(
+                    u_particle_primary,
+                    u_particle_secondary,
+                    step(0.52, seed)
+                );
+            }
+        }
+    }
+    return vec4(particle_color, clamp(alpha, 0.0, 1.0));
+}
+
+vec3 layer_color_effects(vec3 color, vec2 uv) {
+    if (u_layer_fx_enabled == 0 || u_layer_fx_mix <= 0.0) {
+        return color;
+    }
+    vec3 original = color;
+    color = (color - 0.5) * u_layer_fx_contrast + 0.5;
+    float luminance = dot(color, vec3(0.2126, 0.7152, 0.0722));
+    color = mix(color, vec3(luminance), u_layer_fx_monochrome);
+    color *= u_layer_fx_saturation;
+    color += u_layer_fx_brightness;
+    float angle = radians(u_layer_fx_hue);
+    float yi = dot(color, vec3(0.596, -0.274, -0.322));
+    float yq = dot(color, vec3(0.211, -0.523, 0.312));
+    float yy = dot(color, vec3(0.299, 0.587, 0.114));
+    float ri = yi * cos(angle) - yq * sin(angle);
+    float rq = yi * sin(angle) + yq * cos(angle);
+    color = vec3(
+        yy + 0.956 * ri + 0.621 * rq,
+        yy - 0.272 * ri - 0.647 * rq,
+        yy - 1.106 * ri + 1.703 * rq
+    );
+    float thresholded = step(u_layer_fx_threshold, luminance);
+    color = mix(color, vec3(thresholded), u_layer_fx_threshold);
+    if (u_layer_fx_posterize > 0.001) {
+        float levels = mix(24.0, 2.0, u_layer_fx_posterize);
+        color = floor(clamp(color, 0.0, 1.0) * levels) / levels;
+    }
+    color = mix(color, vec3(1.0) - color, u_layer_fx_invert);
+    float scan = 0.82 + 0.18 * sin(uv.y * 720.0 * 3.14159265);
+    color *= mix(1.0, scan, u_layer_fx_scanlines);
+    return mix(original, clamp(color, 0.0, 1.0), u_layer_fx_mix);
+}
 
 void main() {
     vec4 base = texture(u_base, v_uv);
@@ -71,7 +188,44 @@ void main() {
         return;
     }
 
-    vec4 source = texture(u_layer, local);
+    vec2 sample_local = local;
+    float text_mask = 1.0;
+    float text_phase = u_time * u_text_animation_speed;
+    if (u_generator_type == 2) {
+        if (u_text_animation == 1) {
+            float reveal = fract(text_phase * 0.08);
+            text_mask = 1.0 - smoothstep(reveal - 0.012, reveal + 0.012, local.x);
+        } else if (u_text_animation == 2) {
+            float columns = max(2.0, u_text_animation_columns);
+            float cell = floor(local.x * columns) / columns;
+            float reveal = fract(text_phase * 0.08);
+            text_mask = step(cell, reveal);
+        } else if (u_text_animation == 3) {
+            sample_local.x += sin(local.y * 44.0 + text_phase * 2.0)
+                * u_text_animation_amount;
+        } else if (u_text_animation == 4) {
+            vec2 seed = floor(local * 52.0);
+            float jitter = hash21(seed + floor(text_phase * 8.0)) - 0.5;
+            sample_local += vec2(jitter, -jitter) * u_text_animation_amount;
+        } else if (u_text_animation == 5) {
+            sample_local.y = fract(local.y + text_phase * 0.045);
+        } else if (u_text_animation == 6) {
+            float line = floor(local.y * 45.0);
+            float gate = step(0.86, hash21(vec2(line, floor(text_phase * 12.0))));
+            sample_local.x += gate * sin(text_phase * 19.0 + line) * u_text_animation_amount;
+        }
+    }
+
+    vec4 source;
+    if (u_generator_type == 1) {
+        source = particle_field(local);
+    } else {
+        source = texture(u_layer, clamp(sample_local, vec2(0.001), vec2(0.999)));
+        if (u_generator_type == 2) {
+            source.a *= text_mask;
+        }
+    }
+    source.rgb = layer_color_effects(source.rgb, local);
     float alpha = clamp(source.a * animated_opacity, 0.0, 1.0);
     vec3 blended = source.rgb;
 
@@ -265,12 +419,31 @@ class Compositor:
         self.composite_program["u_animation"].value = 0
         self.composite_program["u_animation_speed"].value = 0.0
         self.composite_program["u_animation_amount"].value = 0.0
+        self.composite_program["u_generator_type"].value = 0
+        self.composite_program["u_text_animation"].value = 0
+        self.composite_program["u_particle_mode"].value = 0
+        self.composite_program["u_layer_fx_enabled"].value = 0
         self.post_program["u_texture"].value = 0
 
         self.source_textures: dict[str, moderngl.Texture] = {}
         self.targets: list[moderngl.Texture] = []
         self.framebuffers: list[moderngl.Framebuffer] = []
         self.size = (0, 0)
+
+    @staticmethod
+    def _rgb(value: str) -> tuple[float, float, float]:
+        try:
+            hex_value = value.lstrip("#")
+            if len(hex_value) == 8:
+                hex_value = hex_value[:6]
+            if len(hex_value) != 6:
+                raise ValueError("Expected six-digit colour")
+            return tuple(
+                int(hex_value[offset:offset + 2], 16) / 255.0
+                for offset in (0, 2, 4)
+            )
+        except (TypeError, ValueError):
+            return (0.91, 0.89, 0.84)
 
     def update_texture(self, source_id: str, pixels: np.ndarray) -> None:
         frame = np.ascontiguousarray(pixels, dtype=np.uint8)
@@ -380,8 +553,11 @@ class Compositor:
         for layer in sorted(layers, key=lambda item: item.z_index):
             if not layer.visible or layer.opacity <= 0.0:
                 continue
+            is_particle_layer = (
+                layer.source_type == "generator" and layer.generator_type == "particles"
+            )
             layer_texture = self.source_textures.get(layer.source_id)
-            if layer_texture is None:
+            if layer_texture is None and not is_particle_layer:
                 continue
 
             next_target = 1 - current
@@ -389,7 +565,8 @@ class Compositor:
             self.ctx.viewport = (0, 0, width, height)
 
             self.targets[current].use(location=0)
-            layer_texture.use(location=1)
+            if layer_texture is not None:
+                layer_texture.use(location=1)
 
             self.composite_program["u_position"].value = tuple(layer.position)
             self.composite_program["u_scale"].value = tuple(layer.scale)
@@ -407,6 +584,57 @@ class Compositor:
             self.composite_program["u_animation_amount"].value = float(
                 animation.get("animation_amount", 0.0)
             )
+            generator_kind = layer.generator_type if layer.source_type == "generator" else None
+            self.composite_program["u_generator_type"].value = {
+                "particles": 1,
+                "text": 2,
+            }.get(generator_kind, 0)
+            self.composite_program["u_text_animation"].value = (
+                text_animation_code(animation) if generator_kind == "text" else 0
+            )
+            self.composite_program["u_text_animation_speed"].value = float(
+                animation.get("text_animation_speed", 1.0)
+            )
+            self.composite_program["u_text_animation_amount"].value = float(
+                animation.get("text_animation_amount", 0.025)
+            )
+            self.composite_program["u_text_animation_columns"].value = float(
+                animation.get("text_animation_columns", 18)
+            )
+
+            if generator_kind == "particles":
+                settings = animation
+                self.composite_program["u_particle_density"].value = float(settings["density"])
+                self.composite_program["u_particle_speed"].value = float(settings["speed"])
+                self.composite_program["u_particle_size"].value = float(settings["size"])
+                self.composite_program["u_particle_spread"].value = float(settings["spread"])
+                self.composite_program["u_particle_trail"].value = float(settings["trail"])
+                self.composite_program["u_particle_mode"].value = {
+                    "drift": 0, "rise": 1, "fall": 2, "orbit": 3,
+                }.get(str(settings.get("mode", "drift")), 0)
+                self.composite_program["u_particle_primary"].value = self._rgb(
+                    str(settings["primary_color"])
+                )
+                self.composite_program["u_particle_secondary"].value = self._rgb(
+                    str(settings["secondary_color"])
+                )
+
+            layer_fx = normalize_layer_effects(layer.layer_effects)
+            self.composite_program["u_layer_fx_enabled"].value = int(layer_fx["enabled"])
+            for uniform, key in (
+                ("u_layer_fx_mix", "mix"),
+                ("u_layer_fx_monochrome", "monochrome"),
+                ("u_layer_fx_invert", "invert"),
+                ("u_layer_fx_threshold", "threshold"),
+                ("u_layer_fx_posterize", "posterize"),
+                ("u_layer_fx_hue", "hue"),
+                ("u_layer_fx_saturation", "saturation"),
+                ("u_layer_fx_contrast", "contrast"),
+                ("u_layer_fx_brightness", "brightness"),
+                ("u_layer_fx_scanlines", "scanlines"),
+                ("u_layer_fx_chromatic", "chromatic"),
+            ):
+                self.composite_program[uniform].value = float(layer_fx[key])
             self.composite_vao.render(mode=moderngl.TRIANGLE_STRIP)
             current = next_target
 
