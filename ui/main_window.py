@@ -165,27 +165,48 @@ class MainWindow(QMainWindow):
             view_menu.addAction(dock.toggleViewAction())
 
         output_menu = view_menu.addMenu("PROJECTOR OUTPUT")
-        screens = QGuiApplication.screens()
-        for index, screen in enumerate(screens, start=1):
-            geometry = screen.geometry()
-            label = (
-                f"Display {index} · {screen.name()} "
-                f"({geometry.width()}×{geometry.height()})"
-            )
-            action = QAction(label, self)
-            action.triggered.connect(
-                lambda checked=False, target=screen: self.open_projector_output(target)
-            )
-            output_menu.addAction(action)
-        output_menu.addSeparator()
-        close_output_action = QAction("Close Projector Output", self)
-        close_output_action.triggered.connect(self.output_manager.close)
-        output_menu.addAction(close_output_action)
+        output_menu.aboutToShow.connect(
+            lambda menu=output_menu: self._populate_projector_menu(menu)
+        )
+        QGuiApplication.screenAdded.connect(self._display_configuration_changed)
+        QGuiApplication.screenRemoved.connect(self._display_configuration_changed)
 
         help_menu = self.menuBar().addMenu("&Help")
         about_action = QAction("&About", self)
         about_action.triggered.connect(self.show_about)
         help_menu.addAction(about_action)
+
+    def _populate_projector_menu(self, menu) -> None:
+        menu.clear()
+        screens = QGuiApplication.screens()
+        primary = QGuiApplication.primaryScreen()
+        if not screens:
+            unavailable = QAction("No displays detected", menu)
+            unavailable.setEnabled(False)
+            menu.addAction(unavailable)
+        for index, screen in enumerate(screens, start=1):
+            geometry = screen.geometry()
+            primary_label = " · PRIMARY" if screen == primary else ""
+            label = (
+                f"Display {index} · {screen.name()} "
+                f"({geometry.width()}×{geometry.height()}){primary_label}"
+            )
+            action = QAction(label, menu)
+            action.triggered.connect(
+                lambda checked=False, target=screen: self.open_projector_output(target)
+            )
+            menu.addAction(action)
+        menu.addSeparator()
+        close_output_action = QAction("Close Projector Output", menu)
+        close_output_action.setEnabled(self.output_manager.window is not None)
+        close_output_action.triggered.connect(self.output_manager.close)
+        menu.addAction(close_output_action)
+
+    def _display_configuration_changed(self, *_args) -> None:
+        self.statusBar().showMessage(
+            f"Display configuration changed · {len(QGuiApplication.screens())} display(s) detected",
+            5000,
+        )
 
     def open_projector_output(self, screen) -> None:
         try:
