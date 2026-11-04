@@ -4,8 +4,8 @@ import moderngl
 import numpy as np
 
 from core.composition import Layer
-from effects.settings import EffectSettings
 from effects.layer_settings import normalize_layer_effects
+from effects.settings import EffectSettings
 from generators.catalog import animation_code, text_animation_code
 
 _VERTEX_SHADER = """#version 330
