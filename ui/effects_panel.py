@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QFormLayout,
     QGroupBox,
@@ -17,10 +18,15 @@ from PySide6.QtWidgets import (
 from effects.settings import PRESETS, EffectSettings
 
 _SLIDERS = (
+    ("mix", "Effect mix", 0, 100, 100.0),
     ("brightness", "Brightness", -50, 50, 100.0),
+    ("exposure", "Exposure", -200, 200, 100.0),
     ("contrast", "Contrast", 25, 225, 100.0),
     ("saturation", "Saturation", 0, 225, 100.0),
     ("gamma", "Gamma", 25, 225, 100.0),
+    ("temperature", "Temperature", -100, 100, 100.0),
+    ("tint", "Tint", -100, 100, 100.0),
+    ("hue", "Hue shift", -180, 180, 1.0),
     ("vignette", "Vignette", 0, 100, 100.0),
     ("grain", "Film grain", 0, 100, 100.0),
     ("scanlines", "Scanlines", 0, 100, 100.0),
@@ -29,6 +35,8 @@ _SLIDERS = (
     ("pixelate", "Pixelation", 0, 100, 100.0),
     ("posterize", "Posterize", 0, 100, 100.0),
     ("invert", "Invert", 0, 100, 100.0),
+    ("halftone", "Halftone print", 0, 100, 100.0),
+    ("solarize", "Solarization", 0, 100, 100.0),
 )
 
 
@@ -50,6 +58,10 @@ class EffectsPanel(QWidget):
         self.reset_button = QPushButton("RESET")
         preset_row.addWidget(self.reset_button)
         root.addLayout(preset_row)
+
+        self.enabled_check = QCheckBox("ENABLE MASTER EFFECTS")
+        self.enabled_check.setChecked(settings.enabled)
+        root.addWidget(self.enabled_check)
 
         group = QGroupBox("MASTER FILTERS + OVERLAYS")
         form = QFormLayout(group)
@@ -75,6 +87,7 @@ class EffectsPanel(QWidget):
         root.addWidget(scroll, 1)
 
         self.preset_combo.currentTextChanged.connect(self._preset_changed)
+        self.enabled_check.toggled.connect(self._enabled_changed)
         self.reset_button.clicked.connect(self._reset)
         self.sync_from_settings()
 
@@ -84,6 +97,9 @@ class EffectsPanel(QWidget):
         self.settings.apply_preset(name)
         self.sync_from_settings()
 
+    def _enabled_changed(self, enabled: bool) -> None:
+        self.settings.enabled = bool(enabled)
+
     def _value_changed(
             self,
             field: str,
@@ -92,6 +108,11 @@ class EffectsPanel(QWidget):
             label: QLabel,
     ) -> None:
         setattr(self.settings, field, value / scale)
+        if not self.settings.enabled:
+            self.settings.enabled = True
+            self.enabled_check.blockSignals(True)
+            self.enabled_check.setChecked(True)
+            self.enabled_check.blockSignals(False)
         label.setText(f"{value / scale:.2f}".rstrip("0").rstrip("."))
         if self.preset_combo.currentText() != "Custom":
             self.preset_combo.blockSignals(True)
@@ -108,6 +129,9 @@ class EffectsPanel(QWidget):
         name = self.settings.preset_name
         self.preset_combo.setCurrentText(name if name in PRESETS else "Custom")
         self.preset_combo.blockSignals(False)
+        self.enabled_check.blockSignals(True)
+        self.enabled_check.setChecked(self.settings.enabled)
+        self.enabled_check.blockSignals(False)
         for key, (slider, label, scale) in self._sliders.items():
             slider.blockSignals(True)
             value = round(float(getattr(self.settings, key)) * scale)
