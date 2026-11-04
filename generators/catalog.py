@@ -24,6 +24,7 @@ _DEFAULTS: dict[str, dict[str, Any]] = {
         "text_pool_theme": "random",
         "text_pool_count": 16,
         "text_pool_dictionary": True,
+        "text_auto_regenerate": True,
         "font_family": "Arial",
         "font_size": 148,
         "font_weight": 700,
@@ -112,6 +113,7 @@ def normalize_settings(generator_type: str, settings: dict[str, Any] | None) -> 
             result["text_pool_theme"] = "random"
         result["text_pool_count"] = max(1, min(60, int(result.get("text_pool_count", 16))))
         result["text_pool_dictionary"] = bool(result.get("text_pool_dictionary", True))
+        result["text_auto_regenerate"] = bool(result.get("text_auto_regenerate", True))
         result["font_size"] = max(12, min(420, int(result["font_size"])))
         requested_weight = max(100, min(900, int(result["font_weight"])))
         supported_weights = (100, 200, 300, 400, 500, 600, 700, 800, 900)
