@@ -71,7 +71,17 @@ class LayerPanel(QWidget):
         self.position_y = self._add_slider(transform_layout, "Y POSITION", 0, 100, 50)
         self.scale = self._add_slider(transform_layout, "UNIFORM SCALE", 10, 200, 100)
         self.rotation = self._add_slider(transform_layout, "ROTATION", -180, 180, 0)
+        blend_row = QHBoxLayout()
+        blend_row.addWidget(QLabel("BLEND MODE"))
+        self.selected_blend_combo = QComboBox()
+        self.selected_blend_combo.addItems(_BLEND_MODES)
+        blend_row.addWidget(self.selected_blend_combo, 1)
+        transform_layout.addLayout(blend_row)
         controls_layout.addWidget(transform_group)
+
+        self.remove_overlay_button = QPushButton("REMOVE OVERLAY IMAGE / VIDEO")
+        self.remove_overlay_button.setVisible(False)
+        controls_layout.addWidget(self.remove_overlay_button)
 
         self.overlay_group = QGroupBox("OVERLAY PLAYBACK + MATTE")
         overlay_form = QFormLayout(self.overlay_group)
@@ -88,8 +98,6 @@ class LayerPanel(QWidget):
         self.overlay_frame_hold_spin = QSpinBox()
         self.overlay_frame_hold_spin.setRange(1, 24)
         self.overlay_scene_sync_check = QCheckBox("Sync to scene changes")
-        self.remove_overlay_button = QPushButton("REMOVE OVERLAY IMAGE / VIDEO")
-        overlay_form.addRow(self.remove_overlay_button)
         self.overlay_mask_mode = QComboBox()
         self.overlay_mask_mode.addItem("No matte", "none")
         self.overlay_mask_mode.addItem("Alpha matte", "alpha")
@@ -178,6 +186,9 @@ class LayerPanel(QWidget):
         self.position_y[1].valueChanged.connect(self._position_y_changed)
         self.scale[1].valueChanged.connect(self._scale_changed)
         self.rotation[1].valueChanged.connect(self._rotation_changed)
+        self.selected_blend_combo.currentTextChanged.connect(
+            self._selected_blend_changed
+        )
         self.layer_fx_enabled.toggled.connect(self._layer_fx_enabled_changed)
         for control in (self.overlay_in_spin, self.overlay_out_spin, self.overlay_speed_spin):
             control.valueChanged.connect(self._overlay_controls_changed)
@@ -317,8 +328,17 @@ class LayerPanel(QWidget):
         for slider in sliders:
             slider.blockSignals(True)
         self.remove_layer_button.setEnabled(layer is not None)
-        self.remove_overlay_button.setVisible(bool(layer and layer.source_type == "overlay"))
-        self.remove_overlay_button.setEnabled(bool(layer and layer.source_type == "overlay"))
+        is_overlay = bool(layer and layer.source_type == "overlay")
+        self.remove_overlay_button.setVisible(is_overlay)
+        self.remove_overlay_button.setEnabled(is_overlay)
+        self.overlay_group.setVisible(is_overlay)
+        self.selected_blend_combo.blockSignals(True)
+        self.selected_blend_combo.setEnabled(layer is not None)
+        if layer is None:
+            self.selected_blend_combo.setCurrentIndex(0)
+        else:
+            self.selected_blend_combo.setCurrentText(layer.blend_mode)
+        self.selected_blend_combo.blockSignals(False)
         if layer is None:
             self.layer_fx_group.setEnabled(False)
             self.position_x[1].setEnabled(False)
@@ -327,8 +347,6 @@ class LayerPanel(QWidget):
             self.rotation[1].setEnabled(False)
         else:
             self.layer_fx_group.setEnabled(True)
-            is_overlay = layer.source_type == "overlay"
-            self.overlay_group.setVisible(is_overlay)
             self.overlay_in_spin.blockSignals(True)
             self.overlay_out_spin.blockSignals(True)
             self.overlay_speed_spin.blockSignals(True)
@@ -650,6 +668,21 @@ class LayerPanel(QWidget):
 
     def _blend_changed(self, layer_id: str, value: str) -> None:
         self.application.layer_manager.update_layer(layer_id, blend_mode=value)
+
+    def _selected_blend_changed(self, value: str) -> None:
+        layer = self._selected_layer()
+        if layer is None or self._loading:
+            return
+        changes = {"blend_mode": value}
+        if layer.source_type == "overlay":
+            changes["overlay_manual_override_until"] = time.time() + 30.0
+        self.application.layer_manager.update_layer(layer.id, **changes)
+        row = self.table.currentRow()
+        blend = self.table.cellWidget(row, 3) if row >= 0 else None
+        if isinstance(blend, QComboBox) and blend.currentText() != value:
+            blend.blockSignals(True)
+            blend.setCurrentText(value)
+            blend.blockSignals(False)
 
     def _position_x_changed(self, value: int) -> None:
         layer = self._selected_layer()
