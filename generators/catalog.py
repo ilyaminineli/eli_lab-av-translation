@@ -71,6 +71,11 @@ def normalize_settings(generator_type: str, settings: dict[str, Any] | None) -> 
         })
 
     if generator_type == "geometry":
+        if result["pattern"] not in {
+            "rings", "grid", "radial", "crosshatch", "polygon",
+            "spiral", "moire", "hexgrid",
+        }:
+            result["pattern"] = "rings"
         result["density"] = max(2, min(80, int(result["density"])))
         result["line_width"] = max(0.5, min(24.0, float(result["line_width"])))
         result["rotation"] = max(-360.0, min(360.0, float(result["rotation"])))
@@ -93,6 +98,8 @@ def normalize_settings(generator_type: str, settings: dict[str, Any] | None) -> 
             result["text_color_mode"] = "single"
         result["shadow"] = bool(result["shadow"])
     elif generator_type == "waveform":
+        if result["pattern"] not in {"sine", "lissajous", "orbit", "radial", "rose"}:
+            result["pattern"] = "sine"
         result["density"] = max(1, min(12, int(result["density"])))
         result["line_width"] = max(0.5, min(20.0, float(result["line_width"])))
         result["amplitude"] = max(0.01, min(0.48, float(result["amplitude"])))
