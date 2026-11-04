@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import random
 
-from PySide6.QtCore import QTimer, Qt, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QFontDatabase
 from PySide6.QtWidgets import (
     QCheckBox,
