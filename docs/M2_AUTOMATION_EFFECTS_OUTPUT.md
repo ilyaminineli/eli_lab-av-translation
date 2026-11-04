@@ -85,3 +85,14 @@ The project loader still accepts schema version 1 projects; their missing M2 set
 Unit tests cover random segment bounds, locked deck behavior, scheduled cuts, session expiry, effect preset reset and M2 project-state persistence.
 
 A physical Windows multi-display test is still required to validate monitor placement, GPU driver behavior and four-stream playback on the target performance computer.
+
+
+## M2 effect-chain completion
+
+Layer FX support ordered, up-to-eight-stage chains. The stage order is top-to-bottom and is applied in the same compositor shader used by preview and projector. Available stages: monochrome, negative, threshold, posterize, scanlines and hue shift. Chains can be saved as individual JSON files; project preset collections can be imported into composition metadata, selected from the layer preset control and exported with the project.
+
+Overlay layers expose persisted in/out metadata, playback speed, frame hold, scene-sync intent and track-matte selection. Animated image playback responds live to speed and hold changes. Alpha and luma mattes sample another composition source by source ID. The application continues to publish one CPU frame snapshot per source to independent preview/projector GPU contexts.
+
+Auto Performance varies enabled per-layer FX independently of generator variation. A manual layer-FX edit starts a 30-second cooldown; locked layers are always excluded. The same scheduled mutation updates the shared composition model, so both output windows see the same state.
+
+The in/out and scene-sync fields are stored and exposed as timeline contracts; M3's scene/timeline clock will provide their absolute scheduling semantics and video-overlay trim seeking. This is an explicit boundary rather than pretending that a static project clock exists in M2.
