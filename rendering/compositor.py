@@ -25,6 +25,7 @@ uniform vec2 u_scale;
 uniform float u_rotation;
 uniform float u_opacity;
 uniform int u_blend_mode;
+uniform vec2 u_canvas_scale;
 uniform float u_time;
 uniform int u_animation;
 uniform float u_animation_speed;
@@ -35,7 +36,13 @@ out vec4 frag_color;
 
 void main() {
     vec4 base = texture(u_base, v_uv);
-    vec2 screen_uv = vec2(v_uv.x, 1.0 - v_uv.y);
+    vec2 canvas_uv = (v_uv - vec2(0.5)) / u_canvas_scale + vec2(0.5);
+    if (canvas_uv.x < 0.0 || canvas_uv.x > 1.0
+            || canvas_uv.y < 0.0 || canvas_uv.y > 1.0) {
+        frag_color = base;
+        return;
+    }
+    vec2 screen_uv = vec2(canvas_uv.x, 1.0 - canvas_uv.y);
     vec2 animated_position = u_position;
     vec2 animated_scale = u_scale;
     float animated_rotation = u_rotation;
@@ -287,8 +294,17 @@ class Compositor:
             height: int,
             effects: EffectSettings | None = None,
             time_seconds: float = 0.0,
+            canvas_width: int = 1920,
+            canvas_height: int = 1080,
     ) -> None:
         self._resize_targets(width, height)
+        target_aspect = max(1, width) / max(1, height)
+        canvas_aspect = max(1, canvas_width) / max(1, canvas_height)
+        if target_aspect > canvas_aspect:
+            canvas_scale = (canvas_aspect / target_aspect, 1.0)
+        else:
+            canvas_scale = (1.0, target_aspect / canvas_aspect)
+        self.composite_program["u_canvas_scale"].value = canvas_scale
         self.ctx.viewport = (0, 0, width, height)
         self.framebuffers[0].use()
         self.framebuffers[0].clear(0.025, 0.028, 0.035, 1.0)
