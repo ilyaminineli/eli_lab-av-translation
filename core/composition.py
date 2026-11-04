@@ -24,6 +24,7 @@ class Layer:
     generator_type: str | None = None
     generator_settings: dict[str, Any] = field(default_factory=dict)
     layer_effects: dict[str, Any] = field(default_factory=dict)
+    fx_manual_override_until: float = 0.0
     overlay_path: str | None = None
     overlay_kind: str | None = None
     overlay_in: float = 0.0
@@ -58,7 +59,7 @@ class Layer:
         allowed = {
             "id", "name", "source_type", "source_id", "visible", "locked",
             "opacity", "blend_mode", "position", "scale", "rotation", "z_index",
-            "generator_type", "generator_settings", "layer_effects",
+            "generator_type", "generator_settings", "layer_effects", "fx_manual_override_until",
             "overlay_path", "overlay_kind", "overlay_in", "overlay_out",
             "overlay_speed", "overlay_frame_hold", "overlay_scene_sync",
             "overlay_mask_mode", "overlay_mask_source",
