@@ -96,14 +96,15 @@ Preview decoding is currently capped at 30 output frames per second and 1920×10
 
 ## M2 generators and text art
 
-Open View → GENERATORS + TEXT ART to add a transparent Geometry, Text Art or Waveform layer. Generator layers appear in the normal LAYERS panel and can be positioned, scaled, rotated, blended, hidden and saved like footage layers.
+Open View → GENERATORS + TEXT ART to add a transparent Geometry, Text Art, Waveform or Particle layer. Generator layers appear in the normal LAYERS panel and can be positioned, scaled, rotated, blended, hidden and saved like footage layers.
 
-- **Geometry:** rings, grids, radial constructions, crosshatch and nested polygons.
-- **Text Art:** editable multiline text, typeface, weight, size, tracking, line spacing, alignment, outline and shadow.
-- **Waveform:** layered sine traces, Lissajous figures and orbit patterns.
+- **Geometry:** rings, grids, radial constructions, crosshatch, nested polygons, spirals, moiré and hex grids.
+- **Text Art:** editable multiline text, typographic collage, bilingual random pools, type-on, word/column reveal, line wave, jitter, crawl and signal glitch.
+- **Waveform:** layered sine traces, Lissajous figures, orbits, radial traces and rose curves.
+- **Particles:** a GPU-generated procedural field with drift, rise, fall or orbit motion and trails.
 - **Animation:** pulse, rotate, drift and flicker. Static art is rasterized only when content settings change; animation is handled in the GPU compositing shader.
 
-Generators are independent composition layers, so they can appear above or below video and render in both preview and projector output. The initial M2 generator set is deliberately self-contained; audio-reactive modulation is reserved for M3.
+Generators and media overlays are independent composition layers, so they can appear above or below video and render in both preview and projector output. Animated image playback depends on the image formats enabled by the installed Qt image plugins. Audio-reactive modulation is reserved for M3.
 
 See [docs/M2_GENERATIVE_VISUALS.md](docs/M2_GENERATIVE_VISUALS.md) for details.
 
@@ -131,7 +132,7 @@ The media index, thumbnails and logs are stored under %LOCALAPPDATA%\ELI LAB\AV 
 
 ## Current limitations
 
-- Effects are master-output GLSL filters, not an unlimited per-layer node graph.
+- Per-layer effects currently provide a compact shader stack, not an unlimited node graph.
 - The first projector implementation uses an independent renderer and CPU frame snapshots; each output uploads textures locally.
 - No audio playback, audio-reactive analysis, MIDI or Sonic Pi OSC in this video/automation-focused pass.
 - No reverse playback, variable-speed playback, masks, keying, advanced crossfades or recording yet.

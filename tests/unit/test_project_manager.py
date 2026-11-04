@@ -47,3 +47,38 @@ def test_project_manager_rejects_unrelated_json(tmp_path) -> None:
         assert "not an eli_lab" in str(exc)
     else:
         raise AssertionError("Unrecognized project should raise ValueError")
+
+
+def test_overlay_and_per_layer_effect_settings_survive_project_round_trip(tmp_path) -> None:
+    composition = Composition(name="Mixed media scene")
+    layer = Layer(
+        id="paper-overlay",
+        name="Paper Texture",
+        source_type="overlay",
+        source_id="overlay:paper-overlay",
+        overlay_path="C:/Assets/paper.gif",
+        overlay_kind="image",
+        layer_effects={
+            "enabled": True,
+            "mix": 0.75,
+            "monochrome": 1.0,
+            "threshold": 0.55,
+        },
+        opacity=0.82,
+        blend_mode="multiply",
+    )
+    composition.add_layer(layer)
+    path = tmp_path / "overlays.eliav"
+
+    manager = ProjectManager()
+    manager.save(path, composition, [])
+    restored, _ = manager.load(path)
+    overlay = restored.get_layer("paper-overlay")
+
+    assert overlay is not None
+    assert overlay.source_type == "overlay"
+    assert overlay.overlay_path == "C:/Assets/paper.gif"
+    assert overlay.overlay_kind == "image"
+    assert overlay.blend_mode == "multiply"
+    assert overlay.opacity == 0.82
+    assert overlay.layer_effects == layer.layer_effects

@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from config import VIDEO_DECK_IDS
 from core.automation import AutomationDirector, AutomationSettings
@@ -14,7 +15,9 @@ from core.project_manager import ProjectManager
 from effects.settings import EffectSettings
 from generators.catalog import GENERATOR_TYPES, default_generator_settings
 from media.frame_queue import FrameSnapshot
+from media.image_overlay import ImageOverlayPlayer
 from media.library import MediaLibrary
+from media.scanner import SUPPORTED_VIDEO_EXTENSIONS
 from media.video_deck import VideoDeck
 
 _LOG = logging.getLogger(__name__)
@@ -34,6 +37,9 @@ class Application:
             deck_id: VideoDeck(deck_id) for deck_id in VIDEO_DECK_IDS
         }
         self._frame_snapshots: dict[str, FrameSnapshot] = {}
+        self._overlay_frames: dict[str, FrameSnapshot] = {}
+        self._overlay_images: dict[str, ImageOverlayPlayer] = {}
+        self._overlay_videos: dict[str, VideoDeck] = {}
         self._automation_collection_id: str | None = None
         self.composition = Composition()
         self.layer_manager = LayerManager(self.composition, self.events)
@@ -67,11 +73,13 @@ class Application:
             "geometry": "Geometry Generator",
             "text": "Text Art",
             "waveform": "Waveform Generator",
+            "particles": "Particle Field",
         }
         blend_modes = {
             "geometry": "screen",
             "text": "normal",
             "waveform": "screen",
+            "particles": "screen",
         }
         layer = self.layer_manager.create_layer(
             name=labels[generator_type],
@@ -90,11 +98,86 @@ class Application:
         self.events.publish("generator.added", layer=layer)
         return layer
 
+    def add_media_overlay(self, path: str | Path) -> Layer:
+        source = Path(path).expanduser().resolve()
+        if not source.is_file():
+            raise FileNotFoundError(source)
+        layer_id = uuid4().hex
+        suffix = source.suffix.lower()
+        kind = "video" if suffix in SUPPORTED_VIDEO_EXTENSIONS else "image"
+        layer = self.layer_manager.create_layer(
+            id=layer_id,
+            name=f"Overlay · {source.stem}",
+            source_type="overlay",
+            source_id=f"overlay:{layer_id}",
+            overlay_path=str(source),
+            overlay_kind=kind,
+            blend_mode="normal",
+            position=(0.5, 0.5),
+            scale=(1.0, 1.0),
+            z_index=max(
+                (item.z_index for item in self.composition.layers),
+                default=-1,
+            ) + 1,
+        )
+        try:
+            self._attach_overlay_layer(layer)
+        except Exception:
+            self.layer_manager.remove_layer(layer.id)
+            raise
+        self.events.publish("overlay.added", layer=layer)
+        return layer
+
+    def _attach_overlay_layer(self, layer: Layer) -> None:
+        if not layer.overlay_path:
+            raise ValueError(f"Overlay layer {layer.name} has no media path.")
+        source = Path(layer.overlay_path).expanduser().resolve()
+        if not source.is_file():
+            raise FileNotFoundError(source)
+        kind = layer.overlay_kind or (
+            "video" if source.suffix.lower() in SUPPORTED_VIDEO_EXTENSIONS else "image"
+        )
+        layer.overlay_kind = kind
+        layer.source_type = "overlay"
+        layer.source_id = f"overlay:{layer.id}"
+        if kind == "video":
+            deck = VideoDeck(f"overlay_{layer.id}")
+            deck.load(source, loop=True)
+            self._overlay_videos[layer.id] = deck
+            self._overlay_frames.pop(layer.id, None)
+        else:
+            player = ImageOverlayPlayer(source)
+            self._overlay_images[layer.id] = player
+            self._overlay_frames[layer.id] = FrameSnapshot(
+                player.revision,
+                player.frame,
+            )
+
+    def _remove_overlay_runtime(self, layer_id: str) -> None:
+        player = self._overlay_images.pop(layer_id, None)
+        if player is not None:
+            player.close()
+        deck = self._overlay_videos.pop(layer_id, None)
+        if deck is not None:
+            deck.close()
+        self._overlay_frames.pop(layer_id, None)
+
+    def _clear_overlays(self) -> None:
+        for layer_id in tuple(self._overlay_images):
+            self._remove_overlay_runtime(layer_id)
+        for layer_id in tuple(self._overlay_videos):
+            self._remove_overlay_runtime(layer_id)
+        self._overlay_frames.clear()
+
     def remove_layer(self, layer_id: str) -> bool:
+        layer = self.composition.get_layer(layer_id)
+        if layer is not None and layer.source_type == "overlay":
+            self._remove_overlay_runtime(layer_id)
         return self.layer_manager.remove_layer(layer_id)
 
     def reset_project(self) -> None:
         self.automation.stop()
+        self._clear_overlays()
         for deck in self.decks.values():
             deck.close()
             deck.locked = False
@@ -129,14 +212,40 @@ class Application:
                 changed = True
             elif deck.current_frame is None:
                 self._frame_snapshots.pop(deck_id, None)
+
+        for layer_id, deck in self._overlay_videos.items():
+            if deck.consume_latest_frame() is not None:
+                snapshot = deck.snapshot_frame()
+                if snapshot is not None:
+                    self._overlay_frames[layer_id] = snapshot
+                changed = True
+            elif deck.current_frame is None:
+                self._overlay_frames.pop(layer_id, None)
+
+        for layer_id, player in self._overlay_images.items():
+            frame = player.update()
+            if frame is not None:
+                self._overlay_frames[layer_id] = FrameSnapshot(
+                    player.revision,
+                    frame,
+                )
+                changed = True
         return changed
 
     def current_frames(self) -> dict[str, FrameSnapshot]:
-        # Each output has its own GPU context and upload revision.
-        return dict(self._frame_snapshots)
+        # Both outputs consume the same CPU snapshots; each owns separate GL textures.
+        frames = dict(self._frame_snapshots)
+        frames.update({
+            f"overlay:{layer_id}": snapshot
+            for layer_id, snapshot in self._overlay_frames.items()
+        })
+        return frames
 
     def performance_snapshot(self) -> dict[str, int | float]:
         deck_stats = [deck.performance_stats() for deck in self.decks.values()]
+        deck_stats.extend(
+            deck.performance_stats() for deck in self._overlay_videos.values()
+        )
         return {
             "playing_decks": sum(bool(item["playing"]) for item in deck_stats),
             "queue_depth": sum(int(item["queue_depth"]) for item in deck_stats),
@@ -217,6 +326,7 @@ class Application:
     def load_project(self, path: str | Path) -> None:
         composition, deck_states = self.project_manager.load(path)
         self.automation.stop()
+        self._clear_overlays()
         for deck in self.decks.values():
             deck.close()
             deck.locked = False
@@ -224,6 +334,13 @@ class Application:
         self._frame_snapshots.clear()
         self.composition = composition
         self.layer_manager = LayerManager(self.composition, self.events)
+        for layer in self.composition.layers:
+            if layer.source_type == "overlay":
+                try:
+                    self._attach_overlay_layer(layer)
+                except Exception as exc:
+                    _LOG.warning("Could not restore overlay %s: %s", layer.name, exc)
+
         for state in deck_states:
             deck_id = str(state.get("id", ""))
             if deck_id not in self.decks:
@@ -263,6 +380,7 @@ class Application:
 
     def shutdown(self) -> None:
         self.automation.stop()
+        self._clear_overlays()
         for deck in self.decks.values():
             deck.close()
         self.events.publish("application.shutdown")

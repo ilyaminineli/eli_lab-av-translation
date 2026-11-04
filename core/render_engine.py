@@ -85,6 +85,12 @@ class RenderEngine:
         active_generator_ids = {layer.id for layer in generator_layers}
         for layer in generator_layers:
             source_id = layer.source_id or f"generator:{layer.id}"
+            if layer.generator_type == "particles":
+                self.compositor.remove_texture(source_id)
+                self._generator_signatures.pop(layer.id, None)
+                self._generator_sources.pop(layer.id, None)
+                self._generator_errors.pop(layer.id, None)
+                continue
             try:
                 fingerprint, pixels = self.generator_rasterizer.render(layer)
             except Exception as exc:
@@ -118,6 +124,15 @@ class RenderEngine:
             self._generator_signatures.pop(layer_id, None)
             self._generator_errors.pop(layer_id, None)
         self.generator_rasterizer.remove_missing(active_generator_ids)
+
+        # Dispose textures for overlay layers removed from the composition.
+        active_source_ids = {
+            layer.source_id for layer in composition.layers if layer.source_id
+        }
+        for source_id in tuple(self._uploaded_revisions):
+            if source_id not in active_source_ids:
+                self.compositor.remove_texture(source_id)
+                self._uploaded_revisions.pop(source_id, None)
 
         composite_started = time.perf_counter()
         self.last_upload_ms = (composite_started - upload_started) * 1000.0

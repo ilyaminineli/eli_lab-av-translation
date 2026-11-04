@@ -1,44 +1,57 @@
-# M2 — Generative Visual Layers
+# M2 — Generative Visuals, Typography and Overlays
 
 ## Purpose
 
-M2 turns the video compositor into a mixed-media visual instrument. A generated visual is a first-class composition layer, not a temporary effect baked into the preview or a separate output-only widget.
+M2 turns the video mixer into a mixed-media VJ instrument. Generators, still/animated media and ordinary video footage share one composition-layer model. All layers can be ordered, positioned, scaled, rotated, hidden, locked, blended, saved and rendered by preview and projector outputs.
 
-Generator layers share the existing composition transform, opacity, blend, visibility, lock, z-order, project persistence and preview/projector pipeline.
-
-## Available generator layers
+## Generator layers
 
 ### Geometry
 
-Procedural transparent vector-style graphics rasterized on a 1600×900 canvas:
+Transparent procedural patterns rasterized once when settings change:
 
-- Concentric rings
-- Grids
-- Radial constructions
-- Crosshatch fields
-- Nested regular polygons
-- Spirals
-- Offset-circle moiré constructions
-- Hexagonal grids
+- Rings, grids, radial constructions, crosshatch and nested polygons
+- Spirals, offset-circle moiré and hexagonal grids
 
-Controls include pattern, density, primary/accent colour, line weight, layer transform and animation.
+Controls include density, line width, primary/accent colours and the common layer transform/opacity/blend controls.
 
 ### Text Art
 
-Editable multiline typographic compositions with:
+The Text Art layer has two layouts:
 
-- Typeface selection from installed system fonts
-- Regular, medium, bold and black weights
-- Font size and absolute letter tracking
-- Line spacing and horizontal / vertical alignment
-- Fill colour, optional alternating accent-line colour, outline colour and outline width
-- Soft offset shadow
+- **Single block:** editable multiline text, system typeface, weight, font size, tracking, line spacing, horizontal/vertical alignment, primary/accent colour, outline and shadow.
+- **Typographic collage:** each line is treated as a word/phrase fragment. A seeded arrangement varies scale, font weight, rotation, placement and accent colour to form dense editorial/experimental typography compositions.
 
-Text remains editable as layer data in the project. It is not permanently converted into a user-managed bitmap asset.
+Text animation is applied in the GPU compositor after the static text texture has been cached. Available behaviours:
+
+| Motion | Behaviour |
+|---|---|
+| Type-on | Horizontal reveal sweep |
+| Word / column reveal | Reveal in successive horizontal cells |
+| Line wave | Displace text sampling by a wave |
+| Glyph jitter | Time-varying local sample jitter |
+| Crawl | Vertical texture travel |
+| Signal glitch | Sparse horizontal line displacement |
+| None | No text-specific motion |
+
+Changing text or typography raster settings updates the cached texture after a short UI debounce. Changing only the animation mode, speed or amount does not invalidate the raster cache. The explicit Apply button remains available.
+
+### Bilingual random text pool
+
+The editor includes reproducible-ready text pools in English, Japanese or bilingual mode. Themes:
+
+- Memory / 記憶
+- Body / 身体
+- Signal / 信号
+- Ritual / 儀式
+- Identity / 自己
+- Random mix
+
+Generated text is inserted into the editable text field and stored in the project. It does not regenerate on every frame. The collage arrangement uses a saved seed so a saved project retains the same composition until the user requests another random text set.
 
 ### Waveform
 
-Procedural signal-like graphics that do not require an audio input:
+Procedural signal-like visuals that need no audio device:
 
 - Parallel sine traces
 - Lissajous curves
@@ -46,58 +59,78 @@ Procedural signal-like graphics that do not require an audio input:
 - Radial traces
 - Rose curves
 
-Controls include density, amplitude, frequency, line weight and two-colour treatment. In M3, this generator can be connected to the audio analysis bus without making the drawing code depend on an audio device.
+Density, amplitude, frequency, line width and two-colour treatment are adjustable. Audio-band modulation remains part of M3.
 
-## Master effects and visual looks
+### Particle Field
 
-The master GPU post-process can be bypassed without changing the saved parameter values. An effect-mix slider blends the processed result with the untouched compositor output, making live A/B comparison possible without switching presets.
+A first procedural GPU particle layer is implemented directly in the composition shader. It supports density, size, speed, spread, primary/accent colour and trails, with four motion modes:
 
-The expanded grade and treatment controls include:
+- Drift
+- Rise
+- Fall
+- Orbit
 
-- Exposure in stops, contrast, brightness, saturation and gamma.
-- Temperature, tint and hue rotation.
-- Vignette, film grain, scanlines, RGB separation, signal glitch and pixelation.
-- Posterization, inversion, halftone print and solarization.
+The particle field is generated per pixel in the shader. It does not upload a CPU-generated full-canvas bitmap each frame. This is the first M2 particle treatment, not yet a general-purpose physics simulation: emitters from arbitrary geometry/video, particle collisions, acceleration fields, lifetime curves and instanced particle sprites remain future extensions.
 
-The preset library now includes Clean, 16mm Film, VHS / Tape, CRT, Bleach Bypass, Dream Haze, Digital Damage, Halftone Print, Photocopy, Infrared, Cold Steel and Solarized. Presets reset all parameters before applying their own values, avoiding stale settings when switching between looks.
+## Still and animated-media overlays
 
-These controls are still a master pass: independent per-layer effect stacks and animated overlay-media layers remain future M2 work.
+Use **+ IMAGE / VIDEO OVERLAY** in the Generators dock or **File → Add Image / Video Overlay**.
 
-## Animation model
+An overlay becomes a normal composition layer with a saved source path, media kind, transform, opacity, blend mode, visibility, lock and per-layer effects.
 
-Static generator content is rasterized only when its visual settings change. Repeated frame animation is performed in the compositor shader:
+- Still PNG and other Qt-supported still-image formats retain their alpha channel.
+- Qt-supported animated image formats are advanced by the image reader using each frame's delay. They loop continuously by default for performance use.
+- Video overlays use their own VideoDeck decoder and frame queue.
+- Preview and projector outputs receive the same CPU-side frame snapshots; each renderer uploads those revisions into its own GL context.
 
-| Animation | Behaviour |
-|---|---|
-| Pulse | Smooth scale modulation |
-| Rotate | Oscillating rotation |
-| Drift | Slow positional movement |
-| Flicker | Controlled opacity modulation |
-| None | Static layer |
+Animated-image format support depends on the Qt image-format plugins installed with the runtime. If a format cannot be decoded, the overlay import reports the error instead of adding a broken layer. Video support follows the app's PyAV/FFmpeg decoder support.
 
-Animation parameters are intentionally bounded and are applied independently of the cached content texture. This avoids re-rasterizing text and geometry every frame.
+## Independent per-layer effects
 
-## Architecture
+The **LAYERS** dock now includes a selected-layer FX section. Each layer stores its own effect dictionary and can have these treatments independently of the master output grade:
 
-- core.composition.Layer stores generator_type and the serializable generator_settings dictionary.
-- generators.catalog supplies defaults, type validation and parameter range normalization.
-- generators.rasterizer.GeneratorRasterizer creates transparent RGBA images and caches them by a content fingerprint.
-- core.render_engine.RenderEngine uploads each generator texture into its own ModernGL context.
-- rendering.compositor.Compositor composites the generator through the same blend/opacity/transform path as video and applies GPU-side animation.
-- Each output renderer owns its own GPU texture. Both consume the same saved layer settings and therefore show the same composition in preview and projector output.
+- Monochrome
+- Inversion
+- Threshold / Xerox
+- Posterization
+- Hue shift
+- Contrast, saturation and brightness
+- Scanlines
+- RGB separation
+- FX enable/bypass and mix
 
-Generator content is stored directly in .eliav projects through the existing composition serializer. Older projects remain compatible because generator fields are optional.
+Starting layer presets are Clean, Monochrome, Xerox, Negative, Duotone, Ghost and Tape. These per-layer treatments are applied during GPU composition before the layer blends into the accumulated frame. The master post-process remains available after all layers have been composed.
 
-## Current boundaries
+## Master effects
 
-This first M2 increment does not yet include:
+The master GPU post-process can be bypassed without changing saved parameters. An effect-mix slider blends the treated image with the untouched composition for A/B comparison.
 
-- GPU particle simulation and particle emitters
-- Editable vector paths / bezier drawing
-- Imported still-image and animated-media overlay layers
-- Per-layer effect stacks
-- Text motion presets such as crawl, type-on and glyph-by-glyph reveal
-- User-defined generator presets and scene banks
-- Audio-reactive controls (M3)
+Master controls include exposure, brightness, contrast, saturation, gamma, temperature, tint, hue rotation, vignette, film grain, scanlines, RGB separation, signal glitch, pixelation, posterization, inversion, halftone and solarization.
 
-Those can be added without changing the generator-layer contract.
+Available looks: Clean, 16mm Film, VHS / Tape, CRT, Bleach Bypass, Dream Haze, Digital Damage, Halftone Print, Photocopy, Infrared, Cold Steel and Solarized.
+
+## Project and rendering architecture
+
+- core.composition.Layer stores generator settings, per-layer effect settings and overlay source metadata.
+- generators.catalog validates generator values and clamps visual/resource ranges.
+- generators.rasterizer.GeneratorRasterizer creates transparent RGBA content and caches it by a content fingerprint.
+- Text motion-only settings are excluded from the raster fingerprint.
+- media.image_overlay.ImageOverlayPlayer decodes still/animated images to stride-safe RGBA frames.
+- Video overlays use their own decoder and bounded frame queue.
+- core.render_engine.RenderEngine uploads new source/generator revisions per GL context.
+- rendering.compositor.Compositor applies transforms, per-layer FX and blends; it generates particle fields and text motion in the shader.
+- The master effect pass runs after the full layer stack.
+
+Layer settings and media references are stored in .eliav projects. Older projects load with neutral defaults for the added layer fields.
+
+## Remaining M2 work
+
+- General particle simulation with emitter shapes, lifetime/velocity curves and force fields.
+- More compact and densely packed typographic layout solvers, text paths, variable fonts and vertical CJK composition.
+- Rich text runs with multiple styles and arbitrary mixed language runs.
+- More animated overlay controls: in/out timing, playback speed, frame hold, mask/track matte and sync options.
+- Per-layer effect stage ordering and user-saveable FX chain presets.
+- User-defined generator presets and scene banks.
+- Automation integration for generator/text/overlay scene variation with manual override and lock respect.
+
+Audio reactivity remains M3; Sonic Pi control remains M4.

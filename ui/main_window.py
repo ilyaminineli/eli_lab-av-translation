@@ -90,6 +90,7 @@ class MainWindow(QMainWindow):
         self.automation_panel.start_requested.connect(self.start_automation)
         self.automation_panel.stop_requested.connect(self.stop_automation)
         self.generators_panel.composition_changed.connect(self.layer_panel.refresh)
+        self.layer_panel.layers_changed.connect(self.generators_panel.refresh)
 
         self._create_actions()
         self.setDockOptions(
@@ -146,6 +147,10 @@ class MainWindow(QMainWindow):
         import_action = QAction("Add Media &Folder…", self)
         import_action.triggered.connect(self.media_browser.choose_folder)
         file_menu.addAction(import_action)
+
+        overlay_action = QAction("Add Image / Video Overlay…", self)
+        overlay_action.triggered.connect(self.add_overlay_media)
+        file_menu.addAction(overlay_action)
 
         file_menu.addSeparator()
         exit_action = QAction("E&xit", self)
@@ -227,6 +232,27 @@ class MainWindow(QMainWindow):
     def refresh_automation_media_pool(self) -> None:
         if self.application.refresh_automation_media_pool():
             self._refresh_automation_status()
+
+    def add_overlay_media(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Add image or video overlay",
+            "",
+            (
+                "Overlay media (*.png *.apng *.gif *.webp *.jpg *.jpeg *.bmp "
+                "*.mp4 *.mov *.mkv *.avi *.webm *.m4v)"
+            ),
+        )
+        if not path:
+            return
+        try:
+            layer = self.application.add_media_overlay(path)
+            self.layer_panel.refresh()
+            self.generators_panel.refresh()
+            self.statusBar().showMessage(f"Added overlay {layer.name}", 4000)
+        except Exception as exc:
+            _LOG.exception("Could not add overlay media")
+            QMessageBox.warning(self, "Overlay load failed", str(exc))
 
     def assign_media(self, asset: object, deck_id: str) -> None:
         try:

@@ -3,7 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
-GENERATOR_TYPES = ("geometry", "text", "waveform")
+GENERATOR_TYPES = ("geometry", "text", "waveform", "particles")
 
 _DEFAULTS: dict[str, dict[str, Any]] = {
     "geometry": {
@@ -30,6 +30,13 @@ _DEFAULTS: dict[str, dict[str, Any]] = {
         "primary_color": "#F2EEE6",
         "secondary_color": "#C35C75",
         "text_color_mode": "alternate",
+        "text_layout": "single",
+        "collage_seed": 211,
+        "collage_font_variation": 0.65,
+        "text_animation": "none",
+        "text_animation_speed": 1.0,
+        "text_animation_amount": 0.025,
+        "text_animation_columns": 18,
         "stroke_color": "#211B2A",
         "stroke_width": 2.0,
         "shadow": True,
@@ -49,6 +56,19 @@ _DEFAULTS: dict[str, dict[str, Any]] = {
         "animation": "drift",
         "animation_speed": 0.28,
         "animation_amount": 0.025,
+    },
+    "particles": {
+        "primary_color": "#E8E4DA",
+        "secondary_color": "#C35C75",
+        "density": 42,
+        "speed": 0.22,
+        "size": 0.18,
+        "spread": 0.42,
+        "trail": 0.18,
+        "mode": "drift",
+        "animation": "none",
+        "animation_speed": 0.0,
+        "animation_amount": 0.0,
     },
 }
 
@@ -97,6 +117,25 @@ def normalize_settings(generator_type: str, settings: dict[str, Any] | None) -> 
         if result.get("text_color_mode") not in {"single", "alternate"}:
             result["text_color_mode"] = "single"
         result["shadow"] = bool(result["shadow"])
+        if result.get("text_layout") not in {"single", "collage"}:
+            result["text_layout"] = "single"
+        result["collage_seed"] = max(0, min(2**31 - 1, int(result["collage_seed"])))
+        result["collage_font_variation"] = max(
+            0.0, min(1.0, float(result["collage_font_variation"]))
+        )
+        if result.get("text_animation") not in {
+            "none", "type_on", "word_reveal", "line_wave", "jitter", "crawl", "glitch"
+        }:
+            result["text_animation"] = "none"
+        result["text_animation_speed"] = max(
+            0.0, min(8.0, float(result["text_animation_speed"]))
+        )
+        result["text_animation_amount"] = max(
+            0.0, min(0.18, float(result["text_animation_amount"]))
+        )
+        result["text_animation_columns"] = max(
+            2, min(80, int(result["text_animation_columns"]))
+        )
     elif generator_type == "waveform":
         if result["pattern"] not in {"sine", "lissajous", "orbit", "radial", "rose"}:
             result["pattern"] = "sine"
@@ -105,6 +144,14 @@ def normalize_settings(generator_type: str, settings: dict[str, Any] | None) -> 
         result["amplitude"] = max(0.01, min(0.48, float(result["amplitude"])))
         result["frequency"] = max(0.1, min(24.0, float(result["frequency"])))
         result["phase_offset"] = max(0.0, min(6.283, float(result["phase_offset"])))
+    elif generator_type == "particles":
+        result["density"] = max(4, min(120, int(result["density"])))
+        result["speed"] = max(0.0, min(2.0, float(result["speed"])))
+        result["size"] = max(0.02, min(0.8, float(result["size"])))
+        result["spread"] = max(0.0, min(1.0, float(result["spread"])))
+        result["trail"] = max(0.0, min(1.0, float(result["trail"])))
+        if result.get("mode") not in {"drift", "rise", "fall", "orbit"}:
+            result["mode"] = "drift"
 
     if result.get("animation") not in _ANIMATIONS:
         result["animation"] = "none"
@@ -126,3 +173,16 @@ def animation_code(settings: dict[str, Any]) -> int:
         "drift": 3,
         "flicker": 4,
     }.get(str(settings.get("animation", "none")), 0)
+
+
+def text_animation_code(settings: dict[str, Any]) -> int:
+    """Map text-specific motion behaviours to the compositor shader."""
+    return {
+        "none": 0,
+        "type_on": 1,
+        "word_reveal": 2,
+        "line_wave": 3,
+        "jitter": 4,
+        "crawl": 5,
+        "glitch": 6,
+    }.get(str(settings.get("text_animation", "none")), 0)

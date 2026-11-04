@@ -78,3 +78,39 @@ def test_broken_generator_is_skipped_without_aborting_composition() -> None:
     assert engine._generator_errors["broken"] == "bad text settings"
     assert "good" not in engine._generator_errors
     assert engine.compositor.rendered_layers == composition.layers
+
+
+def test_gpu_particle_layer_is_not_sent_through_cpu_rasterizer() -> None:
+    class ParticleRejectingRasterizer(FakeRasterizer):
+        def render(self, layer: Layer) -> tuple[str, np.ndarray]:
+            if layer.generator_type == "particles":
+                raise AssertionError("GPU particles must not be CPU-rasterized")
+            return super().render(layer)
+
+    engine = RenderEngine()
+    engine.initialized = True
+    engine.compositor = FakeCompositor()
+    engine.generator_rasterizer = ParticleRejectingRasterizer()
+    particle = Layer(
+        id="particles",
+        name="Particles",
+        source_type="generator",
+        source_id="generator:particles",
+        generator_type="particles",
+        generator_settings={
+            "density": 42,
+            "speed": 0.22,
+            "size": 0.18,
+            "spread": 0.42,
+            "trail": 0.18,
+            "mode": "drift",
+            "primary_color": "#E8E4DA",
+            "secondary_color": "#C35C75",
+        },
+    )
+    composition = Composition(layers=[particle])
+
+    engine.render(composition, {}, 1, 640, 360)
+
+    assert "generator:particles" not in engine.compositor.uploaded
+    assert engine.compositor.rendered_layers == [particle]

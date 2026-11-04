@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import random
 from typing import Any
 
 import numpy as np
@@ -44,7 +45,11 @@ class GeneratorRasterizer:
         )
         # Animation is evaluated in the compositor, so it must not invalidate
         # the static raster texture or trigger another CPU-side text/shape pass.
-        for key in ("animation", "animation_speed", "animation_amount"):
+        for key in (
+            "animation", "animation_speed", "animation_amount",
+            "text_animation", "text_animation_speed", "text_animation_amount",
+            "text_animation_columns",
+        ):
             settings.pop(key, None)
         payload = {
             "type": layer.generator_type,
@@ -246,6 +251,9 @@ class GeneratorRasterizer:
         text = str(settings.get("text", "")).replace("\\n", "\n")
         if not text:
             return
+        if settings.get("text_layout") == "collage":
+            self._draw_text_collage(painter, settings, text)
+            return
         family = str(settings.get("font_family", "Arial"))
         font = QFont(family)
         font.setPixelSize(int(settings["font_size"]))
@@ -303,6 +311,57 @@ class GeneratorRasterizer:
                 fill_color = str(settings.get("secondary_color", fill_color))
             painter.fillPath(path, self._color(fill_color))
             y += line_height
+
+
+    def _draw_text_collage(
+            self,
+            painter: QPainter,
+            settings: dict[str, Any],
+            text: str,
+    ) -> None:
+        rng = random.Random(int(settings.get("collage_seed", 211)))
+        words = [item.strip() for item in text.splitlines() if item.strip()]
+        if not words:
+            return
+        variation = float(settings.get("collage_font_variation", 0.65))
+        base_size = int(settings["font_size"])
+        family = str(settings.get("font_family", "Arial"))
+        primary = str(settings.get("primary_color", "#F2EEE6"))
+        secondary = str(settings.get("secondary_color", "#C35C75"))
+        stroke_width = float(settings.get("stroke_width", 0.0))
+        for index, word in enumerate(words):
+            ratio = rng.uniform(1.0 - variation * 0.62, 1.0 + variation * 0.78)
+            size = max(18, min(560, round(base_size * ratio)))
+            font = QFont(family)
+            font.setPixelSize(size)
+            weights = (500, 600, 700, 800, 900)
+            font.setWeight(QFont.Weight(rng.choice(weights)))
+            font.setLetterSpacing(
+                QFont.SpacingType.AbsoluteSpacing,
+                float(settings.get("letter_spacing", 0.0)),
+            )
+            metrics = QFontMetricsF(font)
+            advance = metrics.horizontalAdvance(word)
+            x = rng.uniform(45.0, max(46.0, self.width - advance - 45.0))
+            y = rng.uniform(size + 24.0, self.height - 24.0)
+            angle = rng.choice((0.0, 0.0, 0.0, 90.0, -90.0, rng.uniform(-18.0, 18.0)))
+            path = QPainterPath()
+            path.addText(QPointF(0.0, 0.0), font, word)
+            color = primary if index % 2 == 0 else secondary
+            painter.save()
+            painter.translate(x, y)
+            painter.rotate(angle)
+            if bool(settings.get("shadow", False)):
+                shadow = QPainterPath(path)
+                shadow.translate(5.0, 6.0)
+                painter.fillPath(shadow, QColor(0, 0, 0, 125))
+            if stroke_width > 0.0:
+                painter.strokePath(
+                    path,
+                    self._pen(str(settings.get("stroke_color", "#211B2A")), stroke_width),
+                )
+            painter.fillPath(path, self._color(color))
+            painter.restore()
 
     def _draw_waveform(self, painter: QPainter, settings: dict[str, Any]) -> None:
         width = self.width

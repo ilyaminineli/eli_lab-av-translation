@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QPushButton,
+    QScrollArea,
     QSlider,
     QTableWidget,
     QTableWidgetItem,
@@ -15,11 +18,17 @@ from PySide6.QtWidgets import (
 )
 
 from core.application import Application
+from effects.layer_settings import (
+    LAYER_EFFECT_PRESETS,
+    normalize_layer_effects,
+)
 
 _BLEND_MODES = ("normal", "add", "screen", "multiply", "difference")
 
 
 class LayerPanel(QWidget):
+    layers_changed = Signal()
+
     def __init__(self, application: Application, parent=None) -> None:
         super().__init__(parent)
         self.application = application
@@ -40,18 +49,73 @@ class LayerPanel(QWidget):
         self.table.currentCellChanged.connect(self._selection_changed)
         layout.addWidget(self.table, 1)
 
+        controls_body = QWidget()
+        controls_layout = QVBoxLayout(controls_body)
+        controls_layout.setContentsMargins(2, 2, 2, 2)
+
         transform_group = QGroupBox("SELECTED LAYER TRANSFORM")
         transform_layout = QVBoxLayout(transform_group)
         self.position_x = self._add_slider(transform_layout, "X POSITION", 0, 100, 50)
         self.position_y = self._add_slider(transform_layout, "Y POSITION", 0, 100, 50)
         self.scale = self._add_slider(transform_layout, "UNIFORM SCALE", 10, 200, 100)
         self.rotation = self._add_slider(transform_layout, "ROTATION", -180, 180, 0)
-        layout.addWidget(transform_group)
+        controls_layout.addWidget(transform_group)
+
+        self.layer_fx_group = QGroupBox("SELECTED LAYER EFFECT STACK")
+        layer_fx_layout = QVBoxLayout(self.layer_fx_group)
+        self.layer_fx_enabled = QCheckBox("ENABLE LAYER EFFECTS")
+        self.layer_fx_layout = layer_fx_layout
+        layer_fx_layout.addWidget(self.layer_fx_enabled)
+        self.layer_fx_preset = QComboBox()
+        self.layer_fx_preset.addItems(list(LAYER_EFFECT_PRESETS) + ["Custom"])
+        layer_fx_layout.addWidget(self.layer_fx_preset)
+        self.layer_fx_sliders = {}
+        for key, title, minimum, maximum, default in (
+            ("mix", "FX MIX", 0, 100, 100),
+            ("monochrome", "MONOCHROME", 0, 100, 0),
+            ("invert", "INVERT", 0, 100, 0),
+            ("threshold", "THRESHOLD", 0, 100, 0),
+            ("posterize", "POSTERIZE", 0, 100, 0),
+            ("hue", "HUE", -180, 180, 0),
+            ("contrast", "CONTRAST", 0, 250, 100),
+            ("saturation", "SATURATION", 0, 250, 100),
+            ("brightness", "BRIGHTNESS", -50, 50, 0),
+            ("scanlines", "SCANLINES", 0, 100, 0),
+            ("chromatic", "RGB SPLIT", 0, 100, 0),
+        ):
+            label, slider = self._add_fx_slider(
+                layer_fx_layout,
+                title,
+                minimum,
+                maximum,
+                default,
+            )
+            self.layer_fx_sliders[key] = (label, slider, title)
+        controls_layout.addWidget(self.layer_fx_group)
+
+        self.remove_layer_button = QPushButton("REMOVE SELECTED LAYER")
+        controls_layout.addWidget(self.remove_layer_button)
+        controls_layout.addStretch(1)
+        self.controls_scroll = QScrollArea()
+        self.controls_scroll.setWidgetResizable(True)
+        self.controls_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.controls_scroll.setWidget(controls_body)
+        layout.addWidget(self.controls_scroll, 1)
 
         self.position_x[1].valueChanged.connect(self._position_x_changed)
         self.position_y[1].valueChanged.connect(self._position_y_changed)
         self.scale[1].valueChanged.connect(self._scale_changed)
         self.rotation[1].valueChanged.connect(self._rotation_changed)
+        self.layer_fx_enabled.toggled.connect(self._layer_fx_enabled_changed)
+        self.layer_fx_preset.currentTextChanged.connect(self._layer_fx_preset_changed)
+        for key, (_label, slider, _title) in self.layer_fx_sliders.items():
+            slider.valueChanged.connect(
+                lambda value, field=key: self._layer_fx_value_changed(field, value)
+            )
+        self.remove_layer_button.clicked.connect(self.remove_selected_layer)
+        self._loading = False
         self.refresh()
 
     @staticmethod
@@ -74,7 +138,32 @@ class LayerPanel(QWidget):
         parent_layout.addLayout(row)
         return label, slider
 
+    @staticmethod
+    def _add_fx_slider(
+            parent_layout: QVBoxLayout,
+            title: str,
+            minimum: int,
+            maximum: int,
+            value: int,
+    ) -> tuple[QLabel, QSlider]:
+        row = QHBoxLayout()
+        label = QLabel(f"{title}  {value}")
+        label.setMinimumWidth(125)
+        slider = QSlider(Qt.Orientation.Horizontal)
+        slider.setRange(minimum, maximum)
+        slider.setValue(value)
+        slider.valueChanged.connect(lambda current: label.setText(f"{title}  {current}"))
+        row.addWidget(label)
+        row.addWidget(slider, 1)
+        parent_layout.addLayout(row)
+        return label, slider
+
     def refresh(self) -> None:
+        selected_id = None
+        current = self._selected_layer()
+        if current is not None:
+            selected_id = current.id
+        self._loading = True
         self.table.blockSignals(True)
         self.table.setRowCount(0)
         for layer in self.application.composition.layers:
@@ -114,8 +203,15 @@ class LayerPanel(QWidget):
             self.table.setCellWidget(row, 3, blend)
         self.table.blockSignals(False)
         if self.table.rowCount():
-            self.table.setCurrentCell(0, 1)
-            self._selection_changed(0, 1, -1, -1)
+            selected_row = 0
+            if selected_id:
+                for row in range(self.table.rowCount()):
+                    if self.table.item(row, 1).data(Qt.ItemDataRole.UserRole) == selected_id:
+                        selected_row = row
+                        break
+            self.table.setCurrentCell(selected_row, 1)
+            self._selection_changed(selected_row, 1, -1, -1)
+        self._loading = False
 
     def _selected_layer(self):
         row = self.table.currentRow()
@@ -134,12 +230,15 @@ class LayerPanel(QWidget):
         sliders = (self.position_x[1], self.position_y[1], self.scale[1], self.rotation[1])
         for slider in sliders:
             slider.blockSignals(True)
+        self.remove_layer_button.setEnabled(layer is not None)
         if layer is None:
+            self.layer_fx_group.setEnabled(False)
             self.position_x[1].setEnabled(False)
             self.position_y[1].setEnabled(False)
             self.scale[1].setEnabled(False)
             self.rotation[1].setEnabled(False)
         else:
+            self.layer_fx_group.setEnabled(True)
             self.position_x[1].setEnabled(True)
             self.position_y[1].setEnabled(True)
             self.scale[1].setEnabled(True)
@@ -148,8 +247,82 @@ class LayerPanel(QWidget):
             self.position_y[1].setValue(round(layer.position[1] * 100))
             self.scale[1].setValue(round(layer.scale[0] * 100))
             self.rotation[1].setValue(round(layer.rotation))
+            self._load_layer_effects(layer)
         for slider in sliders:
             slider.blockSignals(False)
+
+    def _load_layer_effects(self, layer) -> None:
+        values = normalize_layer_effects(layer.layer_effects)
+        self.layer_fx_enabled.blockSignals(True)
+        self.layer_fx_enabled.setChecked(values["enabled"])
+        self.layer_fx_enabled.blockSignals(False)
+        self._loading = True
+        for key, (label, slider, title) in self.layer_fx_sliders.items():
+            slider.blockSignals(True)
+            scale = 1.0 if key == "hue" else 100.0
+            value = round(float(values[key]) * scale)
+            slider.setValue(value)
+            slider.blockSignals(False)
+            label.setText(f"{title}  {value}")
+        self.layer_fx_preset.blockSignals(True)
+        self.layer_fx_preset.setCurrentText("Custom")
+        for name in LAYER_EFFECT_PRESETS:
+            if normalize_layer_effects({
+                **LAYER_EFFECT_PRESETS[name],
+                "enabled": name != "Clean",
+            }) == values:
+                self.layer_fx_preset.setCurrentText(name)
+                break
+        self.layer_fx_preset.blockSignals(False)
+        self._loading = False
+
+    def _update_selected_layer_effects(self, changes: dict[str, object]) -> None:
+        layer = self._selected_layer()
+        if layer is None or self._loading:
+            return
+        values = normalize_layer_effects(layer.layer_effects)
+        values.update(changes)
+        self.application.layer_manager.update_layer(
+            layer.id,
+            layer_effects=normalize_layer_effects(values),
+        )
+
+    def _layer_fx_enabled_changed(self, enabled: bool) -> None:
+        self._update_selected_layer_effects({"enabled": bool(enabled)})
+
+    def _layer_fx_preset_changed(self, name: str) -> None:
+        if name == "Custom" or self._loading:
+            return
+        from effects.layer_settings import apply_layer_effect_preset
+
+        layer = self._selected_layer()
+        if layer is None:
+            return
+        self.application.layer_manager.update_layer(
+            layer.id,
+            layer_effects=apply_layer_effect_preset(name),
+        )
+        self._loading = True
+        self._load_layer_effects(layer)
+        self._loading = False
+
+    def _layer_fx_value_changed(self, key: str, value: int) -> None:
+        if self._loading:
+            return
+        scale = 1.0 if key == "hue" else 100.0
+        mapped = value / scale
+        self._update_selected_layer_effects({key: mapped})
+        self.layer_fx_preset.blockSignals(True)
+        self.layer_fx_preset.setCurrentText("Custom")
+        self.layer_fx_preset.blockSignals(False)
+
+    def remove_selected_layer(self) -> None:
+        layer = self._selected_layer()
+        if layer is None:
+            return
+        self.application.remove_layer(layer.id)
+        self.refresh()
+        self.layers_changed.emit()
 
     def _visibility_changed(self, item: QTableWidgetItem) -> None:
         if item.column() != 0:
