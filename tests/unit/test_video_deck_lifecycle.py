@@ -4,7 +4,7 @@ from media.video_deck import VideoDeck
 
 
 class _FakeDecoder:
-    instances: list["_FakeDecoder"] = []
+    instances: list[_FakeDecoder] = []
 
     def __init__(self, path, frame_queue, **_kwargs) -> None:
         self.path = path
