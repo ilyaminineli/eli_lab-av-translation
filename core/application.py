@@ -223,6 +223,9 @@ class Application:
                 self._overlay_frames.pop(layer_id, None)
 
         for layer_id, player in self._overlay_images.items():
+            layer = self.composition.get_layer(layer_id)
+            if layer is not None:
+                player.configure_playback(layer.overlay_speed, layer.overlay_frame_hold)
             frame = player.update()
             if frame is not None:
                 self._overlay_frames[layer_id] = FrameSnapshot(
