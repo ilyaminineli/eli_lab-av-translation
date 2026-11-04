@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QPushButton,
+    QScrollArea,
     QSlider,
     QTableWidget,
     QTableWidgetItem,
@@ -48,13 +49,17 @@ class LayerPanel(QWidget):
         self.table.currentCellChanged.connect(self._selection_changed)
         layout.addWidget(self.table, 1)
 
+        controls_body = QWidget()
+        controls_layout = QVBoxLayout(controls_body)
+        controls_layout.setContentsMargins(2, 2, 2, 2)
+
         transform_group = QGroupBox("SELECTED LAYER TRANSFORM")
         transform_layout = QVBoxLayout(transform_group)
         self.position_x = self._add_slider(transform_layout, "X POSITION", 0, 100, 50)
         self.position_y = self._add_slider(transform_layout, "Y POSITION", 0, 100, 50)
         self.scale = self._add_slider(transform_layout, "UNIFORM SCALE", 10, 200, 100)
         self.rotation = self._add_slider(transform_layout, "ROTATION", -180, 180, 0)
-        layout.addWidget(transform_group)
+        controls_layout.addWidget(transform_group)
 
         self.layer_fx_group = QGroupBox("SELECTED LAYER EFFECT STACK")
         layer_fx_layout = QVBoxLayout(self.layer_fx_group)
@@ -78,17 +83,26 @@ class LayerPanel(QWidget):
             ("scanlines", "SCANLINES", 0, 100, 0),
             ("chromatic", "RGB SPLIT", 0, 100, 0),
         ):
-            self.layer_fx_sliders[key] = self._add_fx_slider(
+            label, slider = self._add_fx_slider(
                 layer_fx_layout,
                 title,
                 minimum,
                 maximum,
                 default,
             )
-        layout.addWidget(self.layer_fx_group)
+            self.layer_fx_sliders[key] = (label, slider, title)
+        controls_layout.addWidget(self.layer_fx_group)
 
         self.remove_layer_button = QPushButton("REMOVE SELECTED LAYER")
-        layout.addWidget(self.remove_layer_button)
+        controls_layout.addWidget(self.remove_layer_button)
+        controls_layout.addStretch(1)
+        self.controls_scroll = QScrollArea()
+        self.controls_scroll.setWidgetResizable(True)
+        self.controls_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.controls_scroll.setWidget(controls_body)
+        layout.addWidget(self.controls_scroll, 1)
 
         self.position_x[1].valueChanged.connect(self._position_x_changed)
         self.position_y[1].valueChanged.connect(self._position_y_changed)
@@ -96,7 +110,7 @@ class LayerPanel(QWidget):
         self.rotation[1].valueChanged.connect(self._rotation_changed)
         self.layer_fx_enabled.toggled.connect(self._layer_fx_enabled_changed)
         self.layer_fx_preset.currentTextChanged.connect(self._layer_fx_preset_changed)
-        for key, (_label, slider) in self.layer_fx_sliders.items():
+        for key, (_label, slider, _title) in self.layer_fx_sliders.items():
             slider.valueChanged.connect(
                 lambda value, field=key: self._layer_fx_value_changed(field, value)
             )
@@ -243,15 +257,13 @@ class LayerPanel(QWidget):
         self.layer_fx_enabled.setChecked(values["enabled"])
         self.layer_fx_enabled.blockSignals(False)
         self._loading = True
-        for key, (_label, slider) in self.layer_fx_sliders.items():
+        for key, (label, slider, title) in self.layer_fx_sliders.items():
             slider.blockSignals(True)
-            scale = 1.0 if key == "hue" else (
-                100.0 if key == "mix" or key not in {"contrast", "saturation"}
-                else 100.0
-            )
+            scale = 1.0 if key == "hue" else 100.0
             value = round(float(values[key]) * scale)
             slider.setValue(value)
             slider.blockSignals(False)
+            label.setText(f"{title}  {value}")
         self.layer_fx_preset.blockSignals(True)
         self.layer_fx_preset.setCurrentText("Custom")
         for name in LAYER_EFFECT_PRESETS:
