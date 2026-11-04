@@ -32,6 +32,7 @@ class Layer:
     overlay_out: float | None = None
     overlay_speed: float = 1.0
     overlay_frame_hold: int = 1
+    overlay_loop: bool = True
     overlay_scene_sync: bool = False
     overlay_mask_mode: str = "none"
     overlay_mask_source: str = ""
@@ -45,6 +46,7 @@ class Layer:
         )
         self.overlay_speed = max(0.1, min(4.0, float(self.overlay_speed)))
         self.overlay_frame_hold = max(1, min(24, int(self.overlay_frame_hold)))
+        self.overlay_loop = bool(self.overlay_loop)
         if self.overlay_mask_mode not in {"none", "alpha", "luma"}:
             self.overlay_mask_mode = "none"
         self.position = tuple(float(v) for v in self.position[:2])
@@ -66,8 +68,8 @@ class Layer:
             "generator_type", "generator_settings", "layer_effects", "fx_manual_override_until",
             "overlay_manual_override_until",
             "overlay_path", "overlay_kind", "overlay_in", "overlay_out",
-            "overlay_speed", "overlay_frame_hold", "overlay_scene_sync",
-            "overlay_mask_mode", "overlay_mask_source",
+            "overlay_speed", "overlay_frame_hold", "overlay_loop",
+            "overlay_scene_sync", "overlay_mask_mode", "overlay_mask_source",
         }
         values = {key: value for key, value in data.items() if key in allowed}
         if not isinstance(values.get("generator_settings", {}), dict):
