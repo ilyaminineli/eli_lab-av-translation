@@ -379,6 +379,10 @@ class LayerPanel(QWidget):
             }) == values:
                 self.layer_fx_preset.setCurrentText(name)
                 break
+        for name in ("Xerox Stack", "Negative Print", "Signal Scan"):
+            if apply_effect_chain_preset(name)["stages"] == values["stages"]:
+                self.layer_fx_preset.setCurrentText(name)
+                break
         if isinstance(imported, dict):
             for name, stages in imported.items():
                 if values["stages"] == normalize_layer_effects({"stages": stages})["stages"]:
