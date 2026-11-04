@@ -7,8 +7,8 @@ from generators.catalog import (
     GENERATOR_TYPES,
     animation_code,
     default_generator_settings,
-    text_animation_code,
     normalize_settings,
+    text_animation_code,
 )
 
 
