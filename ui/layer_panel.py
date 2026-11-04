@@ -5,6 +5,7 @@ import time
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
+    QDoubleSpinBox,
     QComboBox,
     QGroupBox,
     QFileDialog,
@@ -17,6 +18,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSlider,
+    QSpinBox,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -67,6 +69,36 @@ class LayerPanel(QWidget):
         self.scale = self._add_slider(transform_layout, "UNIFORM SCALE", 10, 200, 100)
         self.rotation = self._add_slider(transform_layout, "ROTATION", -180, 180, 0)
         controls_layout.addWidget(transform_group)
+
+        self.overlay_group = QGroupBox("OVERLAY PLAYBACK + MATTE")
+        overlay_form = QFormLayout(self.overlay_group)
+        self.overlay_in_spin = QDoubleSpinBox()
+        self.overlay_in_spin.setRange(0.0, 86400.0)
+        self.overlay_in_spin.setSuffix(" s")
+        self.overlay_out_spin = QDoubleSpinBox()
+        self.overlay_out_spin.setRange(0.0, 86400.0)
+        self.overlay_out_spin.setSpecialValueText("No end")
+        self.overlay_out_spin.setSuffix(" s")
+        self.overlay_speed_spin = QDoubleSpinBox()
+        self.overlay_speed_spin.setRange(0.1, 4.0)
+        self.overlay_speed_spin.setSingleStep(0.1)
+        self.overlay_frame_hold_spin = QSpinBox()
+        self.overlay_frame_hold_spin.setRange(1, 24)
+        self.overlay_scene_sync_check = QCheckBox("Sync to scene changes")
+        self.overlay_mask_mode = QComboBox()
+        self.overlay_mask_mode.addItem("No matte", "none")
+        self.overlay_mask_mode.addItem("Alpha matte", "alpha")
+        self.overlay_mask_mode.addItem("Luma matte", "luma")
+        self.overlay_mask_source = QComboBox()
+        overlay_form.addRow("IN POINT", self.overlay_in_spin)
+        overlay_form.addRow("OUT POINT", self.overlay_out_spin)
+        overlay_form.addRow("PLAYBACK SPEED", self.overlay_speed_spin)
+        overlay_form.addRow("FRAME HOLD", self.overlay_frame_hold_spin)
+        overlay_form.addRow("MASK MODE", self.overlay_mask_mode)
+        overlay_form.addRow("MASK SOURCE", self.overlay_mask_source)
+        overlay_form.addRow(self.overlay_scene_sync_check)
+        controls_layout.addWidget(self.overlay_group)
+        self.overlay_group.setVisible(False)
 
         self.layer_fx_group = QGroupBox("SELECTED LAYER EFFECT STACK")
         layer_fx_layout = QVBoxLayout(self.layer_fx_group)
@@ -139,6 +171,12 @@ class LayerPanel(QWidget):
         self.scale[1].valueChanged.connect(self._scale_changed)
         self.rotation[1].valueChanged.connect(self._rotation_changed)
         self.layer_fx_enabled.toggled.connect(self._layer_fx_enabled_changed)
+        for control in (self.overlay_in_spin, self.overlay_out_spin, self.overlay_speed_spin):
+            control.valueChanged.connect(self._overlay_controls_changed)
+        self.overlay_frame_hold_spin.valueChanged.connect(self._overlay_controls_changed)
+        self.overlay_scene_sync_check.toggled.connect(self._overlay_controls_changed)
+        self.overlay_mask_mode.currentIndexChanged.connect(self._overlay_controls_changed)
+        self.overlay_mask_source.currentIndexChanged.connect(self._overlay_controls_changed)
         self.layer_fx_preset.currentTextChanged.connect(self._layer_fx_preset_changed)
         self.fx_stage_add.clicked.connect(self._add_fx_stage)
         self.fx_stage_remove.clicked.connect(self._remove_fx_stage)
@@ -276,6 +314,31 @@ class LayerPanel(QWidget):
             self.rotation[1].setEnabled(False)
         else:
             self.layer_fx_group.setEnabled(True)
+            is_overlay = layer.source_type == "overlay"
+            self.overlay_group.setVisible(is_overlay)
+            self.overlay_in_spin.blockSignals(True)
+            self.overlay_out_spin.blockSignals(True)
+            self.overlay_speed_spin.blockSignals(True)
+            self.overlay_frame_hold_spin.blockSignals(True)
+            self.overlay_scene_sync_check.blockSignals(True)
+            self.overlay_mask_mode.blockSignals(True)
+            self.overlay_mask_source.blockSignals(True)
+            self.overlay_in_spin.setValue(layer.overlay_in)
+            self.overlay_out_spin.setValue(layer.overlay_out or 0.0)
+            self.overlay_speed_spin.setValue(layer.overlay_speed)
+            self.overlay_frame_hold_spin.setValue(layer.overlay_frame_hold)
+            self.overlay_scene_sync_check.setChecked(layer.overlay_scene_sync)
+            self.overlay_mask_mode.setCurrentIndex(max(0, self.overlay_mask_mode.findData(layer.overlay_mask_mode)))
+            self.overlay_mask_source.clear()
+            self.overlay_mask_source.addItem("No source", "")
+            for candidate in self.application.composition.layers:
+                if candidate.id != layer.id and candidate.source_id:
+                    self.overlay_mask_source.addItem(candidate.name, candidate.source_id)
+            self.overlay_mask_source.setCurrentIndex(max(0, self.overlay_mask_source.findData(layer.overlay_mask_source)))
+            for control in (self.overlay_in_spin, self.overlay_out_spin, self.overlay_speed_spin,
+                            self.overlay_frame_hold_spin, self.overlay_scene_sync_check,
+                            self.overlay_mask_mode, self.overlay_mask_source):
+                control.blockSignals(False)
             self.position_x[1].setEnabled(True)
             self.position_y[1].setEnabled(True)
             self.scale[1].setEnabled(True)
@@ -328,6 +391,21 @@ class LayerPanel(QWidget):
             item.setCheckState(Qt.CheckState.Checked if stage["enabled"] else Qt.CheckState.Unchecked)
             self.fx_stage_list.addItem(item)
         self._loading = False
+
+    def _overlay_controls_changed(self, *_args) -> None:
+        layer = self._selected_layer()
+        if layer is None or layer.source_type != "overlay" or self._loading:
+            return
+        self.application.layer_manager.update_layer(
+            layer.id,
+            overlay_in=self.overlay_in_spin.value(),
+            overlay_out=self.overlay_out_spin.value() or None,
+            overlay_speed=self.overlay_speed_spin.value(),
+            overlay_frame_hold=self.overlay_frame_hold_spin.value(),
+            overlay_scene_sync=self.overlay_scene_sync_check.isChecked(),
+            overlay_mask_mode=str(self.overlay_mask_mode.currentData()),
+            overlay_mask_source=str(self.overlay_mask_source.currentData() or ""),
+        )
 
     def _commit_fx_stages(self) -> None:
         stages = []
