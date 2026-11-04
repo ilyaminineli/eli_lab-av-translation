@@ -22,3 +22,17 @@ def test_random_text_sample_clamps_count_and_unknown_values() -> None:
 
     assert sample
     assert len(sample.splitlines()) == 1
+
+
+
+def test_dictionary_candidates_are_optional_and_seeded(tmp_path) -> None:
+    dictionary = tmp_path / "dictionary"
+    dictionary.mkdir()
+    (dictionary / "a.txt").write_text("apple\napricot\narchive\n", encoding="utf-8")
+    first = random_text_sample(
+        "english", "random", 3, seed=5, dictionary_path=tmp_path, use_dictionary=True
+    )
+    second = random_text_sample(
+        "english", "random", 3, seed=5, dictionary_path=tmp_path, use_dictionary=True
+    )
+    assert first == second
