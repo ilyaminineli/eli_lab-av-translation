@@ -44,3 +44,27 @@ def test_layer_effect_presets_are_complete_and_clean_bypasses() -> None:
     xerox = apply_layer_effect_preset("Xerox")
     assert xerox["monochrome"] == 1.0
     assert xerox["threshold"] > 0.0
+
+
+def test_layer_effect_shader_contains_independent_processing_stages() -> None:
+    from rendering.compositor import _COMPOSITE_FRAGMENT
+
+    for symbol in (
+        "u_layer_fx_enabled",
+        "u_layer_fx_mix",
+        "u_layer_fx_monochrome",
+        "u_layer_fx_threshold",
+        "u_layer_fx_posterize",
+        "u_layer_fx_chromatic",
+        "layer_color_effects",
+    ):
+        assert symbol in _COMPOSITE_FRAGMENT
+
+
+def test_particle_shader_has_gpu_field_and_all_motion_modes() -> None:
+    from rendering.compositor import _COMPOSITE_FRAGMENT
+
+    assert "vec4 particle_field(vec2 uv)" in _COMPOSITE_FRAGMENT
+    assert "u_particle_density" in _COMPOSITE_FRAGMENT
+    assert "u_particle_trail" in _COMPOSITE_FRAGMENT
+    assert "u_particle_mode == 3" in _COMPOSITE_FRAGMENT
