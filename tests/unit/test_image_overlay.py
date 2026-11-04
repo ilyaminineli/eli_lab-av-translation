@@ -17,6 +17,7 @@ def test_still_image_overlay_loads_transparent_rgba_frame(tmp_path) -> None:
     assert image.save(str(path))
 
     player = ImageOverlayPlayer(path)
+    assert player.loop is True
     frame = player.frame
 
     assert frame.pixels.shape == (3, 4, 4)
