@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import sqlite3
+
 from media.library import MediaLibrary
+from media.scanner import MediaScanner
 
 
 def _library_with_clip(tmp_path):
@@ -77,4 +80,59 @@ def test_collection_listing_reports_folder_name_and_asset_count(tmp_path) -> Non
     assert len(collections) == 1
     assert collections[0]["id"] == asset.collection_id
     assert collections[0]["name"] == "Footage A"
+    assert collections[0]["asset_count"] == 1
+
+
+def test_legacy_collection_root_is_recovered_from_asset_path(tmp_path) -> None:
+    root = tmp_path / "Original Folder"
+    nested = root / "Nested" / "Subfolder"
+    nested.mkdir(parents=True)
+    source = nested / "clip.mp4"
+    source.write_bytes(b"legacy indexed clip")
+
+    database = tmp_path / "legacy.sqlite3"
+    collection_id = MediaScanner.collection_id_for(root)
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            """
+            CREATE TABLE assets (
+                id TEXT PRIMARY KEY,
+                path TEXT NOT NULL UNIQUE,
+                collection_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                duration REAL,
+                width INTEGER,
+                height INTEGER,
+                fps REAL,
+                codec TEXT,
+                thumbnail_path TEXT,
+                status TEXT NOT NULL,
+                file_size INTEGER NOT NULL,
+                modified_at REAL NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO assets (
+                id, path, collection_id, name, status, file_size, modified_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "legacy-id",
+                str(source),
+                collection_id,
+                source.name,
+                "ready",
+                source.stat().st_size,
+                source.stat().st_mtime,
+            ),
+        )
+
+    library = MediaLibrary(database, tmp_path / "thumbnails")
+    collections = library.list_collections()
+
+    assert len(collections) == 1
+    assert collections[0]["root_path"] == str(root.resolve())
+    assert collections[0]["name"] == "Original Folder"
     assert collections[0]["asset_count"] == 1
