@@ -51,7 +51,7 @@ def _dictionary_candidates(root: Path, language: str, theme: str) -> list[str]:
     if language == "english":
         files = [p for p in files if p.name.lower() in {"a.txt", "b.txt", "c.txt", "d.txt", "e.txt", "f.txt", "g.txt", "h.txt", "i.txt", "j.txt", "k.txt", "l.txt", "m.txt", "n.txt", "o.txt", "p.txt", "q.txt", "r.txt", "s.txt", "t.txt", "u.txt", "v.txt", "w.txt", "x.txt", "y.txt", "z.txt"}]
     elif language == "japanese":
-        files = [p for p in files if p.name in {"special_readings.txt", "supplementary_kanji.txt"}]
+        files = [p for p in files if p.name == "special_readings.txt"]
     else:
         files = [p for p in files if p.name in {"special_readings.txt", "supplementary_kanji.txt"}]
     hints = tuple(item.casefold() for item in _THEME_HINTS.get(theme, ()))
@@ -62,14 +62,18 @@ def _dictionary_candidates(root: Path, language: str, theme: str) -> list[str]:
                     line = raw.strip()
                     if not line or len(line) > 72 or line.startswith("#"):
                         continue
-                    # Dictionary formats vary. Extract compact readable terms, not metadata columns.
-                    parts = re.split(r"[\t,;| ]+", line)
-                    term = next((p.strip("・、。[](){}") for p in parts if p.strip("・、。[](){}")), "")
+                    # English dictionary files are alphabetized; use one clean lexical headword.
+                    # Japanese reading lists may be tab-separated; choose the CJK column.
+                    parts = [part.strip("・、。[](){}") for part in re.split(r"[\\t,;| ]+", line)]
+                    parts = [part for part in parts if part]
+                    if language == "english":
+                        term = next((part for part in parts if re.fullmatch(r"[A-Za-z][A-Za-z'’-]*", part)), "")
+                    else:
+                        term = next((
+                            part for part in parts
+                            if any("\\u3040" <= ch <= "\\u30ff" or "\\u4e00" <= ch <= "\\u9fff" for ch in part)
+                        ), "")
                     if not term or len(term) > 24:
-                        continue
-                    if language == "english" and not re.fullmatch(r"[A-Za-z][A-Za-z'’-]*", term):
-                        continue
-                    if language == "japanese" and not any("\u3040" <= ch <= "\u30ff" or "\u4e00" <= ch <= "\u9fff" for ch in term):
                         continue
                     if hints and not any(hint in line.casefold() for hint in hints):
                         continue
