@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "eli-lab-av-translation"
-version = "0.2.0"
+version = "0.3.0"
 description = "A modular live audiovisual compositor for video collage, generative visuals and Sonic Pi control."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -27,7 +27,7 @@ py-modules = ["config"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["core*", "effects*", "media*", "rendering*", "ui*"]
+include = ["core*", "effects*", "generators*", "media*", "rendering*", "ui*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
