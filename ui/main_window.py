@@ -152,7 +152,7 @@ class MainWindow(QMainWindow):
         layout.setSpacing(8)
 
         header = QHBoxLayout()
-        title = QLabel("SELECTED GENERATOR / OVERLAY")
+        title = QLabel("COMPOSITION EDITOR")
         title.setObjectName("sectionHeading")
         header.addWidget(title)
         header.addStretch(1)
