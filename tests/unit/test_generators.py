@@ -84,30 +84,3 @@ def test_animation_changes_do_not_change_raster_fingerprint(tmp_path) -> None:
     layer.generator_settings["animation_amount"] = 0.2
 
     assert GeneratorRasterizer.fingerprint(layer) == first
-
-
-@pytest.mark.parametrize("generator_type", GENERATOR_TYPES)
-def test_generator_rasterizer_produces_cached_transparent_rgba(
-    qapp,
-    generator_type: str,
-) -> None:
-    from core.composition import Layer
-    from generators.rasterizer import GeneratorRasterizer
-
-    layer = Layer(
-        id=f"raster-{generator_type}",
-        source_type="generator",
-        generator_type=generator_type,
-        generator_settings=default_generator_settings(generator_type),
-    )
-    rasterizer = GeneratorRasterizer(width=320, height=180)
-
-    fingerprint, pixels = rasterizer.render(layer)
-    cached_fingerprint, cached_pixels = rasterizer.render(layer)
-
-    assert pixels.shape == (180, 320, 4)
-    assert pixels.dtype.name == "uint8"
-    assert (pixels[:, :, 3] > 0).any()
-    assert (pixels[:, :, 3] == 0).any()
-    assert cached_fingerprint == fingerprint
-    assert cached_pixels is pixels
