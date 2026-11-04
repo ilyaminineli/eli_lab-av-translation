@@ -9,6 +9,11 @@ APP_VERSION = "0.2.0"
 DEFAULT_CANVAS_WIDTH = 1920
 DEFAULT_CANVAS_HEIGHT = 1080
 DEFAULT_FPS = 60
+# Decoder output is capped to reduce RGB conversion and texture-upload bandwidth.
+MAX_DECODE_WIDTH = 1920
+MAX_DECODE_HEIGHT = 1080
+MAX_DECODE_FPS = 30
+RENDER_TARGET_FPS = 30
 OPENGL_REQUIREMENT = 330
 VIDEO_DECK_IDS = ("deck_a", "deck_b", "deck_c", "deck_d")
 
