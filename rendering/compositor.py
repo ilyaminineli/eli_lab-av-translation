@@ -220,7 +220,10 @@ void main() {
     if (u_generator_type == 1) {
         source = particle_field(local);
     } else {
-        vec2 rgb_shift = vec2(u_layer_fx_chromatic * 0.012, 0.0);
+        float rgb_shift_amount = (
+            u_layer_fx_chromatic * u_layer_fx_mix * float(u_layer_fx_enabled)
+        );
+        vec2 rgb_shift = vec2(rgb_shift_amount * 0.012, 0.0);
         vec2 uv_safe = clamp(sample_local, vec2(0.001), vec2(0.999));
         source = texture(u_layer, uv_safe);
         if (u_layer_fx_chromatic > 0.001) {
