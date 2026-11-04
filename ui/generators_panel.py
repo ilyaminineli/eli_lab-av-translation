@@ -290,7 +290,7 @@ class GeneratorsPanel(QWidget):
             self.frequency_slider.setValue(round(float(values["frequency"]) * 10))
 
         self.primary_color.setText(str(values["primary_color"]))
-        self.secondary_color.setText(str(values["secondary_color"]))
+        self.secondary_color.setText(str(values.get("secondary_color", "#C35C75")))
         self.animation_combo.setCurrentText(str(values["animation"]))
         self.speed_slider.setValue(round(float(values["animation_speed"]) * 100))
         amount = float(values["animation_amount"])
