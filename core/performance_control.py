@@ -11,6 +11,7 @@ from typing import Any
 CONTROL_EVENT_KINDS = frozenset({
     "transport.start",
     "transport.stop",
+    "transport.pause",
     "transport.tempo",
     "clock.beat",
     "clock.bar",
@@ -199,7 +200,7 @@ class PerformanceControlState:
                 payload, "beats_per_bar", self.beats_per_bar, 1, 16
             )
             updates["transport_running"] = True
-        elif event.kind == "transport.stop":
+        elif event.kind in {"transport.stop", "transport.pause"}:
             updates["transport_running"] = False
         elif event.kind == "transport.tempo":
             updates["bpm"] = self._number(payload, "bpm", minimum=20.0, maximum=300.0)
