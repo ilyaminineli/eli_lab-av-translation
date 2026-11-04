@@ -14,12 +14,12 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QPlainTextEdit,
+    QMessageBox,
     QPushButton,
     QScrollArea,
     QSlider,
     QVBoxLayout,
     QWidget,
-    QMessageBox,
 )
 
 from core.application import Application
