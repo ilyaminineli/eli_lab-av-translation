@@ -95,6 +95,9 @@ EFFECT_STAGE_TYPES = {
     "posterize": "Posterize",
     "scanlines": "Scanlines",
     "hue": "Hue shift",
+    "contrast": "Contrast",
+    "saturation": "Saturation",
+    "brightness": "Brightness",
 }
 
 
