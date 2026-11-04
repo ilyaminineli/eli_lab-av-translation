@@ -17,6 +17,9 @@ Procedural transparent vector-style graphics rasterized on a 1600×900 canvas:
 - Radial constructions
 - Crosshatch fields
 - Nested regular polygons
+- Spirals
+- Offset-circle moiré constructions
+- Hexagonal grids
 
 Controls include pattern, density, primary/accent colour, line weight, layer transform and animation.
 
@@ -28,7 +31,7 @@ Editable multiline typographic compositions with:
 - Regular, medium, bold and black weights
 - Font size and absolute letter tracking
 - Line spacing and horizontal / vertical alignment
-- Fill colour, outline colour and outline width
+- Fill colour, optional alternating accent-line colour, outline colour and outline width
 - Soft offset shadow
 
 Text remains editable as layer data in the project. It is not permanently converted into a user-managed bitmap asset.
@@ -40,8 +43,25 @@ Procedural signal-like graphics that do not require an audio input:
 - Parallel sine traces
 - Lissajous curves
 - Orbit patterns
+- Radial traces
+- Rose curves
 
 Controls include density, amplitude, frequency, line weight and two-colour treatment. In M3, this generator can be connected to the audio analysis bus without making the drawing code depend on an audio device.
+
+## Master effects and visual looks
+
+The master GPU post-process can be bypassed without changing the saved parameter values. An effect-mix slider blends the processed result with the untouched compositor output, making live A/B comparison possible without switching presets.
+
+The expanded grade and treatment controls include:
+
+- Exposure in stops, contrast, brightness, saturation and gamma.
+- Temperature, tint and hue rotation.
+- Vignette, film grain, scanlines, RGB separation, signal glitch and pixelation.
+- Posterization, inversion, halftone print and solarization.
+
+The preset library now includes Clean, 16mm Film, VHS / Tape, CRT, Bleach Bypass, Dream Haze, Digital Damage, Halftone Print, Photocopy, Infrared, Cold Steel and Solarized. Presets reset all parameters before applying their own values, avoiding stale settings when switching between looks.
+
+These controls are still a master pass: independent per-layer effect stacks and animated overlay-media layers remain future M2 work.
 
 ## Animation model
 

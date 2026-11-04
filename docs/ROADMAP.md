@@ -139,13 +139,16 @@ Give the video mixer a distinctive visual toolkit and make automated performance
 - GPU master post-processing pass after the layer compositor.
 - First-class transparent generator layers integrated into the standard composition transform, opacity, blend mode, z-order and project serializer.
 - Procedural geometry: concentric rings, grids, radial constructions, crosshatch and nested polygons.
-- Typographic art with editable multiline content, installed system fonts, weight, size, tracking, line spacing, alignment, outline and shadow.
-- Procedural waveform visuals: sine traces, Lissajous figures and orbit patterns.
+- Typographic art with editable multiline content, installed system fonts, weight, size, tracking, line spacing, alignment, outline, shadow and alternate accent-line colours.
+- Procedural waveform visuals: sine traces, Lissajous figures, orbit patterns, radial traces and rose curves.
+- Expanded geometry patterns: spiral, moiré and hex-grid constructions.
 - Static generator content is rasterized only when settings change; pulse, rotate, drift and flicker animation run in the GPU compositing shader.
 - Generator layers render independently in preview and projector contexts.
-- Brightness, contrast, saturation and gamma.
-- Vignette, grain, scanlines, RGB split / chromatic aberration and glitch.
-- Pixelation, posterization and inversion.
+- Brightness, exposure, contrast, saturation, gamma, temperature, tint and hue rotation.
+- Vignette, grain, scanlines, RGB split / chromatic aberration, glitch and pixelation.
+- Posterization, inversion, halftone print and solarization.
+- Global effect bypass and processed/unprocessed mix for A/B comparison.
+- Additional looks: Halftone Print, Photocopy, Infrared, Cold Steel and Solarized.
 - Built-in Clean, 16mm Film, VHS / Tape, CRT, Bleach Bypass, Dream Haze and Digital Damage looks.
 - Effect and automation settings saved in .eliav projects.
 - Semi-random collage layouts and timed effect-look changes.
@@ -193,6 +196,8 @@ Give the video mixer a distinctive visual toolkit and make automated performance
 
 - Keep the current master look pass as a reliable base.
 - Add a controlled stack of effect stages with documented order and parameter ranges.
+- Introduce independent per-layer effect stacks and effect bypass/solo.
+- Add user-saveable visual preset collections with import/export.
 - Support per-layer effects where practical, while keeping expensive global effects in the master pass.
 - Add reusable, saveable visual presets and user-defined preset collections.
 - Add alpha-capable still-image overlays and animated overlay media as distinct, reorderable layers.

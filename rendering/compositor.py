@@ -94,9 +94,13 @@ uniform sampler2D u_texture;
 uniform vec2 u_resolution;
 uniform float u_time;
 uniform float u_brightness;
+uniform float u_exposure;
 uniform float u_contrast;
 uniform float u_saturation;
 uniform float u_gamma;
+uniform float u_temperature;
+uniform float u_tint;
+uniform float u_hue;
 uniform float u_vignette;
 uniform float u_grain;
 uniform float u_scanlines;
@@ -105,6 +109,9 @@ uniform float u_glitch;
 uniform float u_pixelate;
 uniform float u_posterize;
 uniform float u_invert;
+uniform float u_halftone;
+uniform float u_solarize;
+uniform float u_mix;
 
 in vec2 v_uv;
 out vec4 frag_color;
@@ -116,6 +123,7 @@ float hash21(vec2 p) {
 }
 
 void main() {
+    vec3 original_color = texture(u_texture, v_uv).rgb;
     vec2 uv = v_uv;
 
     float row_seed = hash21(vec2(floor(uv.y * u_resolution.y), floor(u_time * 19.0)));
@@ -135,14 +143,51 @@ void main() {
     color = (color - 0.5) * u_contrast + 0.5;
     float luminance = dot(color, vec3(0.2126, 0.7152, 0.0722));
     color = mix(vec3(luminance), color, u_saturation);
+    color *= exp2(u_exposure);
     color = pow(max(color, vec3(0.0)), vec3(1.0 / max(u_gamma, 0.05)));
     color += u_brightness;
+
+    // Simple white-balance controls. Positive temperature warms highlights;
+    // positive tint adds magenta, while negative tint leans green.
+    color += vec3(
+        u_temperature * 0.12 + u_tint * 0.035,
+        u_tint * 0.10,
+        -u_temperature * 0.12 + u_tint * 0.035
+    );
+
+    // Rotate hue in YIQ space while preserving approximate luminance.
+    float hue_angle = radians(u_hue);
+    float yiq_y = dot(color, vec3(0.299, 0.587, 0.114));
+    float yiq_i = dot(color, vec3(0.596, -0.274, -0.322));
+    float yiq_q = dot(color, vec3(0.211, -0.523, 0.312));
+    float rotated_i = yiq_i * cos(hue_angle) - yiq_q * sin(hue_angle);
+    float rotated_q = yiq_i * sin(hue_angle) + yiq_q * cos(hue_angle);
+    color = vec3(
+        yiq_y + 0.956 * rotated_i + 0.621 * rotated_q,
+        yiq_y - 0.272 * rotated_i - 0.647 * rotated_q,
+        yiq_y - 1.106 * rotated_i + 1.703 * rotated_q
+    );
 
     if (u_posterize > 0.001) {
         float levels = mix(24.0, 3.0, clamp(u_posterize, 0.0, 1.0));
         color = floor(clamp(color, 0.0, 1.0) * levels) / levels;
     }
     color = mix(color, vec3(1.0) - color, clamp(u_invert, 0.0, 1.0));
+
+    float solar_luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
+    vec3 solarized = mix(color, vec3(1.0) - color, step(0.58, solar_luma));
+    color = mix(color, solarized, clamp(u_solarize, 0.0, 1.0));
+
+    vec2 screen_cells = v_uv * u_resolution / 7.0;
+    vec2 screen_dot = fract(screen_cells) - 0.5;
+    float print_luma = dot(clamp(color, 0.0, 1.0), vec3(0.2126, 0.7152, 0.0722));
+    float dot_radius = mix(0.07, 0.48, print_luma);
+    float dot_coverage = 1.0 - smoothstep(
+        dot_radius,
+        dot_radius + 0.035,
+        length(screen_dot)
+    );
+    color = mix(color, color * dot_coverage, clamp(u_halftone, 0.0, 1.0));
 
     vec2 centered = (v_uv - 0.5) * vec2(u_resolution.x / max(u_resolution.y, 1.0), 1.0);
     float radius = length(centered);
@@ -155,7 +200,8 @@ void main() {
     float scan = 0.5 + 0.5 * sin(v_uv.y * u_resolution.y * 3.14159265);
     color *= mix(1.0, 0.72 + 0.28 * scan, u_scanlines);
 
-    frag_color = vec4(clamp(color, 0.0, 1.0), 1.0);
+    vec3 processed = clamp(color, 0.0, 1.0);
+    frag_color = vec4(mix(original_color, processed, clamp(u_mix, 0.0, 1.0)), 1.0);
 }
 """
 
@@ -284,9 +330,13 @@ class Compositor:
             "u_resolution": (float(width), float(height)),
             "u_time": float(time_seconds),
             "u_brightness": effects.brightness,
+            "u_exposure": effects.exposure,
             "u_contrast": effects.contrast,
             "u_saturation": effects.saturation,
             "u_gamma": effects.gamma,
+            "u_temperature": effects.temperature,
+            "u_tint": effects.tint,
+            "u_hue": effects.hue,
             "u_vignette": effects.vignette,
             "u_grain": effects.grain,
             "u_scanlines": effects.scanlines,
@@ -295,6 +345,9 @@ class Compositor:
             "u_pixelate": effects.pixelate,
             "u_posterize": effects.posterize,
             "u_invert": effects.invert,
+            "u_halftone": effects.halftone,
+            "u_solarize": effects.solarize,
+            "u_mix": effects.mix if effects.enabled else 0.0,
         }
         for uniform_name, value in values.items():
             self.post_program[uniform_name].value = value

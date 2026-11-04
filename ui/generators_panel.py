@@ -87,6 +87,11 @@ class GeneratorsPanel(QWidget):
             self.weight_combo.addItem(label, value)
         text_form.addRow("WEIGHT", self.weight_combo)
 
+        self.text_color_mode_combo = QComboBox()
+        self.text_color_mode_combo.addItem("Single colour", "single")
+        self.text_color_mode_combo.addItem("Alternate line colours", "alternate")
+        text_form.addRow("COLOUR MODE", self.text_color_mode_combo)
+
         self.text_size_slider, self.text_size_value = self._slider(
             text_form, "FONT SIZE", 12, 420, 148
         )
@@ -119,7 +124,7 @@ class GeneratorsPanel(QWidget):
         geometry_form = QFormLayout(self.geometry_group)
         self.geometry_pattern_combo = QComboBox()
         self.geometry_pattern_combo.addItems(
-            ["rings", "grid", "radial", "crosshatch", "polygon"]
+            ["rings", "grid", "radial", "crosshatch", "polygon", "spiral", "moire", "hexgrid"]
         )
         geometry_form.addRow("PATTERN", self.geometry_pattern_combo)
         self.geometry_density_slider, self.geometry_density_value = self._slider(
@@ -133,7 +138,9 @@ class GeneratorsPanel(QWidget):
         self.waveform_group = QGroupBox("WAVEFORM")
         waveform_form = QFormLayout(self.waveform_group)
         self.waveform_pattern_combo = QComboBox()
-        self.waveform_pattern_combo.addItems(["sine", "lissajous", "orbit"])
+        self.waveform_pattern_combo.addItems(
+            ["sine", "lissajous", "orbit", "radial", "rose"]
+        )
         waveform_form.addRow("PATTERN", self.waveform_pattern_combo)
         self.waveform_density_slider, self.waveform_density_value = self._slider(
             waveform_form, "TRACES", 1, 12, 5
@@ -270,6 +277,9 @@ class GeneratorsPanel(QWidget):
             self.font_combo.setCurrentText(str(values["font_family"]))
             weight_index = self.weight_combo.findData(int(values["font_weight"]))
             self.weight_combo.setCurrentIndex(max(0, weight_index))
+            self.text_color_mode_combo.setCurrentIndex(
+                max(0, self.text_color_mode_combo.findData(values["text_color_mode"]))
+            )
             self.text_size_slider.setValue(int(values["font_size"]))
             self.tracking_slider.setValue(round(float(values["letter_spacing"])))
             self.line_spacing_slider.setValue(round(float(values["line_spacing"]) * 100))
@@ -290,7 +300,7 @@ class GeneratorsPanel(QWidget):
             self.frequency_slider.setValue(round(float(values["frequency"]) * 10))
 
         self.primary_color.setText(str(values["primary_color"]))
-        self.secondary_color.setText(str(values["secondary_color"]))
+        self.secondary_color.setText(str(values.get("secondary_color", "#C35C75")))
         self.animation_combo.setCurrentText(str(values["animation"]))
         self.speed_slider.setValue(round(float(values["animation_speed"]) * 100))
         amount = float(values["animation_amount"])
@@ -325,6 +335,7 @@ class GeneratorsPanel(QWidget):
                 "font_family": self.font_combo.currentText().strip() or "Arial",
                 "font_size": self.text_size_slider.value(),
                 "font_weight": int(self.weight_combo.currentData()),
+                "text_color_mode": str(self.text_color_mode_combo.currentData()),
                 "letter_spacing": float(self.tracking_slider.value()),
                 "line_spacing": self.line_spacing_slider.value() / 100.0,
                 "alignment": self.alignment_combo.currentText(),

@@ -22,13 +22,16 @@ This development pass focuses on video, master effects, overlays and automation.
 - Random in/out segment selection for every deck.
 - Segment looping or one-shot cuts, with independent random cut timers.
 - Semi-random collage layouts: grids, split screens, picture-in-picture and stacked compositions.
-- A master filter / overlay pass with brightness, contrast, saturation, gamma, vignette, grain, scanlines, RGB split, glitch, pixelation, posterize and invert.
-- Built-in looks: Clean, 16mm Film, VHS / Tape, CRT, Bleach Bypass, Dream Haze and Digital Damage.
+- A GPU master-effect pass with brightness, exposure, contrast, saturation, gamma, temperature, tint, hue shift, vignette, grain, scanlines, RGB split, glitch, pixelation, posterize, invert, halftone and solarization.
+- Master-effect bypass and a clean/effected mix control for live A/B comparison.
+- Built-in looks: Clean, 16mm Film, VHS / Tape, CRT, Bleach Bypass, Dream Haze, Digital Damage, Halftone Print, Photocopy, Infrared, Cold Steel and Solarized.
 - Unattended sessions for 30, 45, 60, 90 or 120 minutes, or until manually stopped.
 - A separate fullscreen output window selectable by Windows display / projector.
 - Shared decoded-frame snapshots so preview and projector outputs show the same playback without competing for frames.
 - Effect and automation settings saved inside .eliav projects.
 - First-class transparent generator layers: procedural geometry, typographic art and waveform graphics.
+- Expanded geometry patterns: spiral, moiré and hex-grid; waveform patterns: radial and rose curves.
+- Text Art alternate line colours with backward-compatible accent-colour defaults.
 - GPU-side pulse, rotation, drift and flicker animation for generator layers.
 - Generator content, font choices, transforms, colour, outline and animation settings saved inside .eliav projects.
 
