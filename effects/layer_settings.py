@@ -44,6 +44,12 @@ LAYER_EFFECT_PRESETS: dict[str, dict[str, Any]] = {
         "saturation": 1.18,
         "hue": 8.0,
     },
+    "Bleach Bypass": {"contrast": 1.72, "saturation": 0.48, "brightness": -0.035},
+    "Infrared": {"hue": -42.0, "saturation": 1.9, "contrast": 1.28, "brightness": 0.04},
+    "Cold Storage": {"hue": 22.0, "saturation": 0.72, "contrast": 1.18, "brightness": -0.025},
+    "Riso Print": {"monochrome": 0.28, "posterize": 0.72, "contrast": 1.4, "saturation": 1.45},
+    "Soft Ghost": {"monochrome": 0.18, "chromatic": 0.28, "saturation": 0.62, "contrast": 0.82},
+    "Hard Signal": {"threshold": 0.42, "posterize": 0.9, "scanlines": 0.62, "contrast": 1.9},
 }
 
 
