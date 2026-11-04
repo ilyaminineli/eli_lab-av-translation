@@ -88,6 +88,8 @@ class LayerPanel(QWidget):
         self.overlay_frame_hold_spin = QSpinBox()
         self.overlay_frame_hold_spin.setRange(1, 24)
         self.overlay_scene_sync_check = QCheckBox("Sync to scene changes")
+        self.remove_overlay_button = QPushButton("REMOVE OVERLAY IMAGE / VIDEO")
+        overlay_form.addRow(self.remove_overlay_button)
         self.overlay_mask_mode = QComboBox()
         self.overlay_mask_mode.addItem("No matte", "none")
         self.overlay_mask_mode.addItem("Alpha matte", "alpha")
@@ -178,10 +180,12 @@ class LayerPanel(QWidget):
             control.valueChanged.connect(self._overlay_controls_changed)
         self.overlay_frame_hold_spin.valueChanged.connect(self._overlay_controls_changed)
         self.overlay_scene_sync_check.toggled.connect(self._overlay_controls_changed)
+        self.remove_overlay_button.clicked.connect(self.remove_selected_layer)
         self.overlay_mask_mode.currentIndexChanged.connect(self._overlay_controls_changed)
         self.overlay_mask_source.currentIndexChanged.connect(self._overlay_controls_changed)
         self.layer_fx_preset.currentTextChanged.connect(self._layer_fx_preset_changed)
         self.fx_stage_list.itemDoubleClicked.connect(self._edit_fx_stage_amount)
+        self.fx_stage_list.itemChanged.connect(lambda _item: self._commit_fx_stages())
         self.fx_stage_add.clicked.connect(self._add_fx_stage)
         self.fx_stage_remove.clicked.connect(self._remove_fx_stage)
         self.fx_stage_up.clicked.connect(lambda: self._move_fx_stage(-1))
@@ -310,6 +314,8 @@ class LayerPanel(QWidget):
         for slider in sliders:
             slider.blockSignals(True)
         self.remove_layer_button.setEnabled(layer is not None)
+        self.remove_overlay_button.setVisible(bool(layer and layer.source_type == "overlay"))
+        self.remove_overlay_button.setEnabled(bool(layer and layer.source_type == "overlay"))
         if layer is None:
             self.layer_fx_group.setEnabled(False)
             self.position_x[1].setEnabled(False)
@@ -398,6 +404,7 @@ class LayerPanel(QWidget):
             title = EFFECT_STAGE_TYPES[stage["type"]]
             item = QListWidgetItem(f'{title} · {stage["amount"]:.2f}')
             item.setData(Qt.ItemDataRole.UserRole, dict(stage))
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             item.setCheckState(Qt.CheckState.Checked if stage["enabled"] else Qt.CheckState.Unchecked)
             self.fx_stage_list.addItem(item)
         self._loading = False
