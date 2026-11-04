@@ -86,3 +86,44 @@ def test_new_effect_presets_are_available() -> None:
     from effects.settings import PRESETS
 
     assert {"Halftone Print", "Photocopy", "Infrared", "Cold Steel", "Solarized"} <= set(PRESETS)
+
+
+def test_every_master_effect_preset_uses_valid_bounded_values() -> None:
+    from effects.settings import PRESETS
+
+    settings = EffectSettings()
+    for name in PRESETS:
+        settings.apply_preset(name)
+        settings.clamp()
+        assert 0.0 <= settings.mix <= 1.0
+        assert -2.0 <= settings.exposure <= 2.0
+        assert -1.0 <= settings.temperature <= 1.0
+        assert -1.0 <= settings.tint <= 1.0
+        assert -180.0 <= settings.hue <= 180.0
+        assert 0.0 <= settings.halftone <= 1.0
+        assert 0.0 <= settings.solarize <= 1.0
+
+
+def test_effect_panel_slider_fields_exist_on_settings_model() -> None:
+    from dataclasses import fields
+
+    from ui.effects_panel import _SLIDERS
+
+    allowed = {item.name for item in fields(EffectSettings)}
+    assert {slider[0] for slider in _SLIDERS} <= allowed
+
+
+def test_post_shader_declares_every_new_effect_uniform() -> None:
+    from rendering.compositor import _POST_FRAGMENT
+
+    for uniform in (
+        "u_mix",
+        "u_exposure",
+        "u_temperature",
+        "u_tint",
+        "u_hue",
+        "u_halftone",
+        "u_solarize",
+    ):
+        assert f"uniform float {uniform};" in _POST_FRAGMENT
+        assert uniform in _POST_FRAGMENT
