@@ -668,6 +668,11 @@ class LayerPanel(QWidget):
 
     def _blend_changed(self, layer_id: str, value: str) -> None:
         self.application.layer_manager.update_layer(layer_id, blend_mode=value)
+        layer = self._selected_layer()
+        if layer is not None and layer.id == layer_id:
+            self.selected_blend_combo.blockSignals(True)
+            self.selected_blend_combo.setCurrentText(value)
+            self.selected_blend_combo.blockSignals(False)
 
     def _selected_blend_changed(self, value: str) -> None:
         layer = self._selected_layer()
