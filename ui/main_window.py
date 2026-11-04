@@ -8,10 +8,15 @@ from PySide6.QtGui import QAction, QGuiApplication, QKeySequence
 from PySide6.QtWidgets import (
     QDockWidget,
     QFileDialog,
+    QHBoxLayout,
     QLabel,
     QMainWindow,
     QMessageBox,
+    QPushButton,
+    QSettings,
     QToolBar,
+    QVBoxLayout,
+    QWidget,
 )
 
 from config import APP_VERSION
@@ -37,26 +42,36 @@ class MainWindow(QMainWindow):
         self.output_manager = OutputWindowManager(application, self)
         self.setWindowTitle(f"eli_lab AV Translation {APP_VERSION}")
         self.resize(1600, 980)
-        self.setMinimumSize(1100, 700)
+        self.setMinimumSize(980, 640)
+        self.setDockOptions(
+            QMainWindow.DockOption.AnimatedDocks
+            | QMainWindow.DockOption.AllowTabbedDocks
+            | QMainWindow.DockOption.AllowNestedDocks
+        )
+        self._ui_settings = QSettings()
+        self._restore_local_preview_on_close = False
 
         self.performance_view = PerformanceView(application, self)
-        self.setCentralWidget(self.performance_view)
 
         self.media_browser = MediaBrowser(application.media_library, self)
         self.media_dock = self._make_dock("MEDIA LIBRARY", self.media_browser)
+        self.media_dock.setMinimumWidth(260)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.media_dock)
 
         self.asset_library_panel = AssetLibraryPanel(application, self)
         self.asset_library_dock = self._make_dock("VISUAL ASSET LIBRARY", self.asset_library_panel)
+        self.asset_library_dock.setMinimumWidth(260)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.asset_library_dock)
         self.tabifyDockWidget(self.media_dock, self.asset_library_dock)
 
         self.deck_panel = DeckPanel(application, self)
         self.deck_dock = self._make_dock("VIDEO DECKS", self.deck_panel)
+        self.deck_dock.setMinimumHeight(150)
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.deck_dock)
 
         self.layer_panel = LayerPanel(application, self)
         self.layer_dock = self._make_dock("LAYERS", self.layer_panel)
+        self.layer_dock.setMinimumWidth(300)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.layer_dock)
 
         self.effects_panel = EffectsPanel(application.effects, self)
@@ -73,7 +88,15 @@ class MainWindow(QMainWindow):
         self.automation_dock = self._make_dock("AUTO PERFORMANCE", self.automation_panel)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.automation_dock)
         self.tabifyDockWidget(self.generators_dock, self.automation_dock)
+
+        # Local preview is a normal dock, not the central widget. It can be
+        # resized, floated, tabified or hidden without taking space from controls.
+        self.preview_dock = self._make_dock("LOCAL PREVIEW", self.performance_view)
+        self.preview_dock.setMinimumSize(260, 180)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.preview_dock)
+        self.tabifyDockWidget(self.automation_dock, self.preview_dock)
         self.layer_dock.raise_()
+        self.setCentralWidget(self._build_workspace())
 
         self.transport_bar = TransportBar(self)
         toolbar = QToolBar("Performance")
@@ -101,11 +124,16 @@ class MainWindow(QMainWindow):
         self.asset_library_panel.composition_changed.connect(self.generators_panel.refresh)
 
         self._create_actions()
-        self.setDockOptions(
-            QMainWindow.DockOption.AnimatedDocks
-            | QMainWindow.DockOption.AllowTabbedDocks
-            | QMainWindow.DockOption.AllowNestedDocks
-        )
+        saved_geometry = self._ui_settings.value("ui/main_window_geometry")
+        saved_state = self._ui_settings.value("ui/main_window_state_v2")
+        restored = False
+        if saved_geometry and saved_state:
+            restored = (
+                self.restoreGeometry(saved_geometry)
+                and self.restoreState(saved_state, 2)
+            )
+        if not restored:
+            QTimer.singleShot(0, self._apply_default_dock_sizes)
 
         self._runtime_timer = QTimer(self)
         # Refresh queues and automation at the configured render cadence.
@@ -117,6 +145,67 @@ class MainWindow(QMainWindow):
         self._status_timer.setInterval(500)
         self._status_timer.timeout.connect(self._refresh_automation_status)
         self._status_timer.start()
+
+    def _build_workspace(self) -> QWidget:
+        workspace = QWidget(self)
+        layout = QVBoxLayout(workspace)
+        layout.setContentsMargins(36, 32, 36, 32)
+        layout.setSpacing(14)
+        layout.addStretch(1)
+
+        eyebrow = QLabel("ELI LAB  /  AV TRANSLATION")
+        eyebrow.setObjectName("mutedLabel")
+        layout.addWidget(eyebrow, alignment=Qt.AlignmentFlag.AlignHCenter)
+
+        title = QLabel("PERFORMANCE WORKSPACE")
+        title.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        layout.addWidget(title)
+
+        description = QLabel(
+            "The live canvas now lives in a dockable local preview. "
+            "Keep the workspace for media, layers, effects and performance controls, "
+            "or open the projector on a separate display."
+        )
+        description.setWordWrap(True)
+        description.setMaximumWidth(620)
+        description.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        layout.addWidget(description, alignment=Qt.AlignmentFlag.AlignHCenter)
+
+        self.workspace_output_label = QLabel("OUTPUT  ·  LOCAL PREVIEW")
+        self.workspace_output_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        self.workspace_output_label.setObjectName("mutedLabel")
+        layout.addWidget(self.workspace_output_label)
+
+        actions = QHBoxLayout()
+        actions.addStretch(1)
+        self.show_preview_button = QPushButton("OPEN LOCAL PREVIEW")
+        self.show_preview_button.clicked.connect(self.show_local_preview)
+        actions.addWidget(self.show_preview_button)
+        actions.addStretch(1)
+        layout.addLayout(actions)
+        layout.addStretch(2)
+        return workspace
+
+    def _apply_default_dock_sizes(self) -> None:
+        self.resizeDocks(
+            [self.media_dock],
+            [330],
+            Qt.Orientation.Horizontal,
+        )
+        self.resizeDocks(
+            [self.layer_dock],
+            [350],
+            Qt.Orientation.Horizontal,
+        )
+        self.resizeDocks(
+            [self.deck_dock],
+            [185],
+            Qt.Orientation.Vertical,
+        )
+
+    def show_local_preview(self) -> None:
+        self.preview_dock.show()
+        self.preview_dock.raise_()
 
     def _make_dock(self, title: str, widget) -> QDockWidget:
         dock = QDockWidget(title, self)
@@ -175,6 +264,7 @@ class MainWindow(QMainWindow):
                 self.effects_dock,
                 self.generators_dock,
                 self.automation_dock,
+                self.preview_dock,
         ):
             view_menu.addAction(dock.toggleViewAction())
 
@@ -226,7 +316,16 @@ class MainWindow(QMainWindow):
 
     def open_projector_output(self, screen) -> None:
         try:
-            self.output_manager.open_on_screen(screen)
+            if self.output_manager.window is not None:
+                self.output_manager.close()
+            self._restore_local_preview_on_close = self.preview_dock.isVisible()
+            window = self.output_manager.open_on_screen(screen)
+            window.closed.connect(self._projector_output_closed)
+            if self._restore_local_preview_on_close:
+                self.preview_dock.hide()
+            self.workspace_output_label.setText(
+                f"OUTPUT  ·  PROJECTOR  ·  {screen.name()}"
+            )
             self.statusBar().showMessage(
                 (
                     f"Projector output opened on {screen.name()}. "
@@ -237,6 +336,13 @@ class MainWindow(QMainWindow):
         except Exception as exc:
             _LOG.exception("Could not open projector output")
             QMessageBox.critical(self, "Projector output failed", str(exc))
+
+    def _projector_output_closed(self) -> None:
+        self.workspace_output_label.setText("OUTPUT  ·  LOCAL WORKSPACE")
+        if self._restore_local_preview_on_close:
+            self.preview_dock.show()
+            self.preview_dock.raise_()
+        self._restore_local_preview_on_close = False
 
     def refresh_automation_media_pool(self) -> None:
         if self.application.refresh_automation_media_pool():
@@ -451,6 +557,8 @@ class MainWindow(QMainWindow):
         )
 
     def closeEvent(self, event) -> None:
+        self._ui_settings.setValue("ui/main_window_geometry", self.saveGeometry())
+        self._ui_settings.setValue("ui/main_window_state_v2", self.saveState(2))
         self._runtime_timer.stop()
         self._status_timer.stop()
         self.media_browser.shutdown_workers()
