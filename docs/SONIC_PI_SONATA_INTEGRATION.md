@@ -43,7 +43,7 @@ This document records the requirements exposed by the actual live patch. It is a
 | `c` | 12 bars | 0.14 |
 | `end` | — | 0.00 |
 
-The form totals 384 bars before the final end marker. The scene IDs should be treated as stable symbolic names; their visual meaning should be configured in AV Translation rather than inferred from the abbreviations.
+The form totals 384 bars before the final end marker. `sp_b_count` increments before `sp_b` is cued, so OSC `bar_index` should preserve the patch's **1-based** bar count. The scene IDs should be treated as stable symbolic names; their visual meaning should be configured in AV Translation rather than inferred from the abbreviations.
 
 ## Control values worth transmitting
 
