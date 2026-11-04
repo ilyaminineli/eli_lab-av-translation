@@ -18,6 +18,7 @@ from core.application import Application
 from ui.automation_panel import AutomationPanel
 from ui.deck_panel import DeckPanel
 from ui.effects_panel import EffectsPanel
+from ui.generators_panel import GeneratorsPanel
 from ui.layer_panel import LayerPanel
 from ui.media_browser import MediaBrowser
 from ui.output_window import OutputWindowManager
@@ -56,10 +57,15 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.effects_dock)
         self.tabifyDockWidget(self.layer_dock, self.effects_dock)
 
+        self.generators_panel = GeneratorsPanel(application, self)
+        self.generators_dock = self._make_dock("GENERATORS + TEXT ART", self.generators_panel)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.generators_dock)
+        self.tabifyDockWidget(self.effects_dock, self.generators_dock)
+
         self.automation_panel = AutomationPanel(application.media_library, self)
         self.automation_dock = self._make_dock("AUTO PERFORMANCE", self.automation_panel)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.automation_dock)
-        self.tabifyDockWidget(self.effects_dock, self.automation_dock)
+        self.tabifyDockWidget(self.generators_dock, self.automation_dock)
         self.layer_dock.raise_()
 
         self.transport_bar = TransportBar(self)
@@ -82,6 +88,7 @@ class MainWindow(QMainWindow):
         self.transport_bar.lock_all_requested.connect(self.lock_all)
         self.automation_panel.start_requested.connect(self.start_automation)
         self.automation_panel.stop_requested.connect(self.stop_automation)
+        self.generators_panel.composition_changed.connect(self.layer_panel.refresh)
 
         self._create_actions()
         self.setDockOptions(
@@ -151,6 +158,7 @@ class MainWindow(QMainWindow):
                 self.deck_dock,
                 self.layer_dock,
                 self.effects_dock,
+                self.generators_dock,
                 self.automation_dock,
         ):
             view_menu.addAction(dock.toggleViewAction())
@@ -318,6 +326,8 @@ class MainWindow(QMainWindow):
         self.deck_panel.refresh()
         self.layer_panel.refresh()
         self.effects_panel.sync_from_settings()
+        self.generators_panel.refresh()
+        self.layer_panel.refresh()
         self.automation_panel.set_running(False, "Ready · import footage to begin.")
         self.statusBar().showMessage("New composition created.", 3000)
 
@@ -335,6 +345,8 @@ class MainWindow(QMainWindow):
             self.deck_panel.refresh()
             self.layer_panel.refresh()
             self.effects_panel.sync_from_settings()
+            self.generators_panel.refresh()
+            self.layer_panel.refresh()
             self.statusBar().showMessage(f"Opened {Path(path).name}", 4000)
         except Exception as exc:
             _LOG.exception("Could not open project %s", path)
