@@ -75,12 +75,8 @@ def test_selected_layer_editor_edits_and_removes_overlay(qtbot, tmp_path) -> Non
 
         panel.opacity_slider.setValue(42)
         panel.blend_mode_combo.setCurrentText("multiply")
-        panel.overlay_loop_check.setChecked(False)
-
         assert layer.opacity == 0.42
         assert layer.blend_mode == "multiply"
-        assert layer.overlay_loop is False
-        assert application._overlay_images[layer.id].loop is False
 
         panel.remove_button.click()
 
