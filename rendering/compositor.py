@@ -159,9 +159,15 @@ vec3 layer_color_effects(vec3 color, vec2 uv) {
                     luma + (color.r - luma) * sin(angle) + (color.g - luma) * cos(angle),
                     color.b
                 );
+            } else if (stage_type == 7) {
+                color = (color - 0.5) * mix(1.0, 2.5, amount) + 0.5;
+            } else if (stage_type == 8) {
+                float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
+                color = mix(vec3(luma), color, mix(1.0, 2.5, amount));
+            } else if (stage_type == 9) {
+                color += (amount - 0.5) * 0.5;
             }
         }
-        return mix(original, clamp(color, 0.0, 1.0), u_layer_fx_mix);
     }
     color = (color - 0.5) * u_layer_fx_contrast + 0.5;
     float luminance = dot(color, vec3(0.2126, 0.7152, 0.0722));
@@ -712,7 +718,8 @@ class Compositor:
 
             layer_fx = normalize_layer_effects(layer.layer_effects)
             stage_codes = {"monochrome": 1, "invert": 2, "threshold": 3,
-                           "posterize": 4, "scanlines": 5, "hue": 6}
+                           "posterize": 4, "scanlines": 5, "hue": 6,
+                           "contrast": 7, "saturation": 8, "brightness": 9}
             active_stages = [stage for stage in layer_fx["stages"] if stage["enabled"]]
             stage_types = [stage_codes[stage["type"]] for stage in active_stages]
             stage_amounts = [float(stage["amount"]) for stage in active_stages]
