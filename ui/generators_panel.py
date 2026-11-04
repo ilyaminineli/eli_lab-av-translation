@@ -253,8 +253,10 @@ class GeneratorsPanel(QWidget):
         style_form = QFormLayout(self.style_group)
         self.primary_color = QLineEdit("#E8E4DA")
         self.secondary_color = QLineEdit("#8678A8")
+        self.background_color = QLineEdit("#00000000")
         style_form.addRow("PRIMARY COLOUR", self.primary_color)
         style_form.addRow("ACCENT COLOUR", self.secondary_color)
+        style_form.addRow("BACKGROUND COLOUR", self.background_color)
         self.palette_combo = QComboBox()
         self.palette_combo.addItem("Manual colours", "")
         self.palette_combo.addItems(palette_names())
@@ -543,6 +545,7 @@ class GeneratorsPanel(QWidget):
 
         self.primary_color.setText(str(values["primary_color"]))
         self.secondary_color.setText(str(values.get("secondary_color", "#C35C75")))
+        self.background_color.setText(str(values.get("background_color", "#00000000")))
         self.animation_combo.setCurrentText(str(values["animation"]))
         self.speed_slider.setValue(round(float(values["animation_speed"]) * 100))
         amount = float(values["animation_amount"])
@@ -559,6 +562,7 @@ class GeneratorsPanel(QWidget):
         look = palette_look(name)
         self.primary_color.setText(str(look["primary_color"]))
         self.secondary_color.setText(str(look["secondary_color"]))
+        self.background_color.setText(str(look["background_color"]))
 
     def apply_settings(self) -> None:
         layer = self._selected_layer()
@@ -570,6 +574,7 @@ class GeneratorsPanel(QWidget):
         settings.update({
             "primary_color": self.primary_color.text().strip() or "#E8E4DA",
             "secondary_color": self.secondary_color.text().strip() or "#8678A8",
+            "background_color": self.background_color.text().strip() or "#00000000",
             "animation": self.animation_combo.currentText(),
             "animation_speed": self.speed_slider.value() / 100.0,
         })
