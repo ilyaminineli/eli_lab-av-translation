@@ -501,3 +501,31 @@ def test_layer_fx_automation_respects_manual_cooldown(tmp_path) -> None:
     original = dict(layer.layer_effects)
     assert director.tick(now=4.0) is False
     assert layer.layer_effects == original
+
+
+def test_overlay_automation_varies_transform_but_respects_manual_cooldown(tmp_path) -> None:
+    import time
+
+    asset = make_asset(tmp_path, "overlay-auto.mp4")
+    deck = FakeDeck("deck_a")
+    overlay = Layer(
+        id="overlay-auto", source_type="overlay", source_id="overlay:auto",
+        overlay_manual_override_until=time.time() + 120.0,
+    )
+    director = AutomationDirector(seed=23)
+    director.start(
+        [asset], [deck], [overlay], EffectSettings(),
+        settings=AutomationSettings(
+            randomize_layout=False, randomize_effects=False,
+            randomize_generators=False, randomize_layer_effects=False,
+            randomize_overlays=True,
+            min_generator_interval=2.0, max_generator_interval=2.0,
+        ),
+        duration_seconds=None, now=1.0,
+    )
+    original = (overlay.opacity, overlay.scale, overlay.rotation, overlay.blend_mode)
+    assert director.tick(now=4.0) is False
+    assert (overlay.opacity, overlay.scale, overlay.rotation, overlay.blend_mode) == original
+    overlay.overlay_manual_override_until = 0.0
+    assert director.tick(now=7.0) is True
+    assert (overlay.opacity, overlay.scale, overlay.rotation, overlay.blend_mode) != original
