@@ -12,6 +12,7 @@ from core.composition import Composition, Layer
 from core.event_bus import EventBus
 from core.layer_manager import LayerManager
 from core.performance_manager import PerformanceManager
+from core.performance_control import ControlEvent, ControlEventQueue, PerformanceControlState
 from core.project_manager import ProjectManager
 from effects.settings import EffectSettings
 from generators.catalog import GENERATOR_TYPES, default_generator_settings
@@ -30,6 +31,8 @@ class Application:
 
     def __init__(self) -> None:
         self.events = EventBus()
+        self.control_events = ControlEventQueue()
+        self.performance_control = PerformanceControlState()
         self._animation_started_at = time.perf_counter()
         self.project_manager = ProjectManager()
         self.media_library = MediaLibrary()
@@ -227,6 +230,8 @@ class Application:
         self.layer_manager = LayerManager(self.composition, self.events)
         self._create_default_layers()
         self.effects.reset()
+        self.control_events.clear()
+        self.performance_control.reset()
         self.current_project_path = None
         self.events.publish("project.reset")
 
@@ -349,6 +354,32 @@ class Application:
         self.events.publish("automation.media_pool_changed", count=len(assets))
         return True
 
+    def submit_control_event(self, event: ControlEvent) -> bool:
+        """Submit a normalized event from an internal or future external source."""
+        return self.control_events.submit(event)
+
+    def process_control_events(self, max_events: int = 128) -> int:
+        """Apply a bounded number of queued control events on the UI thread."""
+        processed = 0
+        for event in self.control_events.drain(max_events):
+            try:
+                if self.performance_control.apply(event):
+                    processed += 1
+            except (TypeError, ValueError) as exc:
+                _LOG.warning(
+                    "Rejected performance control event %s from %s: %s",
+                    event.kind,
+                    event.source,
+                    exc,
+                )
+        if processed:
+            self.events.publish(
+                "performance.control.updated",
+                state=self.performance_control.snapshot(),
+                processed=processed,
+            )
+        return processed
+
     def tick_automation(self) -> bool:
         changed = self.automation.tick()
         if changed:
@@ -381,6 +412,8 @@ class Application:
 
     def load_project(self, path: str | Path) -> None:
         composition, deck_states = self.project_manager.load(path)
+        self.control_events.clear()
+        self.performance_control.reset()
         self.automation.stop()
         self._clear_overlays()
         for deck in self.decks.values():
@@ -435,6 +468,7 @@ class Application:
         self.events.publish("project.loaded", path=self.current_project_path)
 
     def shutdown(self) -> None:
+        self.control_events.clear()
         self.automation.stop()
         self._clear_overlays()
         for deck in self.decks.values():
