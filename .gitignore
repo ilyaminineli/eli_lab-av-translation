@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Application data and media cache
+*.eliav
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+cache/
+logs/
+thumbnails/
+
+# IDE and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Build artifacts
+build/
+dist/
