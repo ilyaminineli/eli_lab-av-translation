@@ -62,6 +62,11 @@ class VideoDecoder:
             return self._running
 
     @property
+    def worker_alive(self) -> bool:
+        with self._condition:
+            return bool(self._thread and self._thread.is_alive())
+
+    @property
     def last_error(self) -> str | None:
         with self._condition:
             return self._last_error
