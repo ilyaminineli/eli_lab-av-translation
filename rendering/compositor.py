@@ -56,6 +56,9 @@ uniform float u_layer_fx_contrast;
 uniform float u_layer_fx_brightness;
 uniform float u_layer_fx_scanlines;
 uniform float u_layer_fx_chromatic;
+uniform int u_fx_stage_count;
+uniform int u_fx_stage_type[8];
+uniform float u_fx_stage_amount[8];
 
 in vec2 v_uv;
 out vec4 frag_color;
@@ -126,6 +129,37 @@ vec3 layer_color_effects(vec3 color, vec2 uv) {
         return color;
     }
     vec3 original = color;
+    if (u_fx_stage_count > 0) {
+        for (int i = 0; i < 8; i++) {
+            if (i >= u_fx_stage_count) break;
+            float amount = clamp(u_fx_stage_amount[i], 0.0, 1.0);
+            int stage_type = u_fx_stage_type[i];
+            if (stage_type == 1) {
+                float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
+                color = mix(color, vec3(luma), amount);
+            } else if (stage_type == 2) {
+                color = mix(color, vec3(1.0) - color, amount);
+            } else if (stage_type == 3) {
+                float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));
+                color = mix(color, vec3(step(0.5, luma)), amount);
+            } else if (stage_type == 4) {
+                float levels = mix(24.0, 2.0, amount);
+                color = floor(clamp(color, 0.0, 1.0) * levels) / levels;
+            } else if (stage_type == 5) {
+                float scan = 0.82 + 0.18 * sin(uv.y * 720.0 * 3.14159265);
+                color *= mix(1.0, scan, amount);
+            } else if (stage_type == 6) {
+                float angle = amount * 6.2831853;
+                float luma = dot(color, vec3(0.299, 0.587, 0.114));
+                color = vec3(
+                    luma + (color.r - luma) * cos(angle) - (color.g - luma) * sin(angle),
+                    luma + (color.r - luma) * sin(angle) + (color.g - luma) * cos(angle),
+                    color.b
+                );
+            }
+        }
+        return mix(original, clamp(color, 0.0, 1.0), u_layer_fx_mix);
+    }
     color = (color - 0.5) * u_layer_fx_contrast + 0.5;
     float luminance = dot(color, vec3(0.2126, 0.7152, 0.0722));
     color = mix(color, vec3(luminance), u_layer_fx_monochrome);
@@ -648,6 +682,14 @@ class Compositor:
                 )
 
             layer_fx = normalize_layer_effects(layer.layer_effects)
+            stage_codes = {"monochrome": 1, "invert": 2, "threshold": 3,
+                           "posterize": 4, "scanlines": 5, "hue": 6}
+            active_stages = [stage for stage in layer_fx["stages"] if stage["enabled"]]
+            stage_types = [stage_codes[stage["type"]] for stage in active_stages]
+            stage_amounts = [float(stage["amount"]) for stage in active_stages]
+            self.composite_program["u_fx_stage_count"].value = len(stage_types)
+            self.composite_program["u_fx_stage_type"].value = tuple(stage_types + [0] * (8 - len(stage_types)))
+            self.composite_program["u_fx_stage_amount"].value = tuple(stage_amounts + [0.0] * (8 - len(stage_amounts)))
             self.composite_program["u_layer_fx_enabled"].value = int(layer_fx["enabled"])
             for uniform, key in (
                     ("u_layer_fx_mix", "mix"),
