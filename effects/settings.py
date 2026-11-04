@@ -99,6 +99,43 @@ PRESETS: dict[str, dict[str, float | bool]] = {
         "grain": 0.08,
     },
 }
+    "Sakura Fade": {
+        "brightness": 0.035,
+        "contrast": 0.94,
+        "saturation": 0.72,
+        "hue": -12.0,
+        "tint": 0.08,
+        "grain": 0.10,
+    },
+    "Noh Theatre": {
+        "contrast": 1.45,
+        "saturation": 0.12,
+        "gamma": 0.86,
+        "vignette": 0.36,
+        "grain": 0.14,
+    },
+    "Indigo Night": {
+        "contrast": 1.20,
+        "saturation": 0.84,
+        "hue": -14.0,
+        "temperature": -0.25,
+        "scanlines": 0.12,
+    },
+    "Shin-hanga": {
+        "contrast": 1.12,
+        "saturation": 1.16,
+        "gamma": 1.04,
+        "posterize": 0.12,
+        "grain": 0.08,
+    },
+    "Kintsugi": {
+        "contrast": 1.28,
+        "saturation": 0.92,
+        "temperature": 0.14,
+        "tint": 0.12,
+        "grain": 0.06,
+        "chromatic": 0.04,
+    },
 
 
 @dataclass
