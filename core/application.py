@@ -7,15 +7,21 @@ from typing import Any
 from uuid import uuid4
 
 from config import VIDEO_DECK_IDS
+from core.audio_analysis import AudioAnalysisSettings, AudioAnalysisFrame
+from core.audio_capture import AudioCaptureService
 from core.automation import AutomationDirector, AutomationSettings
 from core.composition import Composition, Layer
 from core.event_bus import EventBus
 from core.layer_manager import LayerManager
+from core.modulation import ModulationMatrix, TARGET_SPECS
 from core.performance_control import ControlEvent, ControlEventQueue, PerformanceControlState
 from core.performance_manager import PerformanceManager
+from core.performance_transport import InternalTransport, Quantization
 from core.project_manager import ProjectManager
+from core.scene_profiles import SceneProfile, SceneProfileRegistry
 from effects.settings import EffectSettings
-from generators.catalog import GENERATOR_TYPES, default_generator_settings
+from generators.catalog import GENERATOR_TYPES, default_generator_settings, normalize_settings
+from generators.palettes import palette_look
 from media.asset_index import VisualAssetIndex
 from media.frame_queue import FrameSnapshot
 from media.image_overlay import ImageOverlayPlayer
@@ -33,6 +39,14 @@ class Application:
         self.events = EventBus()
         self.control_events = ControlEventQueue()
         self.performance_control = PerformanceControlState()
+        self.transport = InternalTransport()
+        self.scene_profiles = SceneProfileRegistry()
+        self.modulation = ModulationMatrix()
+        self.audio_capture = AudioCaptureService()
+        self._audio_sources: dict[str, float] = {}
+        self._latest_audio_frame: AudioAnalysisFrame | None = None
+        self._selected_layer_id: str | None = None
+        self._modulation_base_values: dict[str, float] = {}
         self._animation_started_at = time.perf_counter()
         self.project_manager = ProjectManager()
         self.media_library = MediaLibrary()
@@ -232,6 +246,15 @@ class Application:
         self.effects.reset()
         self.control_events.clear()
         self.performance_control.reset()
+        self.transport.stop()
+        self.modulation.load_dict([])
+        self.scene_profiles = SceneProfileRegistry()
+        self.audio_capture.stop()
+        self.audio_capture.update_settings(AudioAnalysisSettings())
+        self._audio_sources.clear()
+        self._latest_audio_frame = None
+        self._modulation_base_values.clear()
+        self._selected_layer_id = None
         self.current_project_path = None
         self.events.publish("project.reset")
 
@@ -365,7 +388,9 @@ class Application:
             try:
                 if self.performance_control.apply(event):
                     processed += 1
-            except (TypeError, ValueError) as exc:
+                    if event.kind == "scene.select":
+                        self._activate_scene_profile(str(event.payload["scene_id"]))
+            except (TypeError, ValueError, KeyError) as exc:
                 _LOG.warning(
                     "Rejected performance control event %s from %s: %s",
                     event.kind,
@@ -379,6 +404,310 @@ class Application:
                 processed=processed,
             )
         return processed
+
+    def start_internal_transport(
+            self,
+            bpm: float | None = None,
+            beats_per_bar: int | None = None,
+    ) -> None:
+        if bpm is not None:
+            self.transport.set_tempo(bpm)
+        if beats_per_bar is not None:
+            self.transport.set_meter(beats_per_bar)
+        for event in self.transport.start():
+            self.submit_control_event(event)
+        self.process_control_events()
+
+    def pause_internal_transport(self) -> None:
+        for event in self.transport.pause():
+            self.submit_control_event(event)
+        self.process_control_events()
+
+    def resume_internal_transport(self) -> None:
+        for event in self.transport.resume():
+            self.submit_control_event(event)
+        self.process_control_events()
+
+    def stop_internal_transport(self) -> None:
+        for event in self.transport.stop():
+            self.submit_control_event(event)
+        self.process_control_events()
+
+    def set_internal_tempo(self, bpm: float) -> None:
+        self.transport.set_tempo(bpm)
+        self.submit_control_event(ControlEvent(
+            "transport.tempo",
+            "internal",
+            {"bpm": self.transport.bpm},
+        ))
+        self.process_control_events()
+
+    def set_transport_meter(self, beats_per_bar: int) -> None:
+        self.transport.set_meter(beats_per_bar)
+
+    def request_scene_selection(
+            self,
+            scene_id: str,
+            quantization: Quantization = "bar",
+    ) -> None:
+        profile = self.scene_profiles.get(scene_id)
+        if not self.transport.running or self.transport.paused or quantization == "immediate":
+            self.submit_control_event(ControlEvent(
+                "scene.select",
+                "internal",
+                {
+                    "scene_id": profile.scene_id,
+                    "intensity": profile.intensity,
+                    "bar_index": self.performance_control.bar_index,
+                },
+            ))
+            self.process_control_events()
+            return
+        self.transport.schedule_scene(
+            profile.scene_id,
+            profile.intensity,
+            quantization=quantization,
+        )
+
+    def update_scene_profile(self, profile: SceneProfile) -> None:
+        self.scene_profiles.update(profile)
+        self.events.publish("performance.scene_profiles.updated")
+
+    def _activate_scene_profile(self, scene_id: str) -> None:
+        profile = self.scene_profiles.get(scene_id)
+        if profile.master_look:
+            self.effects.apply_preset(profile.master_look)
+        try:
+            palette = palette_look(profile.palette)
+        except KeyError:
+            palette = None
+        if palette:
+            for layer in self.composition.layers:
+                if layer.source_type != "generator" or not layer.generator_type:
+                    continue
+                values = dict(layer.generator_settings)
+                for key in ("primary_color", "secondary_color", "background_color"):
+                    if key in values and key in palette:
+                        values[key] = palette[key]
+                layer.generator_settings = normalize_settings(layer.generator_type, values)
+        self.events.publish(
+            "performance.scene.activated",
+            profile=profile.to_dict(),
+            state=self.performance_control.snapshot(),
+        )
+
+    def set_selected_layer_id(self, layer_id: str | None) -> None:
+        self._selected_layer_id = layer_id or None
+
+    def start_audio_capture(self, device_id: str | None = None, test_signal: bool = False) -> None:
+        if test_signal:
+            self.audio_capture.start_test_signal(self.transport.bpm)
+        elif device_id:
+            self.audio_capture.start(device_id)
+        else:
+            raise ValueError("Select an audio input or system-loopback device first.")
+        self._audio_sources.clear()
+        self._latest_audio_frame = None
+        self.events.publish(
+            "audio.capture.started",
+            source=self.audio_capture.source_kind,
+            device=self.audio_capture.selected_device_name,
+        )
+
+    def start_audio_replay(
+            self,
+            samples,
+            sample_rate: int,
+            repeat: bool = False,
+    ) -> None:
+        self.audio_capture.start_replay(samples, sample_rate, repeat=repeat)
+        self._audio_sources.clear()
+        self._latest_audio_frame = None
+
+    def stop_audio_capture(self) -> bool:
+        stopped = self.audio_capture.stop()
+        self._audio_sources.clear()
+        self.events.publish("audio.capture.stopped", stopped=stopped)
+        return stopped
+
+    def update_audio_analysis_settings(self, settings: AudioAnalysisSettings) -> None:
+        settings.normalize()
+        self.audio_capture.update_settings(settings)
+
+    def process_audio_frames(self, max_frames: int = 4) -> int:
+        frames = self.audio_capture.drain_frames(max_frames)
+        if not frames:
+            return 0
+        self._latest_audio_frame = frames[-1]
+        self._audio_sources = self._latest_audio_frame.sources()
+        self.events.publish(
+            "audio.analysis.updated",
+            features=self._audio_sources.copy(),
+            source=self.audio_capture.source_kind,
+        )
+        return len(frames)
+
+    def audio_analysis_snapshot(self) -> dict[str, float | str | None]:
+        frame = self._latest_audio_frame
+        if frame is None:
+            return {
+                "rms": 0.0,
+                "low": 0.0,
+                "mid": 0.0,
+                "high": 0.0,
+                "onset": 0.0,
+                "bpm": None,
+                "beat_confidence": 0.0,
+            }
+        return {
+            "rms": frame.rms,
+            "low": frame.low,
+            "mid": frame.mid,
+            "high": frame.high,
+            "onset": frame.onset,
+            "bpm": frame.bpm,
+            "beat_confidence": frame.beat_confidence,
+        }
+
+    def _modulation_sources(self) -> dict[str, float]:
+        values = dict(self._audio_sources)
+        values["transport.intensity"] = self.performance_control.intensity
+        values["transport.phase"] = self.transport.phase
+        for name, value in self.performance_control.macros.items():
+            values[f"macro.{name}"] = value
+        return values
+
+    def _get_modulation_target(self, target_id: str) -> float | None:
+        if target_id.startswith("master."):
+            field = target_id.split(".", 1)[1]
+            if field in {
+                "brightness", "exposure", "contrast", "saturation",
+                "grain", "glitch", "vignette",
+            }:
+                return float(getattr(self.effects, field))
+            return None
+        if target_id.startswith("selected_layer."):
+            layer = self.composition.get_layer(self._selected_layer_id or "")
+            if layer is None or layer.locked:
+                return None
+            field = target_id.split(".", 1)[1]
+            if field in {"opacity", "rotation"}:
+                return float(getattr(layer, field))
+            return None
+        if target_id.startswith("generator."):
+            layer = self.composition.get_layer(self._selected_layer_id or "")
+            if layer is None or layer.locked or layer.source_type != "generator":
+                return None
+            field = target_id.split(".", 1)[1]
+            if field in {"animation_amount", "density"}:
+                value = layer.generator_settings.get(field)
+                return float(value) if isinstance(value, (int, float)) else None
+            return None
+        if target_id == "automation.loop_probability":
+            return float(self.automation.settings.loop_probability)
+        if target_id == "automation.cut_interval":
+            return float(self.automation.settings.min_cut_interval)
+        return None
+
+    def _set_modulation_target(self, target_id: str, value: float) -> bool:
+        if target_id.startswith("master."):
+            field = target_id.split(".", 1)[1]
+            if field in {
+                "brightness", "exposure", "contrast", "saturation",
+                "grain", "glitch", "vignette",
+            }:
+                setattr(self.effects, field, float(value))
+                self.effects.preset_name = "Custom"
+                return True
+            return False
+        if target_id.startswith("selected_layer."):
+            layer = self.composition.get_layer(self._selected_layer_id or "")
+            if layer is None or layer.locked:
+                return False
+            field = target_id.split(".", 1)[1]
+            if field in {"opacity", "rotation"}:
+                setattr(layer, field, float(value))
+                self.events.publish("layer.modulated", layer_id=layer.id, target=target_id)
+                return True
+            return False
+        if target_id.startswith("generator."):
+            layer = self.composition.get_layer(self._selected_layer_id or "")
+            if layer is None or layer.locked or layer.source_type != "generator":
+                return False
+            field = target_id.split(".", 1)[1]
+            if field not in {"animation_amount", "density"} or not layer.generator_type:
+                return False
+            settings = dict(layer.generator_settings)
+            settings[field] = value
+            layer.generator_settings = normalize_settings(layer.generator_type, settings)
+            self.events.publish("layer.modulated", layer_id=layer.id, target=target_id)
+            return True
+        if target_id == "automation.loop_probability":
+            self.automation.settings.loop_probability = max(0.0, min(1.0, float(value)))
+            return True
+        if target_id == "automation.cut_interval":
+            minimum = max(1.0, min(60.0, float(value)))
+            self.automation.settings.min_cut_interval = minimum
+            self.automation.settings.max_cut_interval = max(
+                minimum,
+                self.automation.settings.max_cut_interval,
+            )
+            return True
+        return False
+
+    def notify_manual_override(
+            self,
+            target_id: str,
+            duration_seconds: float = 3.0,
+    ) -> None:
+        targets = (
+            [key for key, spec in TARGET_SPECS.items() if spec.category == "master"]
+            if target_id == "master.*"
+            else [key for key in TARGET_SPECS if key.startswith(target_id)]
+            if target_id.endswith(".*")
+            else [target_id]
+        )
+        for key in targets:
+            current = self._get_modulation_target(key)
+            if current is not None:
+                self._modulation_base_values[key] = current
+            self.modulation.manual_override(key, duration_seconds)
+
+    def apply_modulation(self) -> dict[str, float]:
+        outputs, released = self.modulation.evaluate(self._modulation_sources())
+        for target_id in released:
+            base = self._modulation_base_values.pop(target_id, None)
+            if base is not None:
+                self._set_modulation_target(target_id, base)
+        for target_id, value in outputs.items():
+            if target_id not in self._modulation_base_values:
+                base = self._get_modulation_target(target_id)
+                if base is None:
+                    continue
+                self._modulation_base_values[target_id] = base
+            self._set_modulation_target(target_id, value)
+        return outputs
+
+    def add_modulation_route(self, route) -> None:
+        self.modulation.add_route(route)
+        self.events.publish("performance.modulation.updated")
+
+    def remove_modulation_route(self, route_id: str) -> None:
+        self.modulation.remove_route(route_id)
+        outputs, released = self.modulation.evaluate(self._modulation_sources())
+        for target_id in released:
+            base = self._modulation_base_values.pop(target_id, None)
+            if base is not None:
+                self._set_modulation_target(target_id, base)
+        self.events.publish("performance.modulation.updated")
+
+    def tick_performance_control(self) -> int:
+        for event in self.transport.tick():
+            self.submit_control_event(event)
+        self.process_control_events()
+        self.process_audio_frames()
+        self.apply_modulation()
+        return len(self.control_events)
 
     def tick_automation(self) -> bool:
         changed = self.automation.tick()
@@ -399,6 +728,12 @@ class Application:
         app_state = {
             "effects": self.effects.to_dict(),
             "automation_settings": self.automation.settings.to_dict(),
+            "performance_settings": {
+                "transport": self.transport.to_dict(),
+                "audio_analysis": self.audio_capture.settings.to_dict(),
+                "modulation_routes": self.modulation.to_dict(),
+                "scene_profiles": self.scene_profiles.to_dict(),
+            },
         }
         saved_path = self.project_manager.save(
             path,
@@ -451,6 +786,24 @@ class Application:
                 _LOG.warning("Project media is missing: %s", media_path)
 
         app_state = self.project_manager.last_app_state
+        self.audio_capture.stop()
+        self._audio_sources.clear()
+        self._latest_audio_frame = None
+        self.modulation.reset_runtime()
+        self._modulation_base_values.clear()
+        performance_settings = app_state.get("performance_settings", {})
+        if isinstance(performance_settings, dict):
+            if isinstance(performance_settings.get("transport"), dict):
+                self.transport.load_settings(performance_settings["transport"])
+            if isinstance(performance_settings.get("audio_analysis"), dict):
+                allowed_audio = AudioAnalysisSettings.__dataclass_fields__
+                audio_values = {
+                    key: value for key, value in performance_settings["audio_analysis"].items()
+                    if key in allowed_audio
+                }
+                self.update_audio_analysis_settings(AudioAnalysisSettings(**audio_values))
+            self.modulation.load_dict(performance_settings.get("modulation_routes", []))
+            self.scene_profiles.load_dict(performance_settings.get("scene_profiles", []))
         if isinstance(app_state.get("effects"), dict):
             loaded_effects = EffectSettings.from_dict(app_state["effects"])
             for key, value in loaded_effects.to_dict().items():
@@ -469,6 +822,9 @@ class Application:
 
     def shutdown(self) -> None:
         self.control_events.clear()
+        self.audio_capture.shutdown()
+        self.transport.stop()
+        self.modulation.reset_runtime()
         self.automation.stop()
         self._clear_overlays()
         for deck in self.decks.values():
