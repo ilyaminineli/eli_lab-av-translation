@@ -97,6 +97,11 @@ class MainWindow(QMainWindow):
         toolbar.addWidget(self.transport_bar)
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, toolbar)
 
+        self.control_status_label = QLabel(self.application.performance_control.status_text())
+        self.control_status_label.setToolTip(
+            "M3 control state · normalized transport, scene and macro events"
+        )
+        self.statusBar().addPermanentWidget(self.control_status_label)
         self.status_label = QLabel("Initializing OpenGL…")
         self.statusBar().addPermanentWidget(self.status_label)
         self.performance_view.render_status_changed.connect(self.status_label.setText)
@@ -437,6 +442,10 @@ class MainWindow(QMainWindow):
 
     def _runtime_tick(self) -> None:
         self.application.refresh_frames()
+        if self.application.process_control_events():
+            self.control_status_label.setText(
+                self.application.performance_control.status_text()
+            )
         was_running = self.application.automation.running
         changed = self.application.tick_automation()
         if changed:
