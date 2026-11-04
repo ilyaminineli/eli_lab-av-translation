@@ -136,3 +136,16 @@ def test_legacy_collection_root_is_recovered_from_asset_path(tmp_path) -> None:
     assert collections[0]["root_path"] == str(root.resolve())
     assert collections[0]["name"] == "Original Folder"
     assert collections[0]["asset_count"] == 1
+
+
+def test_empty_imported_folder_remains_available_for_cleanup(tmp_path) -> None:
+    empty_folder = tmp_path / "Empty Footage"
+    empty_folder.mkdir()
+    library = MediaLibrary(tmp_path / "empty.sqlite3", tmp_path / "thumbnails")
+
+    assert library.add_folder(empty_folder) == []
+    collections = library.list_collections()
+
+    assert len(collections) == 1
+    assert collections[0]["name"] == "Empty Footage"
+    assert collections[0]["asset_count"] == 0
