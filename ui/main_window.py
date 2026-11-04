@@ -129,7 +129,7 @@ class MainWindow(QMainWindow):
         if saved_geometry and saved_state:
             restored = (
                 self.restoreGeometry(saved_geometry)
-                and self.restoreState(saved_state, 2)
+                and self.restoreState(saved_state, 3)
             )
         if not restored:
             QTimer.singleShot(0, self._apply_default_dock_sizes)
