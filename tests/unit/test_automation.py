@@ -378,3 +378,49 @@ def test_auto_layout_does_not_move_generator_layers(tmp_path) -> None:
 
     assert generator.position == (0.3, 0.6)
     assert generator.scale == (0.7, 0.7)
+
+
+
+def test_automation_varies_text_and_generator_settings_but_respects_layer_locks(tmp_path) -> None:
+    asset = make_asset(tmp_path, "generator-auto.mp4")
+    deck = FakeDeck("deck_a")
+    from generators.catalog import default_generator_settings
+    text_layer = Layer(
+        id="text-layer", source_type="generator", generator_type="text",
+        generator_settings=default_generator_settings("text"),
+    )
+    locked_text = Layer(
+        id="locked-text", source_type="generator", generator_type="text",
+        locked=True, generator_settings=default_generator_settings("text"),
+    )
+    original_locked = dict(locked_text.generator_settings)
+    director = AutomationDirector(seed=18)
+    settings = AutomationSettings(
+        randomize_layout=False, randomize_effects=False,
+        randomize_generators=True, randomize_text=True,
+        randomize_layer_effects=False,
+        min_generator_interval=2.0, max_generator_interval=2.0,
+    )
+    director.start([asset], [deck], [text_layer, locked_text], EffectSettings(),
+                   settings=settings, duration_seconds=None, now=1.0)
+    before = text_layer.generator_settings["text"]
+    assert director.tick(now=4.0) is True
+    assert text_layer.generator_settings["text"] != before
+    assert locked_text.generator_settings == original_locked
+
+
+def test_automation_can_randomize_independent_layer_effects(tmp_path) -> None:
+    asset = make_asset(tmp_path, "layer-fx-auto.mp4")
+    deck = FakeDeck("deck_a")
+    layer = Layer(id="fx-layer", layer_effects={"enabled": True, "monochrome": 1.0})
+    director = AutomationDirector(seed=21)
+    settings = AutomationSettings(
+        randomize_layout=False, randomize_effects=False,
+        randomize_generators=False, randomize_layer_effects=True,
+        min_generator_interval=2.0, max_generator_interval=2.0,
+    )
+    director.start([asset], [deck], [layer], EffectSettings(), settings=settings,
+                   duration_seconds=None, now=1.0)
+    original = dict(layer.layer_effects)
+    assert director.tick(now=4.0) is True
+    assert layer.layer_effects != original or layer.layer_effects["enabled"]
