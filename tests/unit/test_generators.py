@@ -214,7 +214,7 @@ def test_text_layout_changes_invalidate_static_raster() -> None:
     assert GeneratorRasterizer.fingerprint(layer) != first
 
 
-def test_japanese_palette_looks_are_complete_and_use_real_swatch_hex_values() -> None:
+def test_japanese_palette_looks_are_complete_and_use_valid_hex_values() -> None:
     from generators.palettes import JP_PALETTE_LOOKS, palette_look
 
     assert len(JP_PALETTE_LOOKS) >= 8
@@ -222,3 +222,27 @@ def test_japanese_palette_looks_are_complete_and_use_real_swatch_hex_values() ->
         assert len(colours) == 4
         assert all(len(value) == 7 and value.startswith("#") for value in colours)
         assert palette_look(name)["primary_color"] == colours[0]
+
+
+def test_aco_import_reads_named_rgb_swatches_and_builds_four_colour_looks(tmp_path) -> None:
+    import struct
+
+    from generators.palettes import import_aco_palette, palette_look
+
+    names = ("Sakura", "Beni", "Ai", "Sumi")
+    colours = ((255, 0, 0), (0, 255, 0), (0, 0, 255), (32, 32, 32))
+    payload = bytearray(struct.pack(">HH", 2, len(names)))
+    for name, rgb in zip(names, colours):
+        payload.extend(struct.pack(">5H", 0, *(value * 257 for value in rgb), 0))
+        encoded = name.encode("utf-16-be") + b"\\x00\\x00"
+        payload.extend(struct.pack(">I", len(name) + 1))
+        payload.extend(encoded)
+    aco_path = tmp_path / "jp_palette.aco"
+    aco_path.write_bytes(payload)
+
+    imported = import_aco_palette(aco_path)
+    look = palette_look(imported[0])
+    assert len(imported) == 1
+    assert look["primary_color"] == "#FF0000"
+    assert look["secondary_color"] == "#00FF00"
+    assert look["background_color"] == "#202020"
