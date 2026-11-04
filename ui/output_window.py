@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QTimer, Qt, Signal
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import QMainWindow
 
@@ -17,6 +17,7 @@ class OutputWindow(QMainWindow):
         self.setWindowFlags(Qt.WindowType.Window)
         self.setCentralWidget(PerformanceView(application, self))
         self.performance_view: PerformanceView = self.centralWidget()
+        self.target_screen = screen
         self.setGeometry(screen.geometry())
         self._escape_shortcut = QShortcut(QKeySequence("Escape"), self)
         self._escape_shortcut.activated.connect(self.close)
@@ -40,13 +41,33 @@ class OutputWindowManager:
         window = OutputWindow(self.application, screen, self.parent)
         window.closed.connect(self._forget_window)
         self.window = window
+
+        # Create the native window before assigning its target screen. Keep the
+        # target geometry explicit because some Windows window managers otherwise
+        # restore a fullscreen window to the primary display.
         window.winId()
         handle = window.windowHandle()
         if handle is not None:
             handle.setScreen(screen)
+        window.setGeometry(screen.geometry())
         window.showFullScreen()
         window.raise_()
+        QTimer.singleShot(
+            0,
+            lambda target_window=window, target_screen=screen:
+                self._enforce_target_screen(target_window, target_screen),
+        )
         return window
+
+    def _enforce_target_screen(self, window: OutputWindow, screen) -> None:
+        if self.window is not window or not window.isVisible():
+            return
+        handle = window.windowHandle()
+        if handle is not None and handle.screen() != screen:
+            handle.setScreen(screen)
+        window.setGeometry(screen.geometry())
+        window.showFullScreen()
+        window.raise_()
 
     def close(self) -> None:
         if self.window is not None:
