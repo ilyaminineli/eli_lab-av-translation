@@ -119,7 +119,7 @@ def normalize_settings(generator_type: str, settings: dict[str, Any] | None) -> 
         result["shadow"] = bool(result["shadow"])
         if result.get("text_layout") not in {"single", "collage"}:
             result["text_layout"] = "single"
-        result["collage_seed"] = max(0, min(2**31 - 1, int(result["collage_seed"])))
+        result["collage_seed"] = max(0, min(2 ** 31 - 1, int(result["collage_seed"])))
         result["collage_font_variation"] = max(
             0.0, min(1.0, float(result["collage_font_variation"]))
         )

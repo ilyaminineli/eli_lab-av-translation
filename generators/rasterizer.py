@@ -46,9 +46,9 @@ class GeneratorRasterizer:
         # Animation is evaluated in the compositor, so it must not invalidate
         # the static raster texture or trigger another CPU-side text/shape pass.
         for key in (
-            "animation", "animation_speed", "animation_amount",
-            "text_animation", "text_animation_speed", "text_animation_amount",
-            "text_animation_columns",
+                "animation", "animation_speed", "animation_amount",
+                "text_animation", "text_animation_speed", "text_animation_amount",
+                "text_animation_columns",
         ):
             settings.pop(key, None)
         payload = {
@@ -311,7 +311,6 @@ class GeneratorRasterizer:
                 fill_color = str(settings.get("secondary_color", fill_color))
             painter.fillPath(path, self._color(fill_color))
             y += line_height
-
 
     def _draw_text_collage(
             self,

@@ -74,10 +74,10 @@ TEXT_POOLS: dict[str, dict[str, tuple[str, ...]]] = {
 
 
 def random_text_sample(
-    language: str = "bilingual",
-    theme: str = "random",
-    count: int = 16,
-    seed: int | None = None,
+        language: str = "bilingual",
+        theme: str = "random",
+        count: int = 16,
+        seed: int | None = None,
 ) -> str:
     """Return a reproducible-ready set of short English and/or Japanese text fragments."""
     if language not in {"english", "japanese", "bilingual"}:

@@ -85,7 +85,6 @@ class ImageOverlayPlayer:
         self._next_frame_at = current + self._delay_seconds()
         return self.frame
 
-
     def close(self) -> None:
         self.reader = QImageReader()
         self._frame = np.zeros((1, 1, 4), dtype=np.uint8)

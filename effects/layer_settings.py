@@ -59,8 +59,8 @@ def normalize_layer_effects(settings: dict[str, Any] | None) -> dict[str, Any]:
         })
     result["enabled"] = bool(result["enabled"])
     for key in (
-        "mix", "monochrome", "invert", "threshold", "posterize",
-        "scanlines", "chromatic",
+            "mix", "monochrome", "invert", "threshold", "posterize",
+            "scanlines", "chromatic",
     ):
         result[key] = max(0.0, min(1.0, float(result[key])))
     result["hue"] = max(-180.0, min(180.0, float(result["hue"])))

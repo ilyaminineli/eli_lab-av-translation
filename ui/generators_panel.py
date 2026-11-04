@@ -165,12 +165,12 @@ class GeneratorsPanel(QWidget):
         random_form.addRow("LANGUAGE", self.random_language_combo)
         self.random_theme_combo = QComboBox()
         for label, value in (
-            ("Random mix", "random"),
-            ("Memory / 記憶", "memory"),
-            ("Body / 身体", "body"),
-            ("Signal / 信号", "signal"),
-            ("Ritual / 儀式", "ritual"),
-            ("Identity / 自己", "identity"),
+                ("Random mix", "random"),
+                ("Memory / 記憶", "memory"),
+                ("Body / 身体", "body"),
+                ("Signal / 信号", "signal"),
+                ("Ritual / 儀式", "ritual"),
+                ("Identity / 自己", "identity"),
         ):
             self.random_theme_combo.addItem(label, value)
         random_form.addRow("THEME", self.random_theme_combo)
@@ -315,24 +315,24 @@ class GeneratorsPanel(QWidget):
 
     def _connect_live_updates(self) -> None:
         for widget in (
-            self.text_edit,
-            self.font_combo,
-            self.weight_combo,
-            self.text_color_mode_combo,
-            self.text_layout_combo,
-            self.alignment_combo,
-            self.vertical_alignment_combo,
-            self.stroke_color,
-            self.primary_color,
-            self.secondary_color,
-            self.animation_combo,
-            self.text_animation_combo,
-            self.geometry_pattern_combo,
-            self.waveform_pattern_combo,
-            self.particle_mode_combo,
-            self.random_language_combo,
-            self.random_theme_combo,
-            self.random_count_combo,
+                self.text_edit,
+                self.font_combo,
+                self.weight_combo,
+                self.text_color_mode_combo,
+                self.text_layout_combo,
+                self.alignment_combo,
+                self.vertical_alignment_combo,
+                self.stroke_color,
+                self.primary_color,
+                self.secondary_color,
+                self.animation_combo,
+                self.text_animation_combo,
+                self.geometry_pattern_combo,
+                self.waveform_pattern_combo,
+                self.particle_mode_combo,
+                self.random_language_combo,
+                self.random_theme_combo,
+                self.random_count_combo,
         ):
             signal = getattr(widget, "textChanged", None)
             if signal is None:
@@ -340,27 +340,27 @@ class GeneratorsPanel(QWidget):
             if signal is not None:
                 signal.connect(self._schedule_apply)
         for slider in (
-            self.text_size_slider,
-            self.tracking_slider,
-            self.line_spacing_slider,
-            self.text_outline_slider,
-            self.collage_variation_slider,
-            self.text_animation_speed_slider,
-            self.text_animation_amount_slider,
-            self.text_animation_columns_slider,
-            self.geometry_density_slider,
-            self.geometry_width_slider,
-            self.waveform_density_slider,
-            self.waveform_width_slider,
-            self.amplitude_slider,
-            self.frequency_slider,
-            self.particle_density_slider,
-            self.particle_speed_slider,
-            self.particle_size_slider,
-            self.particle_spread_slider,
-            self.particle_trail_slider,
-            self.speed_slider,
-            self.amount_slider,
+                self.text_size_slider,
+                self.tracking_slider,
+                self.line_spacing_slider,
+                self.text_outline_slider,
+                self.collage_variation_slider,
+                self.text_animation_speed_slider,
+                self.text_animation_amount_slider,
+                self.text_animation_columns_slider,
+                self.geometry_density_slider,
+                self.geometry_width_slider,
+                self.waveform_density_slider,
+                self.waveform_width_slider,
+                self.amplitude_slider,
+                self.frequency_slider,
+                self.particle_density_slider,
+                self.particle_speed_slider,
+                self.particle_size_slider,
+                self.particle_spread_slider,
+                self.particle_trail_slider,
+                self.speed_slider,
+                self.amount_slider,
         ):
             slider.valueChanged.connect(self._schedule_apply)
         self.shadow_check.toggled.connect(self._schedule_apply)
@@ -374,7 +374,7 @@ class GeneratorsPanel(QWidget):
         language = str(self.random_language_combo.currentData())
         theme = str(self.random_theme_combo.currentData())
         count = int(self.random_count_combo.currentData())
-        self._collage_seed = random.randrange(0, 2**31 - 1)
+        self._collage_seed = random.randrange(0, 2 ** 31 - 1)
         self.text_edit.setPlainText(
             random_text_sample(language, theme, count, self._collage_seed)
         )
@@ -557,7 +557,7 @@ class GeneratorsPanel(QWidget):
                 "text_animation": str(self.text_animation_combo.currentData()),
                 "text_animation_speed": self.text_animation_speed_slider.value() / 100.0,
                 "text_animation_amount": (
-                    self.text_animation_amount_slider.value() / 1000.0
+                        self.text_animation_amount_slider.value() / 1000.0
                 ),
                 "text_animation_columns": self.text_animation_columns_slider.value(),
                 "font_family": self.font_combo.currentText().strip() or "Arial",

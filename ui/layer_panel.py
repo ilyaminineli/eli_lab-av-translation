@@ -71,17 +71,17 @@ class LayerPanel(QWidget):
         layer_fx_layout.addWidget(self.layer_fx_preset)
         self.layer_fx_sliders = {}
         for key, title, minimum, maximum, default in (
-            ("mix", "FX MIX", 0, 100, 100),
-            ("monochrome", "MONOCHROME", 0, 100, 0),
-            ("invert", "INVERT", 0, 100, 0),
-            ("threshold", "THRESHOLD", 0, 100, 0),
-            ("posterize", "POSTERIZE", 0, 100, 0),
-            ("hue", "HUE", -180, 180, 0),
-            ("contrast", "CONTRAST", 0, 250, 100),
-            ("saturation", "SATURATION", 0, 250, 100),
-            ("brightness", "BRIGHTNESS", -50, 50, 0),
-            ("scanlines", "SCANLINES", 0, 100, 0),
-            ("chromatic", "RGB SPLIT", 0, 100, 0),
+                ("mix", "FX MIX", 0, 100, 100),
+                ("monochrome", "MONOCHROME", 0, 100, 0),
+                ("invert", "INVERT", 0, 100, 0),
+                ("threshold", "THRESHOLD", 0, 100, 0),
+                ("posterize", "POSTERIZE", 0, 100, 0),
+                ("hue", "HUE", -180, 180, 0),
+                ("contrast", "CONTRAST", 0, 250, 100),
+                ("saturation", "SATURATION", 0, 250, 100),
+                ("brightness", "BRIGHTNESS", -50, 50, 0),
+                ("scanlines", "SCANLINES", 0, 100, 0),
+                ("chromatic", "RGB SPLIT", 0, 100, 0),
         ):
             label, slider = self._add_fx_slider(
                 layer_fx_layout,

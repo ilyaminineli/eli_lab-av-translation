@@ -580,7 +580,7 @@ class Compositor:
             if not layer.visible or layer.opacity <= 0.0:
                 continue
             is_particle_layer = (
-                layer.source_type == "generator" and layer.generator_type == "particles"
+                    layer.source_type == "generator" and layer.generator_type == "particles"
             )
             layer_texture = self.source_textures.get(layer.source_id)
             if layer_texture is None and not is_particle_layer:
@@ -650,17 +650,17 @@ class Compositor:
             layer_fx = normalize_layer_effects(layer.layer_effects)
             self.composite_program["u_layer_fx_enabled"].value = int(layer_fx["enabled"])
             for uniform, key in (
-                ("u_layer_fx_mix", "mix"),
-                ("u_layer_fx_monochrome", "monochrome"),
-                ("u_layer_fx_invert", "invert"),
-                ("u_layer_fx_threshold", "threshold"),
-                ("u_layer_fx_posterize", "posterize"),
-                ("u_layer_fx_hue", "hue"),
-                ("u_layer_fx_saturation", "saturation"),
-                ("u_layer_fx_contrast", "contrast"),
-                ("u_layer_fx_brightness", "brightness"),
-                ("u_layer_fx_scanlines", "scanlines"),
-                ("u_layer_fx_chromatic", "chromatic"),
+                    ("u_layer_fx_mix", "mix"),
+                    ("u_layer_fx_monochrome", "monochrome"),
+                    ("u_layer_fx_invert", "invert"),
+                    ("u_layer_fx_threshold", "threshold"),
+                    ("u_layer_fx_posterize", "posterize"),
+                    ("u_layer_fx_hue", "hue"),
+                    ("u_layer_fx_saturation", "saturation"),
+                    ("u_layer_fx_contrast", "contrast"),
+                    ("u_layer_fx_brightness", "brightness"),
+                    ("u_layer_fx_scanlines", "scanlines"),
+                    ("u_layer_fx_chromatic", "chromatic"),
             ):
                 self.composite_program[uniform].value = float(layer_fx[key])
             self.composite_vao.render(mode=moderngl.TRIANGLE_STRIP)
