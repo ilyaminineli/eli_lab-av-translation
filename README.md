@@ -26,46 +26,59 @@ The first implementation focuses on a usable video instrument: scan local folder
 
 M2 generators/effects, M3 audio analysis and M4 Sonic Pi OSC integration are planned but are not yet implemented.
 
-## Requirements
+## System requirements
 
-- Windows 10/11
-- Python 3.12 x64
-- A GPU/driver supporting OpenGL 3.3 Core
-- Video codecs supported by the bundled FFmpeg build used by PyAV
+- Windows 10/11, 64-bit.
+- Python 3.12, 64-bit.
+- GPU and current graphics driver supporting OpenGL 3.3 Core Profile.
+- Video codecs supported by the FFmpeg build used by PyAV.
+- SSD and modern CPU/GPU recommended for four concurrent streams.
 
-## Setup
+See docs/SETUP_WINDOWS.md for detailed setup, troubleshooting and first-run instructions.
 
-Open PowerShell in the repository directory:
+## Quick setup (Windows PowerShell)
+
+Clone the repository and switch to the implementation branch:
+
+    git clone https://github.com/ilyaminineli/eli_lab-av-translation.git
+    cd eli_lab-av-translation
+    git fetch origin
+    git checkout implementation/m0-m1-first-test
+
+Create and activate a Python 3.12 virtual environment:
 
     py -3.12 -m venv .venv
     .\.venv\Scripts\Activate.ps1
+
+Install development dependencies and the project:
+
     python -m pip install --upgrade pip
-    python -m pip install -e ".[dev]"
+    python -m pip install -r requirements-dev.txt
+    python -m pip install -e . --no-deps
+
+Launch:
+
     python main.py
 
-If PowerShell blocks activation, run the environment's Python directly:
-
-    .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
-    .\.venv\Scripts\python.exe main.py
+For an application-only environment, install requirements.txt instead of requirements-dev.txt.
 
 ## First test
 
-1. Select File → Add Media Folder.
-2. Choose a directory containing local video clips.
-3. Wait for scanning and thumbnail generation.
-4. Select a target deck in the Media Library panel.
-5. Double-click a clip to load it into that deck.
-6. Repeat with up to four clips.
-7. Adjust visibility, opacity and blend mode in the Layers panel.
-8. Use Random Set or Randomize Layout.
-9. Save a project as .eliav.
+Generate sample clips:
 
-## Tests
+    python scripts/generate_test_videos.py --output test-footage
+
+Then launch the app, select File → Add Media Folder, import test-footage, assign clips to the four decks, adjust layers and try RANDOM SET and RANDOMIZE LAYOUT.
+
+Save a project with File → Save Project As. Projects use the .eliav extension.
+
+## Tests and quality checks
 
     python -m compileall -q .
     python -m pytest tests/unit -v
+    python -m ruff check .
 
-A Windows GitHub Actions workflow runs the same compile and unit-test checks on pushes and pull requests.
+Windows GitHub Actions runs compilation and unit tests on pushes and pull requests.
 
 ## Project data and media cache
 

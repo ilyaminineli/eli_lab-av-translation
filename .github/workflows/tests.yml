@@ -19,11 +19,14 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - name: Install project and test dependencies
+      - name: Install requirements
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev]"
+          python -m pip install -r requirements-dev.txt
+          python -m pip install -e . --no-deps
       - name: Compile Python modules
         run: python -m compileall -q .
       - name: Run unit tests
         run: python -m pytest tests/unit -v
+      - name: Check formatting and lint
+        run: python -m ruff check .
