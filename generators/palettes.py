@@ -5,8 +5,6 @@ four-colour subsets; primary/secondary are the first two colours.
 """
 from __future__ import annotations
 
-from copy import deepcopy
-
 JP_PALETTE_LOOKS = {
     "Sakura · 桜": ["#F8C3CD", "#F4A7B9", "#FEDFE1", "#DC9FB4"],
     "Beni · 紅": ["#CB1B45", "#8E354A", "#B5495B", "#FFFFFB"],
