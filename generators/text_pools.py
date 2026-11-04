@@ -75,7 +75,10 @@ TEXT_POOLS: dict[str, dict[str, tuple[str, ...]]] = {
 _THEME_HINTS = {
     "memory": ("memory", "remember", "recall", "archive", "trace", "記憶", "記録", "忘却", "残像"),
     "body": ("body", "skin", "blood", "body", "touch", "身体", "皮膚", "血", "接触"),
-    "signal": ("signal", "noise", "radio", "frequency", "transmission", "信号", "雑音", "周波数", "伝送"),
+    "signal": (
+        "signal", "noise", "radio", "frequency", "transmission",
+        "信号", "雑音", "周波数", "伝送",
+    ),
     "ritual": ("ritual", "sacred", "offering", "altar", "curse", "儀式", "供物", "呪い", "神"),
     "identity": ("identity", "self", "person", "name", "mirror", "自己", "名前", "鏡", "他者"),
 }
