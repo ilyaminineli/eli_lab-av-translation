@@ -77,6 +77,7 @@ class PerformanceView(QOpenGLWidget):
                 width,
                 height,
                 effects=self.application.effects,
+                time_seconds=self.application.animation_time(),
             )
         except Exception as exc:
             message = str(exc)
