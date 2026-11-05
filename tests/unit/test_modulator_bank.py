@@ -533,3 +533,66 @@ def test_sonic_pi_cutoff_follower_drives_waveform_frequency_target() -> None:
         2.5 + (24.0 - 0.1) * 0.25 * 0.8
     )
 
+def test_removing_bank_modulator_removes_global_matrix_routes() -> None:
+    from core.application import Application
+    from core.modulation import ModulationRoute
+
+    application = Application()
+    try:
+        definition = ModulatorDefinition(
+            modulator_id="remove-global-source",
+            kind="follower",
+            input_source="macro.energy",
+        )
+        application.add_modulator(definition)
+        application.add_modulation_route(ModulationRoute(
+            route_id="bank-to-master-grain",
+            source_id=f"modulator.{definition.modulator_id}",
+            target_id="master.grain",
+            output_min=0.0,
+            output_max=1.0,
+        ))
+
+        assert len(application.modulation.routes) == 1
+        assert application.remove_modulator(definition.modulator_id)
+        assert application.modulation.routes == []
+    finally:
+        application.shutdown()
+
+
+def test_global_modulation_matrix_can_consume_a_bank_follower() -> None:
+    from core.application import Application
+    from core.modulation import ModulationRoute
+
+    application = Application()
+    try:
+        definition = ModulatorDefinition(
+            modulator_id="global-energy-follower",
+            kind="follower",
+            input_source="macro.energy",
+            input_attack_ms=1.0,
+            input_release_ms=1.0,
+        )
+        application.add_modulator(definition)
+        application.add_modulation_route(ModulationRoute(
+            route_id="follower-to-master-grain",
+            source_id=f"modulator.{definition.modulator_id}",
+            target_id="master.grain",
+            output_min=0.0,
+            output_max=1.0,
+            curve="linear",
+            attack_ms=1.0,
+            release_ms=1.0,
+        ))
+        application._audio_sources = {}
+        application.performance_control.macros["energy"] = 0.8
+        application.performance_control.macro_updated_at["energy"] = __import__(
+            "time"
+        ).monotonic()
+
+        application.apply_modulation()
+
+        assert application.effects.grain == pytest.approx(0.8)
+    finally:
+        application.shutdown()
+
