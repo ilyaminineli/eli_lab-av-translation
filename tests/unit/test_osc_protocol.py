@@ -1,0 +1,137 @@
+from __future__ import annotations
+
+import socket
+import time
+
+from pythonosc.udp_client import SimpleUDPClient
+
+from core.osc_protocol import OSCProtocolAdapter, OSCReceiver
+
+
+def test_protocol_decodes_transport_bar_scene_macro_and_cue() -> None:
+    adapter = OSCProtocolAdapter()
+    start = adapter.decode(
+        "/eli_lab/v1/transport/start",
+        ("session-a", 1, 92.0, 4),
+    )
+    assert start.kind == "transport.start"
+    assert start.payload == {"bpm": 92.0, "beats_per_bar": 4}
+    assert start.sequence == 1
+
+    bar = adapter.decode(
+        "/eli_lab/v1/clock/bar",
+        ("session-a", 2, 1, 92.0, 4),
+    )
+    assert bar.kind == "clock.bar"
+    assert bar.payload["bar_index"] == 1
+
+    scene = adapter.decode(
+        "/eli_lab/v1/scene/select",
+        ("session-a", 3, "dev", 0.62, 80),
+    )
+    assert scene.payload == {"scene_id": "dev", "intensity": 0.62, "bar_index": 80}
+
+    macro = adapter.decode(
+        "/eli_lab/v1/macro/set",
+        ("session-a", 4, "cutoff", 0.5),
+    )
+    assert macro.kind == "macro.set"
+    assert macro.payload == {"name": "cutoff", "value": 0.5}
+
+    cue = adapter.decode(
+        "/eli_lab/v1/cue/trigger",
+        ("session-a", 5, "phrase_20"),
+    )
+    assert cue.payload == {"name": "phrase_20"}
+
+
+def test_protocol_rejects_unknown_routes_types_ranges_and_macro_names() -> None:
+    adapter = OSCProtocolAdapter()
+    adapter.decode("/eli_lab/v1/transport/start", ("session-a", 1, 92.0, 4))
+    invalid = (
+        ("/eli_lab/v1/unknown", ("session-a", 2)),
+        ("/eli_lab/v1/macro/set", ("session-a", 2, "volume", 0.5)),
+        ("/eli_lab/v1/macro/set", ("session-a", 2, "energy", 1.1)),
+        ("/eli_lab/v1/clock/bar", ("session-a", 2, 0, 92.0, 4)),
+        ("/eli_lab/v1/scene/select", ("session-a", 2, "dev", True, 2)),
+        ("/eli_lab/v1/transport/tempo", ("session-a", 2, float("nan"))),
+    )
+    for address, args in invalid:
+        try:
+            adapter.decode(address, args)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"Expected {address} {args!r} to be rejected.")
+
+
+def test_protocol_deduplicates_sequences_and_requires_new_restart_session() -> None:
+    adapter = OSCProtocolAdapter()
+    adapter.decode("/eli_lab/v1/transport/start", ("session-a", 1, 92.0, 4))
+    try:
+        adapter.decode("/eli_lab/v1/clock/bar", ("session-a", 1, 1, 92.0, 4))
+    except ValueError as exc:
+        assert "stale" in str(exc)
+    else:
+        raise AssertionError("Duplicate sequence was accepted.")
+
+    adapter.decode("/eli_lab/v1/transport/start", ("session-b", 1, 100.0, 4))
+    try:
+        adapter.decode("/eli_lab/v1/clock/bar", ("session-a", 2, 2, 92.0, 4))
+    except ValueError as exc:
+        assert "active session" in str(exc)
+    else:
+        raise AssertionError("A packet from an old session was accepted.")
+
+    try:
+        adapter.decode("/eli_lab/v1/transport/start", ("session-b", 2, 100.0, 4))
+    except ValueError as exc:
+        assert "reused" in str(exc)
+    else:
+        raise AssertionError("A session ID was reused.")
+
+
+def test_receiver_accepts_local_udp_without_touching_application_state() -> None:
+    received = []
+    receiver = OSCReceiver(lambda event: received.append(event) or True)
+    port = receiver.start("127.0.0.1", 0)
+    client = SimpleUDPClient("127.0.0.1", port)
+    try:
+        client.send_message(
+            "/eli_lab/v1/transport/start",
+            ["udp-test", 1, 92.0, 4],
+        )
+        deadline = time.monotonic() + 2.0
+        while not received and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert len(received) == 1
+        assert received[0].kind == "transport.start"
+        assert received[0].source == "sonic_pi"
+        assert receiver.snapshot()["accepted"] == 1
+    finally:
+        receiver.stop()
+
+
+def test_receiver_recovers_after_invalid_datagram_and_counts_queue_drops() -> None:
+    receiver = OSCReceiver(lambda _event: False)
+    port = receiver.start("127.0.0.1", 0)
+    client = SimpleUDPClient("127.0.0.1", port)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        sock.sendto(b"not-an-osc-packet", ("127.0.0.1", port))
+        client.send_message(
+            "/eli_lab/v1/transport/start",
+            ["udp-drop", 1, 92.0, 4],
+        )
+        deadline = time.monotonic() + 2.0
+        while receiver.snapshot()["received"] < 1 and time.monotonic() < deadline:
+            time.sleep(0.01)
+        while receiver.snapshot()["dropped"] < 1 and time.monotonic() < deadline:
+            time.sleep(0.01)
+        snapshot = receiver.snapshot()
+        assert snapshot["running"] is True
+        assert snapshot["dropped"] == 1
+        assert snapshot["rejected"] >= 1
+    finally:
+        sock.close()
+        receiver.stop()
