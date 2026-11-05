@@ -392,3 +392,39 @@ def test_save_project_stores_pre_modulation_values_and_layer_modifier_defs(tmp_p
     # Saving is a snapshot operation: the live preview remains at its beat peak.
     assert layer.generator_settings["animation_amount"] == 48.0
 
+def test_global_selected_layer_manual_override_yields_local_layer_modifier() -> None:
+    from core.application import Application
+    from core.modulation import ModulationMatrix
+
+    modifier = LayerPerformanceModifier(
+        modifier_id="opacity-local",
+        source_id="transport.beat_pulse",
+        target_id="layer.opacity",
+        depth=0.2,
+    )
+    layer = Layer(
+        id="alias-layer",
+        opacity=0.8,
+        performance_modifiers=[modifier.to_dict()],
+    )
+    application = Application.__new__(Application)
+    application.composition = Composition(layers=[layer])
+    application._selected_layer_id = layer.id
+    application._modulation_base_values = {}
+    application.modulation = ModulationMatrix()
+    application.performance_modifier_engine = LayerPerformanceModifierEngine()
+    application.effects = __import__("effects.settings", fromlist=["EffectSettings"]).EffectSettings()
+    application._overlay_images = {}
+
+    application.notify_manual_override(
+        "selected_layer.opacity",
+        duration_seconds=4.0,
+    )
+
+    assert (
+        application.performance_modifier_engine._manual_until[
+            (layer.id, "layer.opacity")
+        ]
+        > 0.0
+    )
+
