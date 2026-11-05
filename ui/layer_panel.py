@@ -529,7 +529,7 @@ class LayerPanel(QWidget):
             return (
                 "overlay.playback_speed"
                 if self.modifier_target_combo.findData("overlay.playback_speed") >= 0
-                else "layer.opacity"
+                else "layer.scale"
             )
         return "layer.scale"
 
