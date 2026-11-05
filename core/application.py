@@ -890,6 +890,8 @@ class Application:
                 self.update_audio_analysis_settings(AudioAnalysisSettings(**audio_values))
             self.modulation.load_dict(performance_settings.get("modulation_routes", []))
             self.scene_profiles.load_dict(performance_settings.get("scene_profiles", []))
+        self.performance_control.bpm = self.transport.bpm
+        self.performance_control.beats_per_bar = self.transport.beats_per_bar
         if isinstance(app_state.get("effects"), dict):
             loaded_effects = EffectSettings.from_dict(app_state["effects"])
             for key, value in loaded_effects.to_dict().items():
