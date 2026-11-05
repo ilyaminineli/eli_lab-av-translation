@@ -657,16 +657,16 @@ class Application:
         values = dict(self._audio_sources)
         values["transport.intensity"] = self.performance_control.intensity
         external_clock_active = (
-            self.performance_control.source_id == "sonic_pi"
-            and self.performance_control.transport_running
-            and self._external_clock_bar_at is not None
+                self.performance_control.source_id == "sonic_pi"
+                and self.performance_control.transport_running
+                and self._external_clock_bar_at is not None
         )
         if external_clock_active:
             elapsed = max(0.0, time.monotonic() - self._external_clock_bar_at)
             beat_duration = 60.0 / self.performance_control.bpm
             if elapsed <= max(
-                5.0,
-                beat_duration * self.performance_control.beats_per_bar * 2,
+                    5.0,
+                    beat_duration * self.performance_control.beats_per_bar * 2,
             ):
                 values["transport.phase"] = (elapsed / beat_duration) % 1.0
             else:

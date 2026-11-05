@@ -174,11 +174,11 @@ class OSCReceiver:
     """Single-worker UDP OSC receiver that only submits ControlEvents to a bounded queue."""
 
     def __init__(
-        self,
-        submit_event: Callable[[ControlEvent], bool],
-        *,
-        max_messages_per_second: int = 60,
-        freshness_seconds: float = 5.0,
+            self,
+            submit_event: Callable[[ControlEvent], bool],
+            *,
+            max_messages_per_second: int = 60,
+            freshness_seconds: float = 5.0,
     ) -> None:
         self._submit_event = submit_event
         self.adapter = OSCProtocolAdapter()
