@@ -907,8 +907,29 @@ class ModulatorBankPanel(QWidget):
                 self.input_live_label.setText(
                     f"INPUT · {input_name} · {float(input_value):.3f}"
                 )
+        elif definition.kind == "envelope":
+            trigger_value = self.application._modulation_sources().get(
+                definition.trigger_source
+            )
+            trigger_name = TRIGGER_SOURCES.get(
+                definition.trigger_source, definition.trigger_source
+            )
+            if trigger_value is None:
+                self.input_live_label.setText(
+                    f"TRIGGER · {trigger_name} · NO SIGNAL"
+                )
+            else:
+                self.input_live_label.setText(
+                    f"TRIGGER · {trigger_name} · {float(trigger_value):.3f} "
+                    f"/ THR {definition.trigger_threshold:.2f}"
+                )
         else:
-            self.input_live_label.setText("INPUT · INTERNAL TIMING / TRIGGER")
+            timebase = (
+                "TRANSPORT CLOCK"
+                if definition.sync_mode == "transport"
+                else "FREE-RUN CLOCK"
+            )
+            self.input_live_label.setText(f"INPUT · {timebase}")
         live_values = self.application.modulator_bank_engine.live_values()
         source_id = f"modulator.{definition.modulator_id}"
         is_bypassed = not definition.enabled
