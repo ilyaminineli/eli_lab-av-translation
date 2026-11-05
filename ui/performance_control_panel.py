@@ -167,15 +167,15 @@ class PerformanceControlPanel(QWidget):
         self.sensitivity_spin = self._float_spin(
             0.1, 12.0, 0.1, audio_settings.sensitivity
         )
-        self.attack_spin = self._float_spin(
+        self.audio_attack_spin = self._float_spin(
             1.0, 1000.0, 1.0, audio_settings.attack_ms
         )
-        self.release_spin = self._float_spin(
+        self.audio_release_spin = self._float_spin(
             5.0, 3000.0, 5.0, audio_settings.release_ms
         )
         analysis_form.addRow("SENSITIVITY", self.sensitivity_spin)
-        analysis_form.addRow("ATTACK · ms", self.attack_spin)
-        analysis_form.addRow("RELEASE · ms", self.release_spin)
+        analysis_form.addRow("ATTACK · ms", self.audio_attack_spin)
+        analysis_form.addRow("RELEASE · ms", self.audio_release_spin)
         audio_layout.addLayout(analysis_form)
 
         self._audio_discovery_error = ""
@@ -302,8 +302,8 @@ class PerformanceControlPanel(QWidget):
         self.audio_reactive_button.clicked.connect(self._install_audio_reactive_routes)
         self.sonic_pi_reactive_button.clicked.connect(self._install_sonic_pi_routes)
         self.sensitivity_spin.valueChanged.connect(self._audio_settings_changed)
-        self.attack_spin.valueChanged.connect(self._audio_settings_changed)
-        self.release_spin.valueChanged.connect(self._audio_settings_changed)
+        self.audio_attack_spin.valueChanged.connect(self._audio_settings_changed)
+        self.audio_release_spin.valueChanged.connect(self._audio_settings_changed)
         self.target_combo.currentIndexChanged.connect(self._target_changed)
         self.new_route_button.clicked.connect(self._new_route)
         self.add_route_button.clicked.connect(self._add_route)
@@ -453,8 +453,8 @@ class PerformanceControlPanel(QWidget):
             self.application.update_audio_analysis_settings(
                 AudioAnalysisSettings(
                     sensitivity=self.sensitivity_spin.value(),
-                    attack_ms=self.attack_spin.value(),
-                    release_ms=self.release_spin.value(),
+                    attack_ms=self.audio_attack_spin.value(),
+                    release_ms=self.audio_release_spin.value(),
                 )
             )
             if source == "test":
@@ -469,8 +469,8 @@ class PerformanceControlPanel(QWidget):
     def _audio_settings_changed(self, *_args) -> None:
         self.application.update_audio_analysis_settings(AudioAnalysisSettings(
             sensitivity=self.sensitivity_spin.value(),
-            attack_ms=self.attack_spin.value(),
-            release_ms=self.release_spin.value(),
+            attack_ms=self.audio_attack_spin.value(),
+            release_ms=self.audio_release_spin.value(),
         ))
 
     def _copy_sonata_settings(self) -> None:
