@@ -1017,9 +1017,17 @@ class Application:
             self,
             now: float | None = None,
     ) -> dict[tuple[str, str], float]:
+        sources = self._modulation_sources()
+        sources.update(
+            self.modulator_bank_engine.evaluate(
+                self.modulator_bank,
+                sources,
+                now=now,
+            )
+        )
         return self.performance_modifier_engine.evaluate(
             self.composition.layers,
-            self._modulation_sources(),
+            sources,
             self._get_layer_modifier_target,
             self._set_layer_modifier_target,
             now=now,
