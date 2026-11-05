@@ -176,9 +176,19 @@ class MainWindow(QMainWindow):
         self._status_timer.setInterval(500)
         self._status_timer.timeout.connect(self._refresh_automation_status)
         self._status_timer.timeout.connect(self.performance_control_panel.refresh_monitor)
-        self._status_timer.timeout.connect(self.layer_panel.refresh_performance_modifiers)
-        self._status_timer.timeout.connect(self.generators_panel.sync_live_modulation)
         self._status_timer.start()
+
+        # Rhythm pulses are shorter than the status refresh interval. Keep
+        # modifier meters and the selected generator controls visually live.
+        self._modifier_feedback_timer = QTimer(self)
+        self._modifier_feedback_timer.setInterval(50)
+        self._modifier_feedback_timer.timeout.connect(
+            self.layer_panel.refresh_performance_modifiers
+        )
+        self._modifier_feedback_timer.timeout.connect(
+            self.generators_panel.sync_live_modulation
+        )
+        self._modifier_feedback_timer.start()
 
     def _build_workspace(self) -> QWidget:
         workspace = QWidget(self)
