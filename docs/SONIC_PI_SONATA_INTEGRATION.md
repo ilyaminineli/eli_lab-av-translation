@@ -2,8 +2,8 @@
 
 ## Source inspected
 
-Repository: `ilyaminineli/sonicpi_eli_lab`  
-Patch: `04_LIVE/SEULPIRLEAMBACY/SONATA_expanded.rb`
+Repository: [`ilyaminineli/sonicpi_eli_lab`](https://github.com/ilyaminineli/sonicpi_eli_lab)  
+Patch: [`04_LIVE/SEULPIRLEAMBACY/SONATA_expanded.rb`](https://github.com/ilyaminineli/sonicpi_eli_lab/blob/main/04_LIVE/SEULPIRLEAMBACY/SONATA_expanded.rb)
 
 The M4 sender is installed in the live patch at the musical control points only. It does not instrument the 93 synth/drum loops.
 
@@ -73,7 +73,7 @@ The cutoff normalization is `clamp((sx_m_c - 48.0) / 70.0, 0.0, 1.0)`. Energy is
 
 - Default bind is loopback; binding to another interface is an explicit user choice.
 - Only known versioned addresses, exact argument counts, strict OSC types, registered macro names and safe numeric ranges are accepted.
-- A session ID cannot be reused during the receiver lifetime. Packets from a superseded session and duplicate/out-of-order sequences are rejected.
+- Session IDs are retained in a bounded 64-session replay history and cannot be reused within that window. Packets from a superseded session and duplicate/out-of-order sequences are rejected.
 - Input is rate-limited (60 messages/second by default) and the M3 event queue remains bounded.
 - The receiver runs on one dedicated daemon worker. It only creates validated `ControlEvent` objects and submits them to the queue.
 - The main application tick drains a bounded number of events, updates performance-control state and applies modulation. Qt widgets, composition state and OpenGL resources are never touched by the OSC worker.
