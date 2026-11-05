@@ -140,9 +140,7 @@ class MainWindow(QMainWindow):
             self.generators_panel.sync_layer_appearance
         )
         self.layer_panel.layer_properties_changed.connect(
-            lambda _layer_id: self.application.notify_manual_override(
-                "selected_layer.*"
-            )
+            self.application.notify_layer_manual_override
         )
         self.generators_panel.manual_target_changed.connect(
             self.application.notify_manual_override
@@ -428,8 +426,8 @@ class MainWindow(QMainWindow):
     def lock_all(self, locked: bool) -> None:
         for deck in self.application.decks.values():
             deck.locked = locked
-        for layer in self.application.composition.layers:
-            layer.locked = locked
+        for layer in tuple(self.application.composition.layers):
+            self.application.set_layer_locked(layer.id, locked)
         self.deck_panel.refresh()
         self.layer_panel.refresh()
 
@@ -481,7 +479,9 @@ class MainWindow(QMainWindow):
         if self.application.performance_control.scene_id != previous_scene:
             self.effects_panel.sync_from_settings()
             self.generators_panel.refresh()
-            self.performance_control_panel._load_scene_profile()
+            self.performance_control_panel.sync_scene_selection(
+                self.application.performance_control.scene_id
+            )
         was_running = self.application.automation.running
         changed = self.application.tick_automation()
         if changed:
