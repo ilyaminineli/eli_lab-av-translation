@@ -48,12 +48,15 @@ class LayerPanel(QWidget):
 
         self.table = QTableWidget(0, 4)
         self.table.setHorizontalHeaderLabels(["Visible", "Layer", "Opacity", "Blend"])
-        self.table.horizontalHeader().setSectionResizeMode(
-            1, QHeaderView.ResizeMode.Stretch
-        )
-        self.table.horizontalHeader().setSectionResizeMode(
-            2, QHeaderView.ResizeMode.ResizeToContents
-        )
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
+        self.table.setColumnWidth(0, 58)
+        self.table.setColumnWidth(2, 78)
+        self.table.setColumnWidth(3, 82)
+        self.table.setMinimumHeight(160)
         self.table.verticalHeader().setVisible(False)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.itemChanged.connect(self._visibility_changed)
@@ -144,6 +147,7 @@ class LayerPanel(QWidget):
         controls_layout.addStretch(1)
         self.controls_scroll = QScrollArea()
         self.controls_scroll.setWidgetResizable(True)
+        self.controls_scroll.setMinimumHeight(180)
         self.controls_scroll.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
@@ -187,7 +191,7 @@ class LayerPanel(QWidget):
     ) -> tuple[QLabel, QSlider]:
         row = QHBoxLayout()
         label = QLabel(f"{title}  {value}")
-        label.setMinimumWidth(125)
+        label.setMinimumWidth(96)
         slider = QSlider(Qt.Orientation.Horizontal)
         slider.setRange(minimum, maximum)
         slider.setValue(value)
