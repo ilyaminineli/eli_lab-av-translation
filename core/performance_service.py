@@ -208,6 +208,7 @@ def install_default_modulators(bank: ModulatorBank) -> dict[str, str]:
     for preset_id, name in DEFAULT_MODULATORS:
         existing = by_name.get(name)
         if existing is not None:
+            existing.enabled = True
             result[preset_id] = existing.modulator_id
             continue
         item = bank.instantiate_preset(preset_id)
@@ -259,10 +260,11 @@ def install_default_layer_modifiers(
         configured = getattr(layer, "performance_modifiers", None)
         if not isinstance(configured, list):
             continue
-        existing = {
-            (str(raw.get("source_id", "")), str(raw.get("target_id", "")))
+        existing_records = {
+            (str(raw.get("source_id", "")), str(raw.get("target_id", ""))): raw
             for raw in configured if isinstance(raw, dict)
         }
+        existing = set(existing_records)
         candidates: list[LayerPerformanceModifier] = []
 
         if layer.source_type == "video":
@@ -334,8 +336,33 @@ def install_default_layer_modifiers(
             item.normalize()
             key = (item.source_id, item.target_id)
             if key in existing:
+                raw_existing = existing_records[key]
+                if str(raw_existing.get("name", "")).startswith("AUTO ·"):
+                    raw_existing["enabled"] = True
                 continue
             configured.append(item.to_dict())
             existing.add(key)
             count += 1
     return count
+
+
+def set_default_routing_enabled(
+        matrix: ModulationMatrix,
+        bank: ModulatorBank,
+        layers: list[object],
+        enabled: bool,
+) -> None:
+    """Gate only generated AUTO routes, modulators and layer curves."""
+    state = bool(enabled)
+    for route in matrix.routes:
+        if route.route_id.startswith("auto-performance-"):
+            route.enabled = state
+    for definition in bank.list_modulators():
+        if definition.name.startswith("AUTO ·"):
+            definition.enabled = state
+    for layer in layers:
+        records = getattr(layer, "performance_modifiers", [])
+        for record in records:
+            if isinstance(record, dict) and str(record.get("name", "")).startswith("AUTO ·"):
+                record["enabled"] = state
+
