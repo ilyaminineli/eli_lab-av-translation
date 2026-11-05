@@ -89,3 +89,29 @@ def test_overlay_timing_playback_and_matte_settings_round_trip() -> None:
     assert restored.overlay_scene_sync is True
     assert restored.overlay_mask_mode == "luma"
     assert restored.overlay_mask_source == "overlay:matte"
+
+def test_layer_performance_modifiers_survive_project_round_trip() -> None:
+    layer = Layer(
+        id="text-with-rhythm",
+        name="Rhythmic text",
+        source_type="generator",
+        generator_type="text",
+        generator_settings={"text_animation_amount": 0.025},
+        performance_modifiers=[{
+            "modifier_id": "text-beat",
+            "name": "Beat → text reveal",
+            "source_id": "transport.beat_pulse",
+            "target_id": "generator.text_animation_amount",
+            "depth": 0.18,
+            "polarity": "positive",
+            "curve": "smoothstep",
+            "attack_ms": 10.0,
+            "release_ms": 180.0,
+            "enabled": True,
+        }],
+    )
+
+    restored = Layer.from_dict(layer.to_dict())
+
+    assert restored.performance_modifiers == layer.performance_modifiers
+
