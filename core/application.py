@@ -973,6 +973,18 @@ class Application:
         removed = self.modulator_bank.remove(modulator_id)
         if not removed:
             return False
+        removed_routes = [
+            route.route_id
+            for route in self.modulation.routes
+            if route.source_id == source_id
+        ]
+        for route_id in removed_routes:
+            self.modulation.remove_route(route_id)
+        if removed_routes:
+            self.events.publish(
+                "performance.modulation.updated",
+                removed_routes=removed_routes,
+            )
         for layer in self.composition.layers:
             before = len(layer.performance_modifiers)
             layer.performance_modifiers = [
