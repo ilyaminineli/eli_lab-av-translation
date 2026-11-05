@@ -64,8 +64,11 @@ class LayerPanel(QWidget):
         controls_layout = QVBoxLayout(controls_body)
         controls_layout.setContentsMargins(2, 2, 2, 2)
 
-        transform_group = QGroupBox("SELECTED LAYER TRANSFORM")
-        transform_layout = QVBoxLayout(transform_group)
+        self.layer_lock_check = QCheckBox("LOCK SELECTED LAYER")
+        controls_layout.addWidget(self.layer_lock_check)
+
+        self.transform_group = QGroupBox("SELECTED LAYER TRANSFORM")
+        transform_layout = QVBoxLayout(self.transform_group)
         self.position_x = self._add_slider(transform_layout, "X POSITION", 0, 100, 50)
         self.position_y = self._add_slider(transform_layout, "Y POSITION", 0, 100, 50)
         self.scale = self._add_slider(transform_layout, "UNIFORM SCALE", 10, 200, 100)
@@ -147,6 +150,7 @@ class LayerPanel(QWidget):
         self.controls_scroll.setWidget(controls_body)
         layout.addWidget(self.controls_scroll, 1)
 
+        self.layer_lock_check.toggled.connect(self._selected_layer_lock_changed)
         self.position_x[1].valueChanged.connect(self._position_x_changed)
         self.position_y[1].valueChanged.connect(self._position_y_changed)
         self.scale[1].valueChanged.connect(self._scale_changed)
@@ -318,6 +322,10 @@ class LayerPanel(QWidget):
         for slider in sliders:
             slider.blockSignals(True)
         self.remove_layer_button.setEnabled(layer is not None)
+        self.layer_lock_check.blockSignals(True)
+        self.layer_lock_check.setEnabled(layer is not None)
+        self.layer_lock_check.setChecked(bool(layer and layer.locked))
+        self.layer_lock_check.blockSignals(False)
         self.selected_blend_combo.blockSignals(True)
         self.selected_blend_combo.setEnabled(layer is not None)
         if layer is None:
@@ -326,17 +334,19 @@ class LayerPanel(QWidget):
             self.selected_blend_combo.setCurrentText(layer.blend_mode)
         self.selected_blend_combo.blockSignals(False)
         if layer is None:
+            self.transform_group.setEnabled(False)
             self.layer_fx_group.setEnabled(False)
             self.position_x[1].setEnabled(False)
             self.position_y[1].setEnabled(False)
             self.scale[1].setEnabled(False)
             self.rotation[1].setEnabled(False)
         else:
-            self.layer_fx_group.setEnabled(True)
-            self.position_x[1].setEnabled(True)
-            self.position_y[1].setEnabled(True)
-            self.scale[1].setEnabled(True)
-            self.rotation[1].setEnabled(True)
+            self.transform_group.setEnabled(not layer.locked)
+            self.layer_fx_group.setEnabled(not layer.locked)
+            self.position_x[1].setEnabled(not layer.locked)
+            self.position_y[1].setEnabled(not layer.locked)
+            self.scale[1].setEnabled(not layer.locked)
+            self.rotation[1].setEnabled(not layer.locked)
             self.position_x[1].setValue(round(layer.position[0] * 100))
             self.position_y[1].setValue(round(layer.position[1] * 100))
             self.scale[1].setValue(round(layer.scale[0] * 100))
@@ -608,6 +618,19 @@ class LayerPanel(QWidget):
                 layer_id,
                 visible=item.checkState() == Qt.CheckState.Checked,
             )
+
+    def _selected_layer_lock_changed(self, locked: bool) -> None:
+        layer = self._selected_layer()
+        if layer is None:
+            return
+        self.application.set_layer_locked(layer.id, locked)
+        self._selection_changed(
+            self.table.currentRow(),
+            self.table.currentColumn(),
+            -1,
+            -1,
+        )
+        self.layer_properties_changed.emit(layer.id)
 
     def _opacity_changed(self, layer_id: str, value: int) -> None:
         self.application.layer_manager.update_layer(layer_id, opacity=value / 100.0)
