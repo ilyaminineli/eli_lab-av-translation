@@ -34,7 +34,9 @@ Transport sync measures step division in beats. Free-run measures step rate in s
 
 The rhythm grid uses the same 1–64 step pattern model but treats values as accents. A pulse-width/gate setting controls how much of each step remains active. The off-step level is centered at 0.5, so a bipolar assignment returns to the parameter baseline between hits.
 
-This supports patterns such as four-on-the-floor, clave-like accents, triplets, syncopated gates and custom sequences.
+The rhythm editor also includes a Euclidean generator: choose the number of pulses, grid length and rotation, then generate an evenly distributed pattern. The generated values are placed into the editable step field, so individual hits can be accented, muted or reshaped before applying.
+
+This supports patterns such as four-on-the-floor, clave-like accents, triplets, syncopated gates, Euclidean distributions and fully custom sequences.
 
 ## Using the bank
 
