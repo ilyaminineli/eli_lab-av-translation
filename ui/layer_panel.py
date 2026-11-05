@@ -465,7 +465,6 @@ class LayerPanel(QWidget):
                     "generator.density", "generator.rotation",
                 },
                 "text": {
-                    "generator.text_animation_speed", "generator.text_animation_amount",
                     "generator.font_size", "generator.letter_spacing",
                 },
                 "waveform": {
@@ -479,6 +478,14 @@ class LayerPanel(QWidget):
                 },
             }
             targets.extend(sorted(fields.get(layer.generator_type, set())))
+            if (
+                    layer.generator_type == "text"
+                    and layer.generator_settings.get("text_animation", "none") != "none"
+            ):
+                targets.extend((
+                    "generator.text_animation_speed",
+                    "generator.text_animation_amount",
+                ))
         elif layer.source_type == "overlay":
             player = self.application._overlay_images.get(layer.id)
             if player is not None and player.animated:
@@ -521,7 +528,11 @@ class LayerPanel(QWidget):
         if layer.source_type == "generator":
             return {
                 "geometry": "generator.animation_amount",
-                "text": "generator.text_animation_amount",
+                "text": (
+                    "generator.text_animation_amount"
+                    if layer.generator_settings.get("text_animation", "none") != "none"
+                    else "generator.letter_spacing"
+                ),
                 "waveform": "generator.waveform_amplitude",
                 "particles": "generator.particle_size",
             }.get(layer.generator_type, "layer.opacity")
