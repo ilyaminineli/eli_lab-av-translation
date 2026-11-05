@@ -876,6 +876,7 @@ class PerformanceControlPanel(QWidget):
 
     def refresh_audio_devices(self) -> None:
         selected = self.audio_device_combo.currentData()
+        had_selection = getattr(self, "_audio_selection_initialized", False)
         self.audio_device_combo.blockSignals(True)
         self.audio_device_combo.clear()
         self.audio_device_combo.addItem(
@@ -897,7 +898,7 @@ class PerformanceControlPanel(QWidget):
         else:
             self._audio_discovery_error = ""
         index = self.audio_device_combo.findData(selected)
-        if index >= 0:
+        if had_selection and index >= 0:
             self.audio_device_combo.setCurrentIndex(index)
         elif loopback_index >= 0:
             # Prefer system output loopback for true audio reactivity. If no
@@ -906,6 +907,7 @@ class PerformanceControlPanel(QWidget):
         else:
             self.audio_device_combo.setCurrentIndex(0)
         self.audio_device_combo.blockSignals(False)
+        self._audio_selection_initialized = True
         self.audio_state_label.setText(message)
 
     def _start_audio(self) -> None:
