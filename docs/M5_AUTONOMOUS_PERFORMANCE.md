@@ -63,7 +63,7 @@ If no playable video clips are loaded, AUTO PERFORMANCE can still operate on gen
 
 ## State and ownership
 
-The mode tracks whether it started the OSC receiver and audio capture. Stop only closes services the mode owns. A receiver or audio stream that was already running before the mode started remains available afterward.
+The mode tracks whether it started the OSC receiver and audio capture. Stop only closes services the mode owns. A receiver or audio stream that was already running before the mode started remains available afterward. When SONATA sends transport/stop, the current AUTO PERFORMANCE pass stops and the mode re-arms; running the patch again starts a fresh pass without toggling Performance Mode.
 
 Generated defaults use stable AUTO identifiers. Stop disables only those generated routes, Modulator Bank definitions and per-layer modifiers, evaluates the release path, and restores their baselines. User-authored routes and modifiers remain configured and enabled.
 
