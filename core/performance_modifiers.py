@@ -41,10 +41,16 @@ PERFORMANCE_MODIFIER_SOURCES: dict[str, str] = {
 
 PERFORMANCE_MODIFIER_TARGETS: dict[str, ModifierTargetSpec] = {
     "layer.opacity": ModifierTargetSpec("layer.opacity", "Layer opacity", 0.0, 1.0, "layer"),
-    "layer.rotation": ModifierTargetSpec("layer.rotation", "Layer rotation", -180.0, 180.0, "layer"),
+    "layer.rotation": ModifierTargetSpec(
+        "layer.rotation", "Layer rotation", -180.0, 180.0, "layer"
+    ),
     "layer.scale": ModifierTargetSpec("layer.scale", "Layer scale", 0.05, 2.0, "layer"),
-    "layer.position_x": ModifierTargetSpec("layer.position_x", "Layer X position", 0.0, 1.0, "layer"),
-    "layer.position_y": ModifierTargetSpec("layer.position_y", "Layer Y position", 0.0, 1.0, "layer"),
+    "layer.position_x": ModifierTargetSpec(
+        "layer.position_x", "Layer X position", 0.0, 1.0, "layer"
+    ),
+    "layer.position_y": ModifierTargetSpec(
+        "layer.position_y", "Layer Y position", 0.0, 1.0, "layer"
+    ),
     "generator.animation_speed": ModifierTargetSpec(
         "generator.animation_speed", "Generator animation speed", 0.0, 8.0, "generator"
     ),
@@ -220,10 +226,19 @@ class LayerPerformanceModifierEngine:
 
     def clear_layer(self, layer_id: str) -> None:
         self._runtime = {key: value for key, value in self._runtime.items() if key[0] != layer_id}
-        self._base_values = {key: value for key, value in self._base_values.items() if key[0] != layer_id}
+        self._base_values = {
+            key: value for key, value in self._base_values.items()
+            if key[0] != layer_id
+        }
         self._active_targets = {key for key in self._active_targets if key[0] != layer_id}
-        self._manual_until = {key: value for key, value in self._manual_until.items() if key[0] != layer_id}
-        self._live_values = {key: value for key, value in self._live_values.items() if key[0] != layer_id}
+        self._manual_until = {
+            key: value for key, value in self._manual_until.items()
+            if key[0] != layer_id
+        }
+        self._live_values = {
+            key: value for key, value in self._live_values.items()
+            if key[0] != layer_id
+        }
 
     def live_values(self, layer_id: str) -> dict[str, float]:
         return {
@@ -286,7 +301,11 @@ class LayerPerformanceModifierEngine:
                 current_live[runtime_key] = smoothed
 
                 spec = PERFORMANCE_MODIFIER_TARGETS[modifier.target_id]
-                polarity_value = smoothed if modifier.polarity == "positive" else (smoothed * 2.0 - 1.0)
+                polarity_value = (
+                    smoothed
+                    if modifier.polarity == "positive"
+                    else (smoothed * 2.0 - 1.0)
+                )
                 offset = polarity_value * (spec.maximum - spec.minimum) * modifier.depth
                 contributions[target_key] = contributions.get(target_key, 0.0) + offset
 
