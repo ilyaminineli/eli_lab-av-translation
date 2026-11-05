@@ -744,6 +744,9 @@ class PerformanceControlPanel(QWidget):
         self.midi_status_label.setText("MIDI mapping removed.")
 
     def sync_from_application(self) -> None:
+        plan = self.application.performance_mode.plan
+        self.osc_bind_edit.setText(plan.osc_bind_address)
+        self.osc_port_spin.setValue(plan.osc_port)
         transport = self.application.transport
         self.bpm_spin.blockSignals(True)
         self.bpm_spin.setValue(transport.bpm)
@@ -777,6 +780,17 @@ class PerformanceControlPanel(QWidget):
         self.sync_scene_selection(scene_id)
         self.refresh_routes()
         self.refresh_audio_devices()
+        if plan.audio_test_signal:
+            requested_audio = "test"
+        elif plan.audio_device_id:
+            requested_audio = plan.audio_device_id
+        elif not plan.prefer_loopback:
+            requested_audio = None
+        else:
+            requested_audio = self.audio_device_combo.currentData()
+        audio_index = self.audio_device_combo.findData(requested_audio)
+        if audio_index >= 0:
+            self.audio_device_combo.setCurrentIndex(audio_index)
         self._refresh_midi_target_choices()
         self.refresh_midi_mappings(force=True)
         self.refresh_performance_scenes(force=True)
