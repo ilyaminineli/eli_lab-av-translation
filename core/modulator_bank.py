@@ -30,6 +30,34 @@ TRIGGER_SOURCES: dict[str, str] = {
 MODULATOR_KINDS = ("envelope", "lfo", "steps", "rhythm")
 
 
+def euclidean_pattern(
+        pulses: int,
+        steps: int,
+        rotation: int = 0,
+) -> list[float]:
+    """Return an evenly distributed binary rhythm rotated across a fixed grid."""
+    length = max(1, min(64, int(steps)))
+    hits = max(0, min(length, int(pulses)))
+    if hits == 0:
+        pattern = [0.0] * length
+    elif hits == length:
+        pattern = [1.0] * length
+    else:
+        pattern = []
+        bucket = 0
+        for _step in range(length):
+            bucket += hits
+            if bucket >= length:
+                bucket -= length
+                pattern.append(1.0)
+            else:
+                pattern.append(0.0)
+    offset = int(rotation) % length
+    if offset:
+        pattern = pattern[-offset:] + pattern[:-offset]
+    return pattern
+
+
 @dataclass
 class ModulatorDefinition:
     modulator_id: str = field(default_factory=lambda: uuid4().hex[:12])
