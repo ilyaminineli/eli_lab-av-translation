@@ -338,6 +338,16 @@ See [SONATA Expanded integration notes](SONIC_PI_SONATA_INTEGRATION.md).
 
 Package the visual, audio and external-control systems into a flexible live performance workflow.
 
+## Implemented groundwork
+
+- Per-layer performance modifier stacks saved with composition layers.
+- Beat, downbeat, phrase, bar-phase and beat-phase sources derived from the internal transport or Sonic Pi bar clock.
+- Per-layer mappings from rhythm, audio bands and Sonic Pi energy/cutoff to layer transforms, generator parameters and animated-overlay playback.
+- Live modifier meters and synchronized layer/generator controls, with manual override and lock precedence.
+- Pre-modulation baselines restored when modifiers are released and preserved when saving projects.
+
+See [M5 Performance Modifiers](M5_PERFORMANCE_MODIFIERS.md).
+
 ## Planned implementation
 
 - MIDI device discovery and controller mapping.
