@@ -330,8 +330,8 @@ class PerformanceControlPanel(QWidget):
         settings = self.application.audio_capture.settings
         for control, value in (
                 (self.sensitivity_spin, settings.sensitivity),
-                (self.attack_spin, settings.attack_ms),
-                (self.release_spin, settings.release_ms),
+                (self.audio_attack_spin, settings.attack_ms),
+                (self.audio_release_spin, settings.release_ms),
         ):
             control.blockSignals(True)
             control.setValue(value)
