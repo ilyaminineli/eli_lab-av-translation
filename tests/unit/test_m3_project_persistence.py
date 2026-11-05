@@ -112,6 +112,7 @@ def test_older_project_without_m3_settings_restores_default_control_configuratio
         application.shutdown()
 
 def test_application_round_trips_modulator_bank_followers_presets_and_assignments(tmp_path) -> None:
+    from core.modulation import ModulationRoute
     from core.modulator_bank import ModulatorDefinition
     from core.performance_modifiers import LayerPerformanceModifier
 
@@ -144,6 +145,14 @@ def test_application_round_trips_modulator_bank_followers_presets_and_assignment
                 curve="linear",
             ),
         )
+        application.add_modulation_route(ModulationRoute(
+            route_id="saved-cutoff-to-grain",
+            source_id=f"modulator.{definition.modulator_id}",
+            target_id="master.grain",
+            output_min=0.0,
+            output_max=1.0,
+            curve="linear",
+        ))
         application.save_project(path)
 
         application.remove_modulator(definition.modulator_id)
@@ -159,6 +168,12 @@ def test_application_round_trips_modulator_bank_followers_presets_and_assignment
         assert application.modulator_bank.presets[preset_id].name == (
             "SONATA cutoff to waveform"
         )
+        global_route = next(
+            route for route in application.modulation.routes
+            if route.route_id == "saved-cutoff-to-grain"
+        )
+        assert global_route.source_id == f"modulator.{definition.modulator_id}"
+        assert global_route.target_id == "master.grain"
 
         restored_layer = application.composition.get_layer(layer.id)
         assert restored_layer is not None
