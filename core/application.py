@@ -1424,7 +1424,15 @@ class Application:
             self._set_modulation_target(target_id, value)
         return outputs
 
+    def _validate_modulation_bank_source(self, source_id: str) -> None:
+        if not source_id.startswith("modulator."):
+            return
+        modulator_id = source_id.removeprefix("modulator.")
+        if self.modulator_bank.get(modulator_id) is None:
+            raise ValueError(f"Unknown Modulator Bank source: {source_id}")
+
     def add_modulation_route(self, route) -> None:
+        self._validate_modulation_bank_source(str(route.source_id))
         self.modulation.add_route(route)
         self.events.publish("performance.modulation.updated")
 
@@ -1439,6 +1447,8 @@ class Application:
         )
         if existing is None:
             raise KeyError(f"Unknown modulation route: {route_id}")
+        next_source = str(changes.get("source_id", existing.source_id))
+        self._validate_modulation_bank_source(next_source)
         previous_target = existing.target_id
         self.modulation.update_route(route_id, changes)
         updated = next(
@@ -1686,6 +1696,18 @@ class Application:
             self.modulator_bank.load_dict(
                 performance_settings.get("modulator_bank", {})
             )
+            known_modulator_sources = {
+                f"modulator.{definition.modulator_id}"
+                for definition in self.modulator_bank.list_modulators()
+            }
+            self.modulation.routes = [
+                route for route in self.modulation.routes
+                if (
+                    not route.source_id.startswith("modulator.")
+                    or route.source_id in known_modulator_sources
+                )
+            ]
+            self.modulation.reset_runtime()
         self.performance_control.bpm = self.transport.bpm
         self.performance_control.beats_per_bar = self.transport.beats_per_bar
         if isinstance(app_state.get("effects"), dict):
