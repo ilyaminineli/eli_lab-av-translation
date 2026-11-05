@@ -204,13 +204,16 @@ class PerformanceControlPanel(QWidget):
         osc_buttons.addWidget(self.osc_stop_button)
         osc_form.addRow(osc_buttons)
         osc_form.addRow(self.osc_copy_button)
-        self.osc_status_label = QLabel("STOPPED · start the receiver, then run SONATA in Sonic Pi.")
+        self.osc_status_label = QLabel(
+            "STOPPED · Performance Mode starts the receiver automatically; manual start is also available."
+        )
         self.osc_status_label.setWordWrap(True)
         osc_form.addRow("CONNECTION", self.osc_status_label)
         self.osc_hint_label = QLabel(
             "Sonic Pi is an OSC control source, not an item in the audio-device list. "
             "For Sonic Pi on this computer, use 127.0.0.1 and the same UDP port in "
-            "SONATA_expanded.rb. Start this receiver before running the patch."
+            "SONATA_expanded.rb. Press PERFORMANCE MODE, then run the patch; the "
+            "receiver and default reactive curves are armed automatically."
         )
         self.osc_hint_label.setWordWrap(True)
         self.osc_hint_label.setObjectName("mutedLabel")
