@@ -686,6 +686,7 @@ class Application:
         beat_index = 0
         beat_phase = 0.0
         bar_phase = 0.0
+        clock_active = False
         phrase_bars = max(1, int(getattr(self.transport, "phrase_bars", 4)))
         beats_per_bar = max(1, int(self.performance_control.beats_per_bar))
 
@@ -695,6 +696,7 @@ class Application:
             bar_duration = beat_duration * beats_per_bar
             fresh_for = max(5.0, bar_duration * 2.0)
             if elapsed <= fresh_for:
+                clock_active = True
                 beat_position = elapsed / beat_duration
                 beat_index = int(beat_position) % beats_per_bar
                 beat_phase = beat_position % 1.0
@@ -705,6 +707,7 @@ class Application:
         if not external_clock_active:
             internal_running = self.transport.running and not self.transport.paused
             if internal_running:
+                clock_active = True
                 beat_phase = max(0.0, min(1.0, self.transport.phase))
                 beat_index = int(self.transport.beat_index)
                 beats_per_bar = max(1, int(self.transport.beats_per_bar))
@@ -715,8 +718,8 @@ class Application:
                 beat_index = 0
                 bar_phase = 0.0
 
-        beat_pulse = max(0.0, 1.0 - beat_phase / 0.22)
-        downbeat_pulse = beat_pulse if beat_index == 0 else 0.0
+        beat_pulse = max(0.0, 1.0 - beat_phase / 0.22) if clock_active else 0.0
+        downbeat_pulse = beat_pulse if clock_active and beat_index == 0 else 0.0
         if external_clock_active:
             bar_index = max(1, int(self.performance_control.bar_index))
         elif self.transport.running and not self.transport.paused:
@@ -727,6 +730,7 @@ class Application:
             bar_index > 0
             and (bar_index - 1) % phrase_bars == 0
             and beat_index == 0
+            and clock_active
         )
         phrase_pulse = beat_pulse if phrase_start else 0.0
 
@@ -1178,7 +1182,6 @@ class Application:
                         target_id == "generator.*" and local_target.startswith("generator.")
                         or target_id == "overlay.*" and local_target.startswith("overlay.")
                         or target_id == "selected_layer.*" and local_target.startswith("layer.")
-                        or target_id == "master.*" and local_target.startswith("layer.")
                         or target_id == local_target
                 ):
                     local_targets.add(local_target)
@@ -1194,7 +1197,12 @@ class Application:
         sources = self._modulation_sources()
         outputs, released = self.modulation.evaluate(sources, now=now)
         selected = self.composition.get_layer(self._selected_layer_id or "")
-        claimed = self.performance_modifier_engine.claimed_targets(selected, now=now)
+        claimed = {
+            target_id
+            for target_id in self.performance_modifier_engine.claimed_targets(selected, now=now)
+            if selected is not None
+            and self._get_layer_modifier_target(selected.id, target_id) is not None
+        }
         global_aliases = {
             "layer.opacity": "selected_layer.opacity",
             "layer.rotation": "selected_layer.rotation",
@@ -1299,9 +1307,49 @@ class Application:
                 "scene_profiles": self.scene_profiles.to_dict(),
             },
         }
+        composition_snapshot = Composition.from_dict(self.composition.to_dict())
+        for (layer_id, target_id), base_value in (
+                self.performance_modifier_engine.base_values().items()
+        ):
+            layer = composition_snapshot.get_layer(layer_id)
+            if layer is None:
+                continue
+            if target_id.startswith("layer."):
+                field = target_id.split(".", 1)[1]
+                if field in {"opacity", "rotation"}:
+                    setattr(layer, field, float(base_value))
+                elif field == "scale":
+                    layer.scale = (float(base_value), float(base_value))
+                elif field == "position_x":
+                    layer.position = (float(base_value), layer.position[1])
+                elif field == "position_y":
+                    layer.position = (layer.position[0], float(base_value))
+            elif target_id.startswith("generator.") and layer.generator_type:
+                setting_key = self._generator_modifier_setting_key(
+                    target_id.split(".", 1)[1]
+                )
+                if setting_key:
+                    settings = normalize_settings(
+                        layer.generator_type,
+                        layer.generator_settings,
+                    )
+                    current = settings.get(setting_key)
+                    settings[setting_key] = (
+                        int(round(base_value))
+                        if isinstance(current, int) and not isinstance(current, bool)
+                        else float(base_value)
+                    )
+                    layer.generator_settings = normalize_settings(
+                        layer.generator_type,
+                        settings,
+                    )
+            elif target_id == "overlay.playback_speed":
+                layer.overlay_speed = max(0.1, min(4.0, float(base_value)))
+            elif target_id == "overlay.frame_hold":
+                layer.overlay_frame_hold = max(1, min(24, int(round(base_value))))
         saved_path = self.project_manager.save(
             path,
-            self.composition,
+            composition_snapshot,
             deck_states,
             app_state=app_state,
         )
