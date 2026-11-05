@@ -39,6 +39,8 @@ class PerformanceModePlan:
         self.start_automation = bool(self.start_automation)
         self.stop_automation_on_patch_stop = bool(self.stop_automation_on_patch_stop)
         self.install_default_mappings = bool(self.install_default_mappings)
+        if not isinstance(self.automation_settings, dict):
+            self.automation_settings = {}
         if self.automation_duration_seconds is not None:
             self.automation_duration_seconds = max(
                 1.0, float(self.automation_duration_seconds)
