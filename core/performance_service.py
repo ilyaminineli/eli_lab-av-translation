@@ -177,6 +177,11 @@ def install_default_matrix_routes(matrix: ModulationMatrix) -> int:
     added = 0
     for source, target, low, high, inverted, ceiling in DEFAULT_MATRIX_ROUTES:
         if target in existing_targets:
+            existing = next(
+                (route for route in matrix.routes if route.target_id == target), None
+            )
+            if existing is not None and existing.route_id.startswith("auto-performance-"):
+                existing.enabled = True
             continue
         route = ModulationRoute(
             route_id=f"auto-performance-{target.replace('.', '-')}",
