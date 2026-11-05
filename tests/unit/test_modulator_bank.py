@@ -381,3 +381,25 @@ def test_user_presets_can_be_exported_and_imported_between_banks(tmp_path) -> No
     assert clone.kind == "rhythm"
     assert clone.step_values == active.step_values
 
+def test_pingpong_sequence_runs_forward_then_backward_before_looping() -> None:
+    definition = ModulatorDefinition(
+        modulator_id="pingpong-grid",
+        kind="steps",
+        step_values=[0.0, 0.5, 1.0],
+        division_beats=1.0,
+        interpolation="hold",
+        direction="pingpong",
+        swing=0.5,
+    )
+    engine = ModulatorBankEngine()
+    bank = _bank_with(definition)
+
+    values = [
+        engine.evaluate(
+            bank, _transport_sources(beat), now=float(beat)
+        )["modulator.pingpong-grid"]
+        for beat in range(5)
+    ]
+
+    assert values == pytest.approx([0.0, 0.5, 1.0, 0.5, 0.0])
+
