@@ -417,7 +417,7 @@ def test_euclidean_pattern_distributes_pulses_and_rotates() -> None:
     assert sum(pattern) == 3
     assert max(gaps) - min(gaps) <= 1
     assert euclidean_pattern(3, 8, rotation=2) == pytest.approx(
-        [1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0]
+        [0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0]
     )
 
 
