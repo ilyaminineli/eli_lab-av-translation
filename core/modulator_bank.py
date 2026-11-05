@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Literal
 from uuid import uuid4
 
-ModulatorKind = Literal["envelope", "lfo", "steps", "rhythm"]
+ModulatorKind = Literal["follower", "envelope", "lfo", "steps", "rhythm"]
 ModulatorSync = Literal["transport", "free"]
 ModulatorReset = Literal["transport", "bar", "phrase"]
 ModulatorWaveform = Literal[
@@ -25,9 +25,28 @@ TRIGGER_SOURCES: dict[str, str] = {
     "audio.onset": "Audio onset",
     "audio.peak": "Audio peak",
     "macro.energy": "Sonic Pi energy",
+    "macro.cutoff": "Sonic Pi cutoff",
 }
 
-MODULATOR_KINDS = ("envelope", "lfo", "steps", "rhythm")
+FOLLOWER_SOURCES: dict[str, str] = {
+    "macro.energy": "Sonic Pi · Energy",
+    "macro.cutoff": "Sonic Pi · Cutoff",
+    "transport.intensity": "Sonic Pi · Scene intensity",
+    "transport.phase": "Transport · Beat phase",
+    "transport.bar_phase": "Transport · Bar phase",
+    "transport.beat_pulse": "Transport · Beat pulse",
+    "transport.downbeat_pulse": "Transport · Downbeat pulse",
+    "transport.phrase_pulse": "Transport · Phrase pulse",
+    "audio.rms": "Audio · RMS",
+    "audio.peak": "Audio · Peak",
+    "audio.low": "Audio · Low band",
+    "audio.mid": "Audio · Mid band",
+    "audio.high": "Audio · High band",
+    "audio.onset": "Audio · Onset",
+    "audio.beat_confidence": "Audio · Beat confidence",
+}
+
+MODULATOR_KINDS = ("follower", "envelope", "lfo", "steps", "rhythm")
 
 
 def euclidean_pattern(
@@ -71,7 +90,15 @@ class ModulatorDefinition:
     phase: float = 0.0
     waveform: ModulatorWaveform = "sine"
     pulse_width: float = 0.5
+    input_source: str = "macro.energy"
+    input_min: float = 0.0
+    input_max: float = 1.0
+    input_invert: bool = False
+    input_curve: Literal["linear", "smoothstep", "exponential"] = "linear"
+    input_attack_ms: float = 35.0
+    input_release_ms: float = 240.0
     trigger_source: str = "transport.beat_pulse"
+    trigger_threshold: float = 0.5
     retrigger: Literal["restart", "legato"] = "restart"
     attack: float = 0.03
     decay: float = 0.16
@@ -105,8 +132,22 @@ class ModulatorDefinition:
         }:
             self.waveform = "sine"
         self.pulse_width = max(0.02, min(0.98, float(self.pulse_width)))
+        if self.input_source not in FOLLOWER_SOURCES:
+            self.input_source = "macro.energy"
+        self.input_min = max(0.0, min(1.0, float(self.input_min)))
+        self.input_max = max(0.0, min(1.0, float(self.input_max)))
+        if self.input_max <= self.input_min:
+            self.input_min, self.input_max = 0.0, 1.0
+        self.input_invert = bool(self.input_invert)
+        if self.input_curve not in {"linear", "smoothstep", "exponential"}:
+            self.input_curve = "linear"
+        self.input_attack_ms = max(1.0, min(5000.0, float(self.input_attack_ms)))
+        self.input_release_ms = max(1.0, min(10000.0, float(self.input_release_ms)))
         if self.trigger_source not in TRIGGER_SOURCES:
             self.trigger_source = "transport.beat_pulse"
+        self.trigger_threshold = max(
+            0.0, min(1.0, float(self.trigger_threshold))
+        )
         if self.retrigger not in {"restart", "legato"}:
             self.retrigger = "restart"
         self.attack = max(0.0, min(64.0, float(self.attack)))
@@ -210,6 +251,26 @@ def builtin_modulator_presets() -> list[ModulatorPreset]:
             waveform="pulse",
             rate_beats=0.75,
             pulse_width=0.32,
+        ),
+        _preset(
+            "follower-sonic-pi-energy",
+            "Follower · Sonic Pi energy",
+            "Reusable smoothed follower of the SONATA energy macro.",
+            name="Sonic Pi energy",
+            kind="follower",
+            input_source="macro.energy",
+            input_attack_ms=80.0,
+            input_release_ms=600.0,
+        ),
+        _preset(
+            "follower-sonic-pi-cutoff",
+            "Follower · Sonic Pi cutoff",
+            "Reusable smoothed follower of the SONATA normalized cutoff macro.",
+            name="Sonic Pi cutoff",
+            kind="follower",
+            input_source="macro.cutoff",
+            input_attack_ms=40.0,
+            input_release_ms=320.0,
         ),
         _preset(
             "env-beat-pluck",
@@ -345,7 +406,18 @@ class ModulatorBank:
 
     def create(self, kind: str = "lfo", name: str | None = None) -> ModulatorDefinition:
         defaults: dict[str, object] = {"kind": kind}
-        if kind == "envelope":
+        if kind == "follower":
+            defaults.update(
+                name=name or "Sonic Pi follower",
+                kind="follower",
+                input_source="macro.energy",
+                input_min=0.0,
+                input_max=1.0,
+                input_curve="linear",
+                input_attack_ms=35.0,
+                input_release_ms=240.0,
+            )
+        elif kind == "envelope":
             defaults.update(
                 name=name or "Envelope",
                 kind="envelope",
@@ -515,6 +587,8 @@ class ModulatorBank:
 @dataclass
 class _ModulatorRuntime:
     started_at: float | None = None
+    current: float | None = None
+    last_update: float = 0.0
     previous_trigger: bool = False
     trigger_beat: float | None = None
     trigger_time: float | None = None
@@ -682,7 +756,10 @@ class ModulatorBankEngine:
                 previous_age = max(0.0, now - runtime.trigger_time)
             active = previous_age < gate + release
 
-        trigger_high = float(sources.get(definition.trigger_source, 0.0)) >= 0.5
+        trigger_high = (
+            float(sources.get(definition.trigger_source, 0.0))
+            >= definition.trigger_threshold
+        )
         if trigger_high and not runtime.previous_trigger:
             if definition.retrigger == "restart" or not active:
                 runtime.trigger_time = now
@@ -730,6 +807,42 @@ class ModulatorBankEngine:
                 continue
             if runtime.started_at is None:
                 runtime.started_at = stamp
+
+            if definition.kind == "follower":
+                raw_input = sources.get(definition.input_source)
+                if raw_input is None or not math.isfinite(float(raw_input)):
+                    runtime.current = None
+                    runtime.last_update = stamp
+                    continue
+                normalized = (
+                    float(raw_input) - definition.input_min
+                ) / max(1e-9, definition.input_max - definition.input_min)
+                normalized = max(0.0, min(1.0, normalized))
+                if definition.input_curve == "smoothstep":
+                    normalized = normalized * normalized * (3.0 - 2.0 * normalized)
+                elif definition.input_curve == "exponential":
+                    normalized *= normalized
+                if definition.input_invert:
+                    normalized = 1.0 - normalized
+                if runtime.current is None:
+                    value = normalized
+                else:
+                    tau = (
+                        definition.input_attack_ms
+                        if normalized > runtime.current
+                        else definition.input_release_ms
+                    )
+                    dt = max(0.0, stamp - runtime.last_update)
+                    alpha = 1.0 - math.exp(
+                        -dt / max(0.001, tau / 1000.0)
+                    )
+                    value = runtime.current + alpha * (normalized - runtime.current)
+                runtime.current = value
+                runtime.last_update = stamp
+                outputs[f"modulator.{definition.modulator_id}"] = max(
+                    0.0, min(1.0, float(value))
+                )
+                continue
 
             if definition.sync_mode == "transport":
                 if not transport_running:
