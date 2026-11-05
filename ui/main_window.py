@@ -55,12 +55,12 @@ class MainWindow(QMainWindow):
 
         self.media_browser = MediaBrowser(application.media_library, self)
         self.media_dock = self._make_dock("MEDIA LIBRARY", self.media_browser)
-        self.media_dock.setMinimumWidth(280)
+        self.media_dock.setMinimumWidth(240)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.media_dock)
 
         self.asset_library_panel = AssetLibraryPanel(application, self)
         self.asset_library_dock = self._make_dock("VISUAL ASSET LIBRARY", self.asset_library_panel)
-        self.asset_library_dock.setMinimumWidth(280)
+        self.asset_library_dock.setMinimumWidth(240)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.asset_library_dock)
         self.tabifyDockWidget(self.media_dock, self.asset_library_dock)
 
@@ -71,7 +71,7 @@ class MainWindow(QMainWindow):
 
         self.layer_panel = LayerPanel(application, self)
         self.layer_dock = self._make_dock("LAYERS", self.layer_panel)
-        self.layer_dock.setMinimumWidth(320)
+        self.layer_dock.setMinimumWidth(280)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.layer_dock)
 
         self.effects_panel = EffectsPanel(application.effects, self)
@@ -95,7 +95,7 @@ class MainWindow(QMainWindow):
             "AUDIO / CONTROL",
             self.performance_control_panel,
         )
-        self.performance_control_dock.setMinimumWidth(340)
+        self.performance_control_dock.setMinimumWidth(300)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.performance_control_dock)
         self.tabifyDockWidget(self.preview_dock, self.performance_control_dock)
         self.layer_dock.raise_()
@@ -103,6 +103,7 @@ class MainWindow(QMainWindow):
 
         self.transport_bar = TransportBar(self)
         toolbar = QToolBar("Performance")
+        toolbar.setObjectName("performance_toolbar")
         toolbar.setMovable(False)
         toolbar.addWidget(self.transport_bar)
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, toolbar)
@@ -152,6 +153,8 @@ class MainWindow(QMainWindow):
         self.asset_library_panel.composition_changed.connect(self.generators_panel.refresh)
 
         self._create_actions()
+        # Keep a pristine Qt dock-state snapshot for the View → Restore Default Layout action.
+        self._default_dock_state = self.saveState(4)
         saved_geometry = self._ui_settings.value("ui/main_window_geometry")
         saved_state = self._ui_settings.value("ui/main_window_state_v4")
         restored = False
@@ -197,21 +200,37 @@ class MainWindow(QMainWindow):
         return workspace
 
     def _apply_default_dock_sizes(self) -> None:
-        self.resizeDocks(
-            [self.media_dock],
-            [350],
-            Qt.Orientation.Horizontal,
-        )
-        self.resizeDocks(
-            [self.layer_dock],
-            [440],
-            Qt.Orientation.Horizontal,
-        )
-        self.resizeDocks(
-            [self.deck_dock],
-            [185],
-            Qt.Orientation.Vertical,
-        )
+        # Scale side docks with the available window width so the central editor
+        # keeps a useful minimum working area on smaller displays.
+        width = max(self.width(), self.minimumWidth())
+        side_space = max(500, width - 390)
+        left_width = max(240, min(340, int(side_space * 0.44)))
+        right_width = max(280, min(400, side_space - left_width))
+        deck_height = max(125, min(190, int(self.height() * 0.20)))
+        self.resizeDocks([self.media_dock], [left_width], Qt.Orientation.Horizontal)
+        self.resizeDocks([self.layer_dock], [right_width], Qt.Orientation.Horizontal)
+        self.resizeDocks([self.deck_dock], [deck_height], Qt.Orientation.Vertical)
+
+    def restore_default_layout(self) -> None:
+        """Restore the built-in dock arrangement without changing the project."""
+        if not self.restoreState(self._default_dock_state, 4):
+            _LOG.warning("Could not restore the built-in dock-state snapshot; rebuilding sizes.")
+        for dock in (
+                self.media_dock,
+                self.asset_library_dock,
+                self.deck_dock,
+                self.layer_dock,
+                self.effects_dock,
+                self.automation_dock,
+                self.preview_dock,
+                self.performance_control_dock,
+        ):
+            dock.show()
+        self.layer_dock.raise_()
+        QTimer.singleShot(0, self._apply_default_dock_sizes)
+        self._ui_settings.setValue("ui/main_window_state_v4", self._default_dock_state)
+        self._ui_settings.sync()
+        self.statusBar().showMessage("Default workspace layout restored.", 4000)
 
     def show_local_preview(self) -> None:
         self.preview_dock.show()
@@ -266,6 +285,11 @@ class MainWindow(QMainWindow):
         file_menu.addAction(exit_action)
 
         view_menu = self.menuBar().addMenu("&View")
+        restore_layout_action = QAction("Restore Default Layout", self)
+        restore_layout_action.setShortcut(QKeySequence("Ctrl+Shift+0"))
+        restore_layout_action.triggered.connect(self.restore_default_layout)
+        view_menu.addAction(restore_layout_action)
+        view_menu.addSeparator()
         for dock in (
                 self.media_dock,
                 self.asset_library_dock,
@@ -454,6 +478,20 @@ class MainWindow(QMainWindow):
                 ),
             )
             self._refresh_automation_status()
+        except ValueError as exc:
+            # Empty or unavailable footage pools are expected operator errors,
+            # not application faults; keep the log useful without a traceback.
+            _LOG.warning("Auto Performance unavailable: %s", exc)
+            message = str(exc)
+            if "No playable video files" in message:
+                message = (
+                    "No playable video files are available in this footage pool. "
+                    "Import a video folder in MEDIA LIBRARY, wait for scanning to finish, "
+                    "then retry."
+                )
+            self.automation_panel.set_running(False, message)
+            self.statusBar().showMessage(message, 8000)
+            QMessageBox.information(self, "Auto Performance not started", message)
         except Exception as exc:
             _LOG.exception("Could not start automation")
             self.automation_panel.set_running(False, f"Could not start · {exc}")
