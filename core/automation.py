@@ -617,24 +617,25 @@ class AutomationDirector:
 
         changed = False
         run_time_events = self.settings.musical_sync in {"time", "hybrid"}
-        for deck_id, deck in self._decks.items():
-            if not run_time_events:
-                break
-            if getattr(deck, "locked", False):
-                continue
-            due = self._deck_due.get(deck_id)
-            if due is None:
-                self._deck_due[deck_id] = current + self._interval(
-                    self.rng, self.settings.min_cut_interval, self.settings.max_cut_interval
-                )
-                continue
-            if current < due:
-                continue
-            asset_id = getattr(deck, "asset_id", None)
-            loaded = self._load_random_segment(deck, asset_id, current)
-            if loaded:
-                self.last_action = f"Random cut · {deck_id.upper()}"
-            changed = changed or loaded
+        if run_time_events:
+            for deck_id, deck in self._decks.items():
+                if getattr(deck, "locked", False):
+                    continue
+                due = self._deck_due.get(deck_id)
+                if due is None:
+                    self._deck_due[deck_id] = current + self._interval(
+                        self.rng,
+                        self.settings.min_cut_interval,
+                        self.settings.max_cut_interval,
+                    )
+                    continue
+                if current < due:
+                    continue
+                asset_id = getattr(deck, "asset_id", None)
+                loaded = self._load_random_segment(deck, asset_id, current)
+                if loaded:
+                    self.last_action = f"Random cut · {deck_id.upper()}"
+                changed = changed or loaded
 
         if (
                 run_time_events
