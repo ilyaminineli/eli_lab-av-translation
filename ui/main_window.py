@@ -176,6 +176,8 @@ class MainWindow(QMainWindow):
         self._status_timer.setInterval(500)
         self._status_timer.timeout.connect(self._refresh_automation_status)
         self._status_timer.timeout.connect(self.performance_control_panel.refresh_monitor)
+        self._status_timer.timeout.connect(self.layer_panel.refresh_performance_modifiers)
+        self._status_timer.timeout.connect(self.generators_panel.sync_live_modulation)
         self._status_timer.start()
 
     def _build_workspace(self) -> QWidget:
