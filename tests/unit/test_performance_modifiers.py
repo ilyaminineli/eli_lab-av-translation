@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 import pytest
 
 from core.composition import Composition, Layer
@@ -222,6 +224,7 @@ def test_external_transport_exposes_beat_downbeat_phrase_and_bar_phase(monkeypat
         bpm=120.0,
         bar_index=1,
         macros={"energy": 0.7, "cutoff": 0.4},
+        macro_updated_at={"energy": 100.0, "cutoff": 100.0},
     )
     application.transport = SimpleNamespace(
         phrase_bars=4,
@@ -455,6 +458,7 @@ def test_local_modifier_takes_and_releases_target_from_global_route() -> None:
     application._audio_sources = {"audio.rms": 1.0}
     application.performance_control = PerformanceControlState()
     application.performance_control.macros["energy"] = 0.5
+    application.performance_control.macro_updated_at["energy"] = time.monotonic()
     application.transport = InternalTransport()
     application._external_clock_bar_at = None
     application.composition = Composition(layers=[layer])
