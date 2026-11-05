@@ -99,6 +99,28 @@ def test_protocol_deduplicates_sequences_and_requires_new_restart_session() -> N
         raise AssertionError("A session ID was reused.")
 
 
+def test_protocol_recovers_after_a_lost_sequence_number() -> None:
+    adapter = OSCProtocolAdapter()
+    adapter.decode(
+        "/eli_lab/v1/transport/start",
+        ("session-gap", 1, 92.0, 4),
+    )
+
+    # Sequence 2 represents a UDP datagram that never arrived.
+    bar = adapter.decode(
+        "/eli_lab/v1/clock/bar",
+        ("session-gap", 3, 1, 92.0, 4),
+    )
+    assert bar.sequence == 3
+    assert bar.payload["bar_index"] == 1
+
+    macro = adapter.decode(
+        "/eli_lab/v1/macro/set",
+        ("session-gap", 4, "energy", 0.68),
+    )
+    assert macro.payload == {"name": "energy", "value": 0.68}
+
+
 def test_receiver_accepts_local_udp_without_touching_application_state() -> None:
     received = []
     receiver = OSCReceiver(lambda event: received.append(event) or True)
