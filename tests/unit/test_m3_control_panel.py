@@ -170,3 +170,34 @@ def test_layer_panel_adds_rhythmic_modifiers_to_selected_generator(qtbot) -> Non
     finally:
         application.shutdown()
 
+def test_layer_modifier_targets_only_offer_animated_overlay_playback(qtbot) -> None:
+    from core.composition import Layer
+    from ui.layer_panel import LayerPanel
+
+    class AnimatedImageStub:
+        animated = True
+
+    application = Application()
+    try:
+        overlay = Layer(
+            id="overlay-target-filter",
+            name="Still overlay",
+            source_type="overlay",
+            source_id="overlay:still",
+            overlay_kind="image",
+        )
+        application.composition.add_layer(overlay)
+        panel = LayerPanel(application)
+        qtbot.addWidget(panel)
+
+        still_targets = set(panel._modifier_targets_for_layer(overlay))
+        assert "layer.opacity" in still_targets
+        assert "overlay.playback_speed" not in still_targets
+
+        application._overlay_images[overlay.id] = AnimatedImageStub()
+        animated_targets = set(panel._modifier_targets_for_layer(overlay))
+        assert "overlay.playback_speed" in animated_targets
+        assert "overlay.frame_hold" in animated_targets
+    finally:
+        application.shutdown()
+
