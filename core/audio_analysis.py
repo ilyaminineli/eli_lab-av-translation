@@ -119,6 +119,8 @@ class AudioAnalyzer:
             bpm /= 2.0
         if not self.settings.beat_min_bpm <= bpm <= self.settings.beat_max_bpm:
             return None, 0.0
+        if confidence < self.settings.beat_confidence_min:
+            return None, confidence
         return round(bpm, 1), confidence
 
     def process(
