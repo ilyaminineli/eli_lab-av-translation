@@ -232,6 +232,10 @@ class LayerPerformanceModifierEngine:
             if owner_id == layer_id
         }
 
+    def base_values(self) -> dict[tuple[str, str], float]:
+        """Return pre-modulation values for clean project persistence."""
+        return dict(self._base_values)
+
     def evaluate(
             self,
             layers: list[object],
@@ -286,7 +290,7 @@ class LayerPerformanceModifierEngine:
                 offset = polarity_value * (spec.maximum - spec.minimum) * modifier.depth
                 contributions[target_key] = contributions.get(target_key, 0.0) + offset
 
-        active_targets = set(contributions)
+        active_targets: set[tuple[str, str]] = set()
         outputs: dict[tuple[str, str], float] = {}
         for target_key, offset in contributions.items():
             layer_id, target_id = target_key
@@ -300,8 +304,9 @@ class LayerPerformanceModifierEngine:
             value = max(spec.minimum, min(spec.maximum, value))
             if set_target(layer_id, target_id, value):
                 outputs[target_key] = value
+                active_targets.add(target_key)
             else:
-                active_targets.discard(target_key)
+                self._base_values.pop(target_key, None)
 
         for target_key in self._active_targets - active_targets:
             layer_id, target_id = target_key
