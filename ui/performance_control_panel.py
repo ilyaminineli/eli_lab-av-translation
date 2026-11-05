@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from uuid import uuid4
 
 from PySide6.QtCore import Qt
@@ -196,23 +197,31 @@ class PerformanceControlPanel(QWidget):
         self.curve_combo.addItem("Smoothstep", "smoothstep")
         self.curve_combo.addItem("Exponential", "exponential")
         self.invert_check = QCheckBox("Invert")
+        self.input_min_spin = self._float_spin(0.0, 1.0, 0.01, 0.0)
+        self.input_max_spin = self._float_spin(0.0, 1.0, 0.01, 1.0)
         self.output_min_spin = self._float_spin(-180.0, 180.0, 0.01, 0.0)
         self.output_max_spin = self._float_spin(-180.0, 180.0, 0.01, 1.0)
         self.ceiling_spin = self._float_spin(0.0, 1.0, 0.01, 1.0)
         self.smoothing_spin = self._float_spin(0.0, 3000.0, 5.0, 80.0)
+        self.attack_spin = self._float_spin(1.0, 2000.0, 5.0, 25.0)
+        self.release_spin = self._float_spin(1.0, 5000.0, 5.0, 220.0)
         self.hold_spin = self._float_spin(0.0, 5000.0, 10.0, 0.0)
         route_form.addRow("SOURCE", self.source_combo)
         route_form.addRow("TARGET", self.target_combo)
         route_form.addRow("CURVE", self.curve_combo)
+        route_form.addRow("INPUT MIN", self.input_min_spin)
+        route_form.addRow("INPUT MAX", self.input_max_spin)
         route_form.addRow("OUTPUT MIN", self.output_min_spin)
         route_form.addRow("OUTPUT MAX", self.output_max_spin)
         route_form.addRow("INTENSITY CEILING", self.ceiling_spin)
         route_form.addRow("SMOOTHING · ms", self.smoothing_spin)
+        route_form.addRow("ATTACK · ms", self.attack_spin)
+        route_form.addRow("RELEASE · ms", self.release_spin)
         route_form.addRow("HOLD · ms", self.hold_spin)
         route_form.addRow(self.invert_check)
         modulation_layout.addLayout(route_form)
         route_buttons = QHBoxLayout()
-        self.add_route_button = QPushButton("ADD ROUTE")
+        self.add_route_button = QPushButton("ADD / UPDATE ROUTE")
         self.remove_route_button = QPushButton("REMOVE ROUTE")
         route_buttons.addWidget(self.add_route_button)
         route_buttons.addWidget(self.remove_route_button)
@@ -248,10 +257,14 @@ class PerformanceControlPanel(QWidget):
         self.add_route_button.clicked.connect(self._add_route)
         self.remove_route_button.clicked.connect(self._remove_route)
         self.route_list.itemChanged.connect(self._route_enabled_changed)
+        self.route_list.currentItemChanged.connect(self._load_route_editor)
 
+        self._last_device_poll = 0.0
+        self._audio_discovery_error = ""
         self._load_scene_profile()
         self._target_changed()
         self.refresh_audio_devices()
+        self.refresh_routes()
         self.refresh_monitor()
 
     @staticmethod
@@ -282,6 +295,16 @@ class PerformanceControlPanel(QWidget):
     def _selected_scene_id(self) -> str:
         return str(self.scene_combo.currentData() or "in")
 
+    def sync_scene_selection(self, scene_id: str) -> None:
+        index = self.scene_combo.findData(scene_id)
+        if index < 0:
+            self.scene_combo.addItem(scene_id.replace("_", " ").title(), scene_id)
+            index = self.scene_combo.findData(scene_id)
+        self.scene_combo.blockSignals(True)
+        self.scene_combo.setCurrentIndex(index)
+        self.scene_combo.blockSignals(False)
+        self._load_scene_profile()
+
     def _load_scene_profile(self, *_args) -> None:
         if not hasattr(self, "scene_intensity_spin"):
             return
@@ -307,6 +330,7 @@ class PerformanceControlPanel(QWidget):
         ))
         self.scene_save_button.setText("SAVED")
         self.scene_save_button.setEnabled(False)
+        self.scene_save_button.setToolTip("Scene profile saved in the current project.")
         self.scene_save_button.setEnabled(True)
         self.scene_save_button.setText("SAVE PROFILE")
 
@@ -329,6 +353,9 @@ class PerformanceControlPanel(QWidget):
             message = f"{len(devices)} audio input(s) available."
         except Exception as exc:
             message = f"Audio backend unavailable · {exc}"
+            self._audio_discovery_error = str(exc)
+        else:
+            self._audio_discovery_error = ""
         index = self.audio_device_combo.findData(selected)
         self.audio_device_combo.setCurrentIndex(index if index >= 0 else 0)
         self.audio_device_combo.blockSignals(False)
@@ -378,23 +405,69 @@ class PerformanceControlPanel(QWidget):
                 "One route per target is supported. Remove or edit the existing route first."
             )
             return
+        selected = self.route_list.currentItem()
         try:
-            route = ModulationRoute(
-                route_id=uuid4().hex[:10],
-                source_id=source_id,
-                target_id=target_id,
-                output_min=self.output_min_spin.value(),
-                output_max=self.output_max_spin.value(),
-                curve=str(self.curve_combo.currentData()),
-                inverted=self.invert_check.isChecked(),
-                smoothing_ms=self.smoothing_spin.value(),
-                hold_ms=self.hold_spin.value(),
-                intensity_ceiling=self.ceiling_spin.value(),
-            )
-            self.application.add_modulation_route(route)
+            changes = {
+                "source_id": source_id,
+                "target_id": target_id,
+                "input_min": self.input_min_spin.value(),
+                "input_max": self.input_max_spin.value(),
+                "output_min": self.output_min_spin.value(),
+                "output_max": self.output_max_spin.value(),
+                "curve": str(self.curve_combo.currentData()),
+                "inverted": self.invert_check.isChecked(),
+                "smoothing_ms": self.smoothing_spin.value(),
+                "attack_ms": self.attack_spin.value(),
+                "release_ms": self.release_spin.value(),
+                "hold_ms": self.hold_spin.value(),
+                "intensity_ceiling": self.ceiling_spin.value(),
+            }
+            if selected is not None:
+                route_id = str(selected.data(Qt.ItemDataRole.UserRole))
+                self.application.modulation.update_route(route_id, changes)
+                self.application.events.publish("performance.modulation.updated")
+            else:
+                route = ModulationRoute(
+                    route_id=uuid4().hex[:10],
+                    **changes,
+                )
+                self.application.add_modulation_route(route)
             self.refresh_routes()
-        except (ValueError, TypeError) as exc:
-            self.modulation_status.setText(f"Route not added · {exc}")
+        except (ValueError, TypeError, KeyError) as exc:
+            self.modulation_status.setText(f"Route not saved · {exc}")
+
+    def _load_route_editor(self, current: QListWidgetItem | None, _previous) -> None:
+        if current is None:
+            return
+        route_id = current.data(Qt.ItemDataRole.UserRole)
+        route = next(
+            (item for item in self.application.modulation.routes if item.route_id == route_id),
+            None,
+        )
+        if route is None:
+            return
+        controls = (
+            (self.source_combo, route.source_id),
+            (self.target_combo, route.target_id),
+            (self.curve_combo, route.curve),
+        )
+        for control, value in controls:
+            control.blockSignals(True)
+            control.setCurrentIndex(max(0, control.findData(value)))
+            control.blockSignals(False)
+        for control, value in (
+            (self.input_min_spin, route.input_min),
+            (self.input_max_spin, route.input_max),
+            (self.output_min_spin, route.output_min),
+            (self.output_max_spin, route.output_max),
+            (self.ceiling_spin, route.intensity_ceiling),
+            (self.smoothing_spin, route.smoothing_ms),
+            (self.attack_spin, route.attack_ms),
+            (self.release_spin, route.release_ms),
+            (self.hold_spin, route.hold_ms),
+        ):
+            control.setValue(value)
+        self.invert_check.setChecked(route.inverted)
 
     def _remove_route(self) -> None:
         item = self.route_list.currentItem()
@@ -433,15 +506,27 @@ class PerformanceControlPanel(QWidget):
 
     def refresh_monitor(self) -> None:
         transport = self.application.transport
+        transport_state = (
+            "RUN" if transport.running and not transport.paused
+            else "PAUSE" if transport.paused
+            else "STOP"
+        )
         self.transport_status.setText(
-            f"{'RUN' if transport.running and not transport.paused else 'PAUSE' if transport.paused else 'STOP'}"
-            f" · {transport.bpm:g} BPM · BAR {transport.bar_index} · "
+            f"{transport_state} · {transport.bpm:g} BPM · BAR {transport.bar_index} · "
             f"BEAT {transport.beat_index + 1}/{transport.beats_per_bar} · "
             f"PHRASE {transport.phrase_index}"
         )
         state = self.application.audio_capture.state
+        if (
+            self.application.audio_capture.source_kind in {"input", "loopback"}
+            and state == AudioCaptureState.RUNNING
+            and time.monotonic() - self._last_device_poll >= 3.0
+        ):
+            self._last_device_poll = time.monotonic()
+            self.application.audio_capture.refresh_device_state()
+            state = self.application.audio_capture.state
         name = self.application.audio_capture.selected_device_name
-        error = self.application.audio_capture.error
+        error = self.application.audio_capture.error or self._audio_discovery_error
         self.audio_state_label.setText(
             f"{state.value.upper()} · {name or 'No source'}"
             + (f" · {error}" if error else "")
