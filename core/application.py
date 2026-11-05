@@ -297,6 +297,8 @@ class Application:
         self._midi_learn_request = None
         self._midi_learn_last_event = ""
         self.performance_scenes.clear()
+        self._pending_scene_morph_seconds.clear()
+        self._active_scene_morph = None
         self._clear_overlays()
         for deck in self.decks.values():
             deck.close()
