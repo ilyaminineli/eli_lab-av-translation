@@ -495,7 +495,24 @@ class LayerPanel(QWidget):
                 )
         return targets
 
+    def sync_performance_modifier_sources(self) -> None:
+        current = self.modifier_source_combo.currentData()
+        sources = dict(PERFORMANCE_MODIFIER_SOURCES)
+        for definition in self.application.modulator_bank.list_modulators():
+            sources[f"modulator.{definition.modulator_id}"] = (
+                f"Bank · {definition.name}"
+            )
+        self.modifier_source_combo.blockSignals(True)
+        self.modifier_source_combo.clear()
+        for source_id, label in sources.items():
+            self.modifier_source_combo.addItem(label, source_id)
+        index = self.modifier_source_combo.findData(current)
+        if index >= 0:
+            self.modifier_source_combo.setCurrentIndex(index)
+        self.modifier_source_combo.blockSignals(False)
+
     def _sync_performance_modifier_targets(self, layer) -> None:
+        self.sync_performance_modifier_sources()
         valid = self._modifier_targets_for_layer(layer)
         current = self.modifier_target_combo.currentData()
         self.modifier_target_combo.blockSignals(True)
@@ -570,7 +587,15 @@ class LayerPanel(QWidget):
         layer = self._selected_layer()
         if layer is None or layer.locked or not target_id:
             return
-        source_label = PERFORMANCE_MODIFIER_SOURCES.get(source_id, source_id)
+        source_label = PERFORMANCE_MODIFIER_SOURCES.get(source_id)
+        if source_label is None and source_id.startswith("modulator."):
+            definition = self.application.modulator_bank.get(
+                source_id.removeprefix("modulator.")
+            )
+            source_label = (
+                f"Bank · {definition.name}" if definition is not None else source_id
+            )
+        source_label = source_label or source_id
         target_label = PERFORMANCE_MODIFIER_TARGETS[target_id].label
         modifier = LayerPerformanceModifier(
             name=f"{source_label.split('·')[-1].strip()} → {target_label}",
@@ -663,10 +688,18 @@ class LayerPanel(QWidget):
             self._modifier_widgets.clear()
             for raw in records:
                 modifier_id = str(raw.get("modifier_id", ""))
-                source_label = PERFORMANCE_MODIFIER_SOURCES.get(
-                    str(raw.get("source_id", "")),
-                    str(raw.get("source_id", "unknown source")),
-                )
+                source_id = str(raw.get("source_id", ""))
+                source_label = PERFORMANCE_MODIFIER_SOURCES.get(source_id)
+                if source_label is None and source_id.startswith("modulator."):
+                    definition = self.application.modulator_bank.get(
+                        source_id.removeprefix("modulator.")
+                    )
+                    source_label = (
+                        f"Bank · {definition.name}"
+                        if definition is not None
+                        else source_id
+                    )
+                source_label = source_label or source_id or "unknown source"
                 target_spec = PERFORMANCE_MODIFIER_TARGETS.get(str(raw.get("target_id", "")))
                 target_label = target_spec.label if target_spec else str(raw.get("target_id", ""))
                 depth = float(raw.get("depth", 0.0))
