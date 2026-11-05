@@ -1229,6 +1229,25 @@ class PerformanceControlPanel(QWidget):
                 f"ARMED · waiting for SONATA · AUTO {automation} · "
                 f"{mode['audio_status']}"
             )
+        diagnostics = self.application.performance_diagnostics()
+        osc = diagnostics["osc"]
+        audio = diagnostics["audio"]
+        control_metrics = diagnostics["control"]
+        automation = diagnostics["automation"]
+        self.performance_mode_status_label.setToolTip(
+            f"OSC {osc['status']} · accepted {osc['accepted']} · "
+            f"rejected {osc['rejected']} · dropped {osc['dropped']}\n"
+            f"Audio {audio['state']} · queue {audio['queue_depth']} · "
+            f"dropped {audio['dropped_frames']}\n"
+            f"Routes {control_metrics['enabled_routes']}/{control_metrics['total_routes']} · "
+            f"modulators {control_metrics['active_modulators']}/"
+            f"{control_metrics['modulators']} · layer curves "
+            f"{control_metrics['enabled_layer_modifiers']}/"
+            f"{control_metrics['layer_modifiers']}\n"
+            f"AUTO {automation['style']} / {automation['musical_sync']} · "
+            f"{automation['section']} · energy {automation['energy']:.2f} · "
+            f"cutoff {automation['cutoff']:.2f}"
+        )
         transport = self.application.transport
         control = self.application.performance_control
         if control.source_id == "sonic_pi":
