@@ -762,6 +762,73 @@ class GeneratorsPanel(QWidget):
         if layer is not None:
             self.selected_layer_changed.emit(layer.id)
 
+    def sync_live_modulation(self) -> None:
+        """Reflect live per-layer modifier values without rebuilding text or controls."""
+        layer = self._selected_layer()
+        if layer is None:
+            return
+        if layer.source_type == "overlay":
+            player = self.application._overlay_images.get(layer.id)
+            if player is None or not player.animated:
+                return
+            self.overlay_speed_spin.blockSignals(True)
+            self.overlay_frame_hold_spin.blockSignals(True)
+            self.overlay_speed_spin.setValue(layer.overlay_speed)
+            self.overlay_frame_hold_spin.setValue(layer.overlay_frame_hold)
+            self.overlay_speed_spin.blockSignals(False)
+            self.overlay_frame_hold_spin.blockSignals(False)
+            return
+        if layer.source_type != "generator" or not layer.generator_type:
+            return
+
+        values = normalize_settings(layer.generator_type, layer.generator_settings)
+        updates = []
+        if layer.generator_type == "text":
+            updates.extend((
+                (self.text_animation_speed_slider, round(values["text_animation_speed"] * 100)),
+                (self.text_animation_amount_slider, round(values["text_animation_amount"] * 1000)),
+                (self.text_size_slider, int(values["font_size"])),
+                (self.tracking_slider, round(values["letter_spacing"])),
+            ))
+        elif layer.generator_type == "geometry":
+            updates.append((self.geometry_density_slider, int(values["density"])))
+        elif layer.generator_type == "waveform":
+            updates.extend((
+                (self.amplitude_slider, round(values["amplitude"] * 100)),
+                (self.frequency_slider, round(values["frequency"] * 10)),
+                (self.waveform_density_slider, int(values["density"])),
+            ))
+        elif layer.generator_type == "particles":
+            updates.extend((
+                (self.particle_density_slider, int(values["density"])),
+                (self.particle_speed_slider, round(values["speed"] * 100)),
+                (self.particle_size_slider, round(values["size"] * 100)),
+                (self.particle_spread_slider, round(values["spread"] * 100)),
+                (self.particle_trail_slider, round(values["trail"] * 100)),
+            ))
+
+        updates.append((self.speed_slider, round(values["animation_speed"] * 100)))
+        amount_ranges = {
+            "rotate": 180.0,
+            "pulse": 0.25,
+            "drift": 0.08,
+            "warp": 0.45,
+            "flicker": 1.0,
+            "none": 0.45,
+        }
+        amount_range = amount_ranges.get(str(values["animation"]), 0.45)
+        amount_value = round(
+            max(0.0, min(100.0, float(values["animation_amount"]) / amount_range * 100.0))
+        )
+        updates.append((self.amount_slider, amount_value))
+
+        self._loading = True
+        for slider, value in updates:
+            slider.blockSignals(True)
+            slider.setValue(value)
+            slider.blockSignals(False)
+        self._loading = False
+
     def import_palette(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
             self, "Import Japanese colour palette", "", "Adobe Colour Swatch (*.aco)"
