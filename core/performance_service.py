@@ -1,0 +1,341 @@
+from __future__ import annotations
+
+import time
+from dataclasses import asdict, dataclass, field
+from typing import Any
+
+from core.modulation import ModulationMatrix, ModulationRoute
+from core.modulator_bank import ModulatorBank
+from core.performance_modifiers import LayerPerformanceModifier
+from generators.catalog import normalize_settings
+
+
+@dataclass
+class PerformanceModePlan:
+    """Stable user preferences for an autonomous show; no live worker handles."""
+
+    osc_bind_address: str = "127.0.0.1"
+    osc_port: int = 57121
+    audio_device_id: str = ""
+    audio_test_signal: bool = False
+    start_automation: bool = True
+    automation_duration_seconds: float | None = None
+    automation_settings: dict[str, Any] = field(default_factory=dict)
+    stop_automation_on_patch_stop: bool = True
+    install_default_mappings: bool = True
+
+    def normalize(self) -> None:
+        self.osc_bind_address = str(self.osc_bind_address).strip() or "127.0.0.1"
+        self.osc_port = max(1024, min(65535, int(self.osc_port)))
+        self.audio_device_id = str(self.audio_device_id).strip()
+        self.audio_test_signal = bool(self.audio_test_signal)
+        self.start_automation = bool(self.start_automation)
+        self.stop_automation_on_patch_stop = bool(self.stop_automation_on_patch_stop)
+        self.install_default_mappings = bool(self.install_default_mappings)
+        if self.automation_duration_seconds is not None:
+            self.automation_duration_seconds = max(
+                1.0, float(self.automation_duration_seconds)
+            )
+
+    def to_dict(self) -> dict[str, Any]:
+        self.normalize()
+        return asdict(self)
+
+
+@dataclass
+class PerformanceModeSnapshot:
+    enabled: bool = False
+    phase: str = "off"
+    started_at: float = 0.0
+    last_event_at: float = 0.0
+    last_event: str = ""
+    source_session: str = ""
+    automation_armed: bool = False
+    automation_running: bool = False
+    osc_owned: bool = False
+    audio_owned: bool = False
+    audio_status: str = "disabled"
+    error: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+class PerformanceModeService:
+    """Small state machine for the one-button live-performance lifecycle."""
+
+    def __init__(self) -> None:
+        self.snapshot_state = PerformanceModeSnapshot()
+        self.plan = PerformanceModePlan()
+
+    @property
+    def enabled(self) -> bool:
+        return self.snapshot_state.enabled
+
+    def begin(self, plan: PerformanceModePlan) -> None:
+        if self.enabled:
+            raise RuntimeError("Performance Mode is already enabled.")
+        plan.normalize()
+        self.plan = plan
+        self.snapshot_state = PerformanceModeSnapshot(
+            enabled=True,
+            phase="arming",
+            started_at=time.monotonic(),
+            automation_armed=plan.start_automation,
+            audio_status="starting" if plan.audio_device_id or plan.audio_test_signal else "disabled",
+        )
+
+    def mark_armed(self, *, osc_owned: bool, audio_owned: bool, audio_status: str) -> None:
+        state = self.snapshot_state
+        state.osc_owned = bool(osc_owned)
+        state.audio_owned = bool(audio_owned)
+        state.audio_status = str(audio_status)
+        state.phase = "waiting_for_sonic_pi"
+        state.last_event = "performance_mode.armed"
+        state.last_event_at = time.monotonic()
+
+    def mark_live(self, event: str, session_id: str = "") -> None:
+        state = self.snapshot_state
+        state.phase = "live"
+        state.last_event = str(event)
+        state.last_event_at = time.monotonic()
+        if session_id:
+            state.source_session = str(session_id)
+        state.error = ""
+
+    def mark_waiting(self, event: str, error: str = "") -> None:
+        state = self.snapshot_state
+        if state.enabled:
+            state.phase = "waiting_for_sonic_pi"
+        state.last_event = str(event)
+        state.last_event_at = time.monotonic()
+        state.error = str(error)
+
+    def mark_degraded(self, event: str, error: str) -> None:
+        state = self.snapshot_state
+        if state.enabled:
+            state.phase = "degraded"
+        state.last_event = str(event)
+        state.last_event_at = time.monotonic()
+        state.error = str(error)
+
+    def set_automation_armed(self, armed: bool, running: bool = False) -> None:
+        self.snapshot_state.automation_armed = bool(armed)
+        self.snapshot_state.automation_running = bool(running)
+
+    def note_event(self, event: str, session_id: str = "") -> None:
+        state = self.snapshot_state
+        state.last_event = str(event)
+        state.last_event_at = time.monotonic()
+        if session_id:
+            state.source_session = str(session_id)
+
+    def stop(self) -> PerformanceModeSnapshot:
+        previous = self.snapshot_state
+        stopped = PerformanceModeSnapshot(
+            enabled=False,
+            phase="off",
+            last_event="performance_mode.stopped",
+            last_event_at=time.monotonic(),
+            audio_status="stopped",
+        )
+        self.snapshot_state = stopped
+        return previous
+
+    def snapshot(self) -> dict[str, Any]:
+        value = self.snapshot_state.to_dict()
+        value["plan"] = self.plan.to_dict()
+        return value
+
+
+# The global matrix handles master-output and AUTO PERFORMANCE parameters. Layer
+# domains use the same LayerPerformanceModifier engine used by authored modifiers.
+DEFAULT_MATRIX_ROUTES: tuple[tuple[str, str, float, float, bool, float], ...] = (
+    ("macro.energy", "master.glitch", 0.0, 0.58, False, 0.62),
+    ("macro.cutoff", "master.saturation", 0.55, 1.65, False, 0.82),
+    ("audio.low", "master.contrast", 0.78, 1.32, False, 0.7),
+    ("audio.high", "master.grain", 0.0, 0.48, False, 0.55),
+    ("macro.energy", "automation.clip_switch_probability", 0.12, 0.82, False, 0.78),
+    ("macro.cutoff", "automation.cut_interval", 24.0, 3.0, False, 0.72),
+    ("transport.intensity", "automation.layout_interval", 34.0, 7.0, False, 0.68),
+    ("audio.onset", "automation.generator_interval", 36.0, 9.0, True, 0.55),
+)
+
+
+DEFAULT_MODULATORS: tuple[tuple[str, str], ...] = (
+    ("follower-sonic-pi-energy", "AUTO · Sonic Pi energy"),
+    ("follower-sonic-pi-cutoff", "AUTO · Sonic Pi cutoff"),
+    ("env-beat-pluck", "AUTO · Beat envelope"),
+    ("env-audio-onset", "AUTO · Audio onset"),
+    ("lfo-sine-swell", "AUTO · Phrase swell"),
+)
+
+
+def install_default_matrix_routes(matrix: ModulationMatrix) -> int:
+    """Add missing autonomous routes while preserving every existing custom route."""
+    existing_targets = {route.target_id for route in matrix.routes}
+    added = 0
+    for source, target, low, high, inverted, ceiling in DEFAULT_MATRIX_ROUTES:
+        if target in existing_targets:
+            continue
+        route = ModulationRoute(
+            route_id=f"auto-performance-{target.replace('.', '-')}",
+            source_id=source,
+            target_id=target,
+            input_min=0.0,
+            input_max=1.0,
+            output_min=low,
+            output_max=high,
+            curve="smoothstep",
+            inverted=inverted,
+            smoothing_ms=120.0,
+            attack_ms=45.0,
+            release_ms=420.0,
+            hold_ms=180.0,
+            intensity_ceiling=ceiling,
+            enabled=True,
+        )
+        matrix.add_route(route)
+        existing_targets.add(target)
+        added += 1
+    return added
+
+
+def install_default_modulators(bank: ModulatorBank) -> dict[str, str]:
+    """Ensure the reusable followers, beat/onset envelopes and phrase LFO exist."""
+    result: dict[str, str] = {}
+    by_name = {item.name: item for item in bank.list_modulators()}
+    for preset_id, name in DEFAULT_MODULATORS:
+        existing = by_name.get(name)
+        if existing is not None:
+            result[preset_id] = existing.modulator_id
+            continue
+        item = bank.instantiate_preset(preset_id)
+        item.name = name
+        bank.update(item)
+        result[preset_id] = item.modulator_id
+        by_name[name] = item
+    return result
+
+
+def _modifier(
+        name: str,
+        source_id: str,
+        target_id: str,
+        depth: float,
+        curve: str = "smoothstep",
+        attack_ms: float = 35.0,
+        release_ms: float = 300.0,
+) -> LayerPerformanceModifier:
+    return LayerPerformanceModifier(
+        modifier_id=f"auto-{source_id.removeprefix('modulator.').replace('.', '-')}-{target_id.replace('.', '-')}"[:40],
+        name=f"AUTO · {name}",
+        source_id=source_id,
+        target_id=target_id,
+        depth=depth,
+        polarity="positive",
+        curve=curve,
+        attack_ms=attack_ms,
+        release_ms=release_ms,
+        enabled=True,
+    )
+
+
+def install_default_layer_modifiers(
+        layers: list[object],
+        modulator_ids: dict[str, str],
+) -> int:
+    """Register shared Sonic Pi/audio/transport curves on every compatible layer."""
+    energy = f"modulator.{modulator_ids['follower-sonic-pi-energy']}"
+    cutoff = f"modulator.{modulator_ids['follower-sonic-pi-cutoff']}"
+    beat = f"modulator.{modulator_ids['env-beat-pluck']}"
+    onset = f"modulator.{modulator_ids['env-audio-onset']}"
+    swell = f"modulator.{modulator_ids['lfo-sine-swell']}"
+    count = 0
+
+    for layer in layers:
+        if getattr(layer, "locked", False):
+            continue
+        configured = getattr(layer, "performance_modifiers", None)
+        if not isinstance(configured, list):
+            continue
+        existing = {
+            (str(raw.get("source_id", "")), str(raw.get("target_id", "")))
+            for raw in configured if isinstance(raw, dict)
+        }
+        candidates: list[LayerPerformanceModifier] = []
+
+        if layer.source_type == "video":
+            candidates.extend((
+                _modifier("downbeat opacity", "transport.beat_pulse",
+                          "layer.opacity", 0.10, "exponential", 8.0, 180.0),
+                _modifier("bass scale", "audio.low", "layer.scale", 0.08),
+                _modifier("energy rotation", energy, "layer.rotation", 0.035),
+            ))
+        elif layer.source_type == "generator" and layer.generator_type:
+            settings = normalize_settings(layer.generator_type, layer.generator_settings)
+            kind = layer.generator_type
+            if kind == "geometry":
+                candidates.extend((
+                    _modifier("energy deformation", energy, "generator.animation_amount", 0.10),
+                    _modifier("cutoff motion", cutoff, "generator.animation_speed", 0.12),
+                    _modifier("beat rotation", beat, "generator.rotation", 0.055, "exponential", 8.0, 220.0),
+                    _modifier("phrase density", swell, "generator.density", 0.035),
+                ))
+            elif kind == "text":
+                candidates.extend((
+                    _modifier("energy typography", energy, "generator.text_animation_amount", 0.24),
+                    _modifier("cutoff type speed", cutoff, "generator.text_animation_speed", 0.16),
+                    _modifier("phrase type scale", swell, "generator.font_size", 0.035),
+                    _modifier("onset tracking", onset, "generator.letter_spacing", 0.12, "exponential", 5.0, 240.0),
+                ))
+            elif kind == "waveform":
+                candidates.extend((
+                    _modifier("bass amplitude", "audio.low", "generator.waveform_amplitude", 0.30, "exponential", 8.0, 220.0),
+                    _modifier("cutoff frequency", cutoff, "generator.waveform_frequency", 0.18),
+                    _modifier("beat amplitude", beat, "generator.waveform_amplitude", 0.16, "exponential", 5.0, 180.0),
+                ))
+            elif kind == "particles":
+                candidates.extend((
+                    _modifier("energy particle speed", energy, "generator.particle_speed", 0.24),
+                    _modifier("onset particle size", onset, "generator.particle_size", 0.18, "exponential", 5.0, 160.0),
+                    _modifier("beat trails", beat, "generator.particle_trail", 0.22, "exponential", 5.0, 200.0),
+                    _modifier("phrase spread", swell, "generator.particle_spread", 0.10),
+                ))
+            else:
+                settings = {}
+            available = {
+                "generator.animation_speed": "animation_speed",
+                "generator.animation_amount": "animation_amount",
+                "generator.density": "density",
+                "generator.rotation": "rotation",
+                "generator.text_animation_speed": "text_animation_speed",
+                "generator.text_animation_amount": "text_animation_amount",
+                "generator.font_size": "font_size",
+                "generator.letter_spacing": "letter_spacing",
+                "generator.waveform_amplitude": "amplitude",
+                "generator.waveform_frequency": "frequency",
+                "generator.particle_speed": "speed",
+                "generator.particle_size": "size",
+                "generator.particle_spread": "spread",
+                "generator.particle_trail": "trail",
+            }
+            candidates = [
+                item for item in candidates
+                if available.get(item.target_id) in settings
+            ]
+        elif layer.source_type == "overlay":
+            candidates.extend((
+                _modifier("overlay rate", energy, "overlay.playback_speed", 0.18),
+                _modifier("overlay frame pulse", beat, "overlay.frame_hold", 0.22, "exponential", 5.0, 180.0),
+            ))
+
+        for item in candidates:
+            item.normalize()
+            key = (item.source_id, item.target_id)
+            if key in existing:
+                continue
+            configured.append(item.to_dict())
+            existing.add(key)
+            count += 1
+    return count
