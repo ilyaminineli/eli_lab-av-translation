@@ -5,8 +5,11 @@ import json
 import pytest
 
 from core.performance_environment import (
-    MIDIMapping, MIDIMappingEngine, PerformanceScene,
-    PerformanceSetStore, SceneMorph,
+    MIDIMapping,
+    MIDIMappingEngine,
+    PerformanceScene,
+    PerformanceSetStore,
+    SceneMorph,
 )
 
 
@@ -69,18 +72,18 @@ def test_performance_set_load_rejects_wrong_format(tmp_path) -> None:
         PerformanceSetStore.load(path)
 
 
-def test_save_performance_set_keeps_layer_modifier_baseline_without_mutating_live_layer(tmp_path) -> None:
+def test_set_save_preserves_baseline_without_mutating_live_layer(tmp_path) -> None:
     from types import SimpleNamespace
 
     from core.application import Application
-    from core.composition import Composition, Layer
-    from core.performance_modifiers import LayerPerformanceModifierEngine
-    from core.scene_profiles import SceneProfileRegistry
-    from core.modulator_bank import ModulatorBank
-    from core.modulation import ModulationMatrix
     from core.automation import AutomationDirector
+    from core.composition import Composition, Layer
+    from core.modulation import ModulationMatrix
+    from core.modulator_bank import ModulatorBank
+    from core.performance_modifiers import LayerPerformanceModifierEngine
     from core.performance_transport import InternalTransport
     from core.project_manager import ProjectManager
+    from core.scene_profiles import SceneProfileRegistry
     from effects.settings import EffectSettings
 
     layer = Layer(
@@ -117,6 +120,7 @@ def test_save_performance_set_keeps_layer_modifier_baseline_without_mutating_liv
 
 def test_midi_input_service_queue_is_bounded_and_drain_is_deferred() -> None:
     from types import SimpleNamespace
+
     from core.performance_environment import MIDIInputService
 
     seen = []
