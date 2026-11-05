@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 
 from config import APP_VERSION
 from core.application import Application
+from core.performance_service import PerformanceModePlan
 from ui.asset_library_panel import AssetLibraryPanel
 from ui.automation_panel import AutomationPanel
 from ui.deck_panel import DeckPanel
@@ -116,6 +117,14 @@ class MainWindow(QMainWindow):
         toolbar.setObjectName("performance_toolbar")
         toolbar.setMovable(False)
         toolbar.addWidget(self.transport_bar)
+        self.performance_mode_button = QPushButton("▶ PERFORMANCE MODE")
+        self.performance_mode_button.setCheckable(True)
+        self.performance_mode_button.setToolTip(
+            "Arm Sonic Pi OSC, system-loopback audio, AUTO PERFORMANCE and "
+            "the saved modulation curves. Then run SONATA Expanded in Sonic Pi."
+        )
+        self.performance_mode_button.toggled.connect(self._toggle_performance_mode)
+        toolbar.addWidget(self.performance_mode_button)
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, toolbar)
 
         self.control_status_label = QLabel(
@@ -367,6 +376,78 @@ class MainWindow(QMainWindow):
         about_action.triggered.connect(self.show_about)
         help_menu.addAction(about_action)
 
+    def _toggle_performance_mode(self, enabled: bool) -> None:
+        if not enabled:
+            try:
+                self.application.stop_performance_mode()
+            except Exception as exc:
+                _LOG.exception("Could not stop Performance Mode")
+                QMessageBox.warning(self, "Performance Mode", str(exc))
+            self.performance_mode_button.setText("▶ PERFORMANCE MODE")
+            self.performance_control_panel.refresh_monitor()
+            self.statusBar().showMessage("Performance Mode stopped.", 5000)
+            return
+
+        try:
+            audio_source = self.performance_control_panel.audio_device_combo.currentData()
+            audio_test_signal = audio_source == "test"
+            audio_device_id = (
+                str(audio_source)
+                if audio_source not in {None, "test"}
+                else ""
+            )
+            settings = self.automation_panel._build_settings()
+            duration = self.automation_panel.duration_combo.currentData()
+            plan = PerformanceModePlan(
+                osc_bind_address=(
+                    self.performance_control_panel.osc_bind_edit.text().strip()
+                    or "127.0.0.1"
+                ),
+                osc_port=self.performance_control_panel.osc_port_spin.value(),
+                audio_device_id=audio_device_id,
+                audio_test_signal=audio_test_signal,
+                start_automation=True,
+                automation_duration_seconds=duration,
+                automation_settings=settings.to_dict(),
+                stop_automation_on_patch_stop=True,
+                install_default_mappings=True,
+            )
+            state = self.application.start_performance_mode(plan)
+            receiver = self.application.osc_receiver.snapshot()
+            if receiver["running"]:
+                self.performance_control_panel.osc_port_spin.setValue(
+                    int(receiver["port"])
+                )
+            self.performance_mode_button.setText("■ STOP PERFORMANCE MODE")
+            self.performance_control_panel.refresh_monitor()
+            self.statusBar().showMessage(
+                "Performance Mode armed · run SONATA Expanded in Sonic Pi. "
+                "AUTO PERFORMANCE starts on transport/start or the first clock/bar.",
+                9000,
+            )
+            if state["phase"] == "degraded":
+                self.statusBar().showMessage(
+                    f"Performance Mode degraded · {state['error']}",
+                    10000,
+                )
+        except Exception as exc:
+            _LOG.exception("Could not start Performance Mode")
+            self.application.stop_performance_mode()
+            self.performance_mode_button.blockSignals(True)
+            self.performance_mode_button.setChecked(False)
+            self.performance_mode_button.blockSignals(False)
+            self.performance_mode_button.setText("▶ PERFORMANCE MODE")
+            QMessageBox.critical(self, "Performance Mode could not start", str(exc))
+
+    def _sync_performance_mode_button(self) -> None:
+        enabled = self.application.performance_mode_snapshot()["enabled"]
+        self.performance_mode_button.blockSignals(True)
+        self.performance_mode_button.setChecked(enabled)
+        self.performance_mode_button.blockSignals(False)
+        self.performance_mode_button.setText(
+            "■ STOP PERFORMANCE MODE" if enabled else "▶ PERFORMANCE MODE"
+        )
+
     def save_performance_set(self) -> None:
         path, _ = QFileDialog.getSaveFileName(
             self, "Save Performance Set", "performance.eliset",
@@ -392,6 +473,7 @@ class MainWindow(QMainWindow):
             return
         try:
             self.application.load_performance_set(path)
+            self._sync_performance_mode_button()
         except Exception as exc:
             QMessageBox.critical(self, "Could Not Load Performance Set", str(exc))
             return
@@ -619,6 +701,19 @@ class MainWindow(QMainWindow):
                 False,
                 self.application.automation.last_action,
             )
+        mode = self.application.performance_mode_snapshot()
+        if mode["enabled"] != self.performance_mode_button.isChecked():
+            self._sync_performance_mode_button()
+        if mode["enabled"]:
+            phase = mode["phase"].upper()
+            self.performance_mode_button.setText(f"■ STOP PERFORMANCE MODE · {phase}")
+            self.performance_mode_button.setToolTip(
+                f"Phase: {mode['phase']}\n"
+                f"Automation: {'running' if mode['automation_running'] else 'armed' if mode['automation_armed'] else 'idle'}\n"
+                f"Audio: {mode['audio_status']}\n"
+                f"Last event: {mode['last_event']}\n"
+                f"Error: {mode['error'] or 'none'}"
+            )
 
     def _refresh_automation_status(self) -> None:
         director = self.application.automation
@@ -642,6 +737,7 @@ class MainWindow(QMainWindow):
         if answer != QMessageBox.StandardButton.Yes:
             return
         self.application.reset_project()
+        self._sync_performance_mode_button()
         self.performance_control_panel.sync_from_application()
         self.deck_panel.refresh()
         self.layer_panel.refresh()
@@ -666,6 +762,7 @@ class MainWindow(QMainWindow):
             return
         try:
             self.application.load_project(path)
+            self._sync_performance_mode_button()
             self.performance_control_panel.sync_from_application()
             self.deck_panel.refresh()
             self.layer_panel.refresh()
