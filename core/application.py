@@ -1319,7 +1319,11 @@ class Application:
         selected = self.composition.get_layer(self._selected_layer_id or "")
         claimed = {
             target_id
-            for target_id in self.performance_modifier_engine.claimed_targets(selected, now=now)
+            for target_id in self.performance_modifier_engine.claimed_targets(
+                selected,
+                now=now,
+                available_sources=set(sources),
+            )
             if selected is not None
             and self._get_layer_modifier_target(selected.id, target_id) is not None
         }
