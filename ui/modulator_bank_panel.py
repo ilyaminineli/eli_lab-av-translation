@@ -285,10 +285,13 @@ class ModulatorBankPanel(QWidget):
 
         output_group = QGroupBox("LIVE OUTPUT")
         output_layout = QVBoxLayout(output_group)
+        self.input_live_label = QLabel("INPUT · —")
+        self.input_live_label.setObjectName("mutedLabel")
         self.output_label = QLabel("OUTPUT · 0.50")
         self.output_meter = QProgressBar()
         self.output_meter.setRange(0, 100)
         self.output_meter.setFormat("%p%")
+        output_layout.addWidget(self.input_live_label)
         output_layout.addWidget(self.output_label)
         output_layout.addWidget(self.output_meter)
         root.addWidget(output_group)
@@ -885,9 +888,27 @@ class ModulatorBankPanel(QWidget):
     def refresh_live(self) -> None:
         definition = self._selected_definition()
         if definition is None:
+            self.input_live_label.setText("INPUT · —")
             self.output_label.setText("OUTPUT · —")
             self.output_meter.setValue(0)
             return
+        if definition.kind == "follower":
+            input_value = self.application._modulation_sources().get(
+                definition.input_source
+            )
+            input_name = FOLLOWER_SOURCES.get(
+                definition.input_source, definition.input_source
+            )
+            if input_value is None:
+                self.input_live_label.setText(
+                    f"INPUT · {input_name} · NO SIGNAL"
+                )
+            else:
+                self.input_live_label.setText(
+                    f"INPUT · {input_name} · {float(input_value):.3f}"
+                )
+        else:
+            self.input_live_label.setText("INPUT · INTERNAL TIMING / TRIGGER")
         live_values = self.application.modulator_bank_engine.live_values()
         source_id = f"modulator.{definition.modulator_id}"
         is_bypassed = not definition.enabled
