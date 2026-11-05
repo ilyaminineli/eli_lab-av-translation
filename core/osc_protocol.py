@@ -167,10 +167,6 @@ class OSCProtocolAdapter:
             return event
 
 
-class _RecoverableOSCUDPServer:
-    """Marker base kept separate so the optional OSC dependency stays lazy."""
-
-
 class OSCReceiver:
     """Single-worker UDP OSC receiver that only submits ControlEvents to a bounded queue."""
 
@@ -188,6 +184,7 @@ class OSCReceiver:
         self._lock = threading.RLock()
         self._server = None
         self._thread: threading.Thread | None = None
+        self._stop_event = threading.Event()
         self._running = False
         self._bind_address = "127.0.0.1"
         self._port = 57121
@@ -229,7 +226,8 @@ class OSCReceiver:
                     valid = super().verify_request(request, client_address)
                     if not valid:
                         receiver._record_invalid()
-                    return valid
+                        return False
+                    return receiver._rate_allowed(time.monotonic())
 
                 def handle_error(self, request, client_address):
                     receiver._record_invalid()
@@ -240,6 +238,7 @@ class OSCReceiver:
             self._bind_address = str(parsed)
             self._port = int(server.server_address[1])
             self._last_error = ""
+            self._stop_event.clear()
             self._running = True
             self._thread = threading.Thread(
                 target=self._serve,
@@ -254,7 +253,14 @@ class OSCReceiver:
             server = self._server
         try:
             if server is not None:
-                server.serve_forever(poll_interval=0.05)
+                server.timeout = 0.1
+                while not self._stop_event.is_set():
+                    try:
+                        server.handle_request()
+                    except OSError:
+                        if self._stop_event.is_set():
+                            break
+                        raise
         except Exception as exc:  # keep network faults away from the render/UI thread
             with self._lock:
                 self._last_error = str(exc)
@@ -270,7 +276,7 @@ class OSCReceiver:
             if server is None:
                 self._running = False
                 return False
-        server.shutdown()
+        self._stop_event.set()
         server.server_close()
         if thread is not None and thread is not threading.current_thread():
             thread.join(timeout=1.0)
@@ -300,8 +306,6 @@ class OSCReceiver:
             self._received += 1
             self._last_message_at = now
             self._last_address = str(address)
-        if not self._rate_allowed(now):
-            return
         try:
             event = self.adapter.decode(address, args)
         except (TypeError, ValueError, OverflowError) as exc:
