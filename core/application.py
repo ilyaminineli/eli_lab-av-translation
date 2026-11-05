@@ -17,6 +17,11 @@ from core.modulation import TARGET_SPECS, ModulationMatrix
 from core.osc_protocol import OSCReceiver
 from core.performance_control import ControlEvent, ControlEventQueue, PerformanceControlState
 from core.performance_manager import PerformanceManager
+from core.modulator_bank import (
+    ModulatorBank,
+    ModulatorBankEngine,
+    ModulatorDefinition,
+)
 from core.performance_modifiers import (
     LayerPerformanceModifier,
     LayerPerformanceModifierEngine,
@@ -73,6 +78,8 @@ class Application:
         self._external_clock_bar_at: float | None = None
         self.scene_profiles = SceneProfileRegistry()
         self.modulation = ModulationMatrix()
+        self.modulator_bank = ModulatorBank()
+        self.modulator_bank_engine = ModulatorBankEngine()
         self.performance_modifier_engine = LayerPerformanceModifierEngine()
         self.audio_capture = AudioCaptureService()
         self._audio_sources: dict[str, float] = {}
@@ -288,6 +295,8 @@ class Application:
             "phrase_bars": 4,
         })
         self.modulation.load_dict([])
+        self.modulator_bank = ModulatorBank()
+        self.modulator_bank_engine.reset()
         self.performance_modifier_engine.reset()
         self.scene_profiles = SceneProfileRegistry()
         self.audio_capture.stop()
@@ -735,6 +744,20 @@ class Application:
         )
         phrase_pulse = beat_pulse if phrase_start else 0.0
 
+        if clock_active:
+            beat_position = (
+                max(0, bar_index - 1) * beats_per_bar
+                + beat_index
+                + beat_phase
+            )
+        else:
+            beat_position = 0.0
+        values["transport.running"] = 1.0 if clock_active else 0.0
+        values["transport.beat_position"] = beat_position
+        values["transport.beats_per_bar"] = float(beats_per_bar)
+        values["transport.phrase_beats"] = float(
+            max(1, phrase_bars) * max(1, beats_per_bar)
+        )
         values["transport.phase"] = beat_phase
         values["transport.bar_phase"] = bar_phase
         values["transport.beat_pulse"] = beat_pulse
@@ -911,6 +934,84 @@ class Application:
 
     def layer_performance_modifier_values(self, layer_id: str) -> dict[str, float]:
         return self.performance_modifier_engine.live_values(layer_id)
+
+    def add_modulator(self, definition: ModulatorDefinition) -> str:
+        modulator_id = self.modulator_bank.add(definition)
+        self.events.publish(
+            "performance.modulator_bank.updated",
+            modulator_id=modulator_id,
+        )
+        return modulator_id
+
+    def update_modulator(self, definition: ModulatorDefinition) -> None:
+        self.modulator_bank.update(definition)
+        self.modulator_bank_engine.reset_modulator(definition.modulator_id)
+        self.events.publish(
+            "performance.modulator_bank.updated",
+            modulator_id=definition.modulator_id,
+        )
+
+    def remove_modulator(self, modulator_id: str) -> bool:
+        source_id = f"modulator.{modulator_id}"
+        removed = self.modulator_bank.remove(modulator_id)
+        if not removed:
+            return False
+        for layer in self.composition.layers:
+            before = len(layer.performance_modifiers)
+            layer.performance_modifiers = [
+                raw for raw in layer.performance_modifiers
+                if str(raw.get("source_id", "")) != source_id
+            ]
+            if len(layer.performance_modifiers) != before:
+                self.events.publish(
+                    "layer.performance_modifiers.updated",
+                    layer_id=layer.id,
+                    modulator_removed=modulator_id,
+                )
+        self.modulator_bank_engine.reset_modulator(modulator_id)
+        self.events.publish(
+            "performance.modulator_bank.updated",
+            modulator_id=modulator_id,
+        )
+        return True
+
+    def duplicate_modulator(self, modulator_id: str) -> str:
+        definition = self.modulator_bank.duplicate(modulator_id)
+        self.events.publish(
+            "performance.modulator_bank.updated",
+            modulator_id=definition.modulator_id,
+        )
+        return definition.modulator_id
+
+    def create_modulator_from_preset(self, preset_id: str) -> str:
+        definition = self.modulator_bank.instantiate_preset(preset_id)
+        self.events.publish(
+            "performance.modulator_bank.updated",
+            modulator_id=definition.modulator_id,
+        )
+        return definition.modulator_id
+
+    def apply_modulator_preset(
+            self,
+            modulator_id: str,
+            name: str,
+            description: str = "",
+    ) -> str:
+        preset_id = self.modulator_bank.save_preset(
+            modulator_id, name, description
+        )
+        self.events.publish(
+            "performance.modulator_bank.updated",
+            modulator_id=modulator_id,
+            preset_id=preset_id,
+        )
+        return preset_id
+
+    def delete_modulator_preset(self, preset_id: str) -> bool:
+        removed = self.modulator_bank.delete_preset(preset_id)
+        if removed:
+            self.events.publish("performance.modulator_bank.updated")
+        return removed
 
     def apply_layer_performance_modifiers(
             self,
@@ -1208,6 +1309,13 @@ class Application:
     def apply_modulation(self) -> dict[str, float]:
         now = time.monotonic()
         sources = self._modulation_sources()
+        sources.update(
+            self.modulator_bank_engine.evaluate(
+                self.modulator_bank,
+                sources,
+                now=now,
+            )
+        )
         selected = self.composition.get_layer(self._selected_layer_id or "")
         claimed = {
             target_id
@@ -1331,6 +1439,7 @@ class Application:
                 "audio_analysis": self.audio_capture.settings.to_dict(),
                 "modulation_routes": self.modulation.to_dict(),
                 "scene_profiles": self.scene_profiles.to_dict(),
+                "modulator_bank": self.modulator_bank.to_dict(),
             },
         }
         composition_snapshot = Composition.from_dict(self.composition.to_dict())
@@ -1504,6 +1613,8 @@ class Application:
         self._audio_sources.clear()
         self._latest_audio_frame = None
         self.modulation.reset_runtime()
+        self.modulator_bank = ModulatorBank()
+        self.modulator_bank_engine.reset()
         self.performance_modifier_engine.reset()
         self._modulation_base_values.clear()
         performance_settings = app_state.get("performance_settings", {})
@@ -1519,6 +1630,9 @@ class Application:
                 self.update_audio_analysis_settings(AudioAnalysisSettings(**audio_values))
             self.modulation.load_dict(performance_settings.get("modulation_routes", []))
             self.scene_profiles.load_dict(performance_settings.get("scene_profiles", []))
+            self.modulator_bank.load_dict(
+                performance_settings.get("modulator_bank", {})
+            )
         self.performance_control.bpm = self.transport.bpm
         self.performance_control.beats_per_bar = self.transport.beats_per_bar
         if isinstance(app_state.get("effects"), dict):
