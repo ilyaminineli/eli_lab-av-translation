@@ -453,8 +453,7 @@ class LayerPanel(QWidget):
         if layer is not None:
             self.selected_layer_changed.emit(layer.id)
 
-    @staticmethod
-    def _modifier_targets_for_layer(layer) -> list[str]:
+    def _modifier_targets_for_layer(self, layer) -> list[str]:
         targets = [
             target_id for target_id, spec in PERFORMANCE_MODIFIER_TARGETS.items()
             if spec.category == "layer"
@@ -481,10 +480,12 @@ class LayerPanel(QWidget):
             }
             targets.extend(sorted(fields.get(layer.generator_type, set())))
         elif layer.source_type == "overlay":
-            targets.extend(
-                target_id for target_id, spec in PERFORMANCE_MODIFIER_TARGETS.items()
-                if spec.category == "overlay"
-            )
+            player = self.application._overlay_images.get(layer.id)
+            if player is not None and player.animated:
+                targets.extend(
+                    target_id for target_id, spec in PERFORMANCE_MODIFIER_TARGETS.items()
+                    if spec.category == "overlay"
+                )
         return targets
 
     def _sync_performance_modifier_targets(self, layer) -> None:
@@ -516,8 +517,7 @@ class LayerPanel(QWidget):
         ):
             button.setEnabled(not layer.locked)
 
-    @staticmethod
-    def _default_modifier_target(layer) -> str:
+    def _default_modifier_target(self, layer) -> str:
         if layer.source_type == "generator":
             return {
                 "geometry": "generator.animation_amount",
@@ -526,7 +526,11 @@ class LayerPanel(QWidget):
                 "particles": "generator.particle_size",
             }.get(layer.generator_type, "layer.opacity")
         if layer.source_type == "overlay":
-            return "overlay.playback_speed"
+            return (
+                "overlay.playback_speed"
+                if self.modifier_target_combo.findData("overlay.playback_speed") >= 0
+                else "layer.opacity"
+            )
         return "layer.scale"
 
     def _add_performance_modifier(self) -> None:
