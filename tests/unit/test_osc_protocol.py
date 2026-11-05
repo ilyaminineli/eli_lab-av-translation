@@ -318,3 +318,35 @@ def test_sonic_pi_macro_events_feed_existing_m3_modulation_sources() -> None:
     sources = application._modulation_sources()
     assert sources["macro.energy"] == 0.74
     assert sources["macro.cutoff"] == 0.38
+
+def test_sonic_pi_bar_takes_clock_authority_when_start_packet_was_lost() -> None:
+    from core.application import Application
+    from core.event_bus import EventBus
+    from core.performance_control import ControlEvent, ControlEventQueue, PerformanceControlState
+    from core.performance_transport import InternalTransport
+
+    application = Application.__new__(Application)
+    application.events = EventBus()
+    application.control_events = ControlEventQueue()
+    application.performance_control = PerformanceControlState()
+    application.transport = InternalTransport(bpm=120.0, beats_per_bar=4)
+    application.transport.start()
+    application._external_clock_bar_at = None
+
+    # The transport/start datagram is assumed lost; the first accepted packet is bar 1.
+    assert application.submit_control_event(ControlEvent(
+        "clock.bar",
+        "sonic_pi",
+        {"bar_index": 1, "bpm": 92.0, "beats_per_bar": 4},
+        sequence=2,
+        session_id="lost-start-session",
+    ))
+
+    assert application.process_control_events() == 1
+    assert application.transport.running is False
+    assert application.performance_control.transport_running is True
+    assert application.performance_control.source_id == "sonic_pi"
+    assert application.performance_control.bpm == 92.0
+    assert application.performance_control.bar_index == 1
+    assert application._external_clock_bar_at is not None
+
