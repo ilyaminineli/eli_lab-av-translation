@@ -497,7 +497,15 @@ class Application:
         )
 
     def set_selected_layer_id(self, layer_id: str | None) -> None:
-        self._selected_layer_id = layer_id or None
+        next_id = layer_id or None
+        if next_id == self._selected_layer_id:
+            return
+        for target_id in ("selected_layer.opacity", "selected_layer.rotation"):
+            base = self._modulation_base_values.pop(target_id, None)
+            if base is not None:
+                self._set_modulation_target(target_id, base)
+            self.modulation.manual_override(target_id, 0.25)
+        self._selected_layer_id = next_id
 
     def start_audio_capture(self, device_id: str | None = None, test_signal: bool = False) -> None:
         if test_signal:
@@ -749,6 +757,10 @@ class Application:
         composition, deck_states = self.project_manager.load(path)
         self.control_events.clear()
         self.performance_control.reset()
+        self.transport.stop()
+        self.scene_profiles = SceneProfileRegistry()
+        self.modulation.reset_runtime()
+        self._modulation_base_values.clear()
         self.automation.stop()
         self._clear_overlays()
         for deck in self.decks.values():
