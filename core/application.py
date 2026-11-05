@@ -585,14 +585,29 @@ class Application:
                 plan.osc_bind_address = str(receiver["bind_address"])
                 plan.osc_port = int(receiver["port"])
 
-            if plan.audio_test_signal or plan.audio_device_id:
+            audio_device_id = plan.audio_device_id
+            if not audio_device_id and plan.prefer_loopback and not plan.audio_test_signal:
+                try:
+                    audio_device_id = next(
+                        (
+                            device.id
+                            for device in self.audio_capture.list_devices()
+                            if device.is_loopback
+                        ),
+                        "",
+                    )
+                    if audio_device_id:
+                        plan.audio_device_id = audio_device_id
+                except Exception:
+                    audio_device_id = ""
+            if plan.audio_test_signal or audio_device_id:
                 capture_state = self.audio_capture.state.value
                 if capture_state in {"running", "starting"}:
                     audio_status = f"already active · {self.audio_capture.selected_device_name}"
                 else:
                     try:
                         self.start_audio_capture(
-                            device_id=plan.audio_device_id or None,
+                            device_id=audio_device_id or None,
                             test_signal=plan.audio_test_signal,
                         )
                         audio_owned = True
