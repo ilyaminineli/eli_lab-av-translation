@@ -141,7 +141,11 @@ def test_receiver_recovers_after_invalid_datagram_and_counts_queue_drops() -> No
 def test_sonic_pi_start_takes_authority_from_internal_test_clock() -> None:
     from core.application import Application
     from core.event_bus import EventBus
-    from core.performance_control import ControlEvent, ControlEventQueue, PerformanceControlState
+    from core.performance_control import (
+        ControlEvent,
+        ControlEventQueue,
+        PerformanceControlState,
+    )
     from core.performance_transport import InternalTransport
 
     application = Application.__new__(Application)
@@ -165,3 +169,20 @@ def test_sonic_pi_start_takes_authority_from_internal_test_clock() -> None:
     assert application.performance_control.transport_running is True
     assert application.performance_control.bpm == 92.0
     assert application.performance_control.beats_per_bar == 4
+
+
+def test_sonic_pi_clock_drives_m3_transport_phase_modulation_source() -> None:
+    from core.application import Application
+    from core.performance_control import PerformanceControlState
+    from core.performance_transport import InternalTransport
+
+    application = Application.__new__(Application)
+    application.performance_control = PerformanceControlState(bpm=120.0)
+    application.performance_control.source_id = "sonic_pi"
+    application.performance_control.transport_running = True
+    application.transport = InternalTransport()
+    application._audio_sources = {}
+    application._external_clock_bar_at = time.monotonic() - 0.25
+
+    sources = application._modulation_sources()
+    assert 0.35 <= sources["transport.phase"] <= 0.65
