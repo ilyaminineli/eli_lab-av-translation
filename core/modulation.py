@@ -164,6 +164,26 @@ class ModulationMatrix:
         self.routes.append(route)
         self._runtime[route.route_id] = _RouteRuntime()
 
+    def update_route(self, route_id: str, changes: dict[str, object]) -> None:
+        current = next((item for item in self.routes if item.route_id == route_id), None)
+        if current is None:
+            raise KeyError(f"Unknown modulation route: {route_id}")
+        values = current.to_dict()
+        values.update(changes)
+        updated = ModulationRoute.from_dict(values)
+        if any(
+            item.route_id != route_id and item.target_id == updated.target_id
+            for item in self.routes
+        ):
+            raise ValueError(f"Target already has a modulation route: {updated.target_id}")
+        self.routes = [
+            updated if item.route_id == route_id else item
+            for item in self.routes
+        ]
+        self._runtime[route_id] = _RouteRuntime()
+        self._last_active_targets.discard(current.target_id)
+        self._outputs.pop(current.target_id, None)
+
     def remove_route(self, route_id: str) -> None:
         self.routes = [item for item in self.routes if item.route_id != route_id]
         self._runtime.pop(route_id, None)
