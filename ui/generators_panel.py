@@ -586,10 +586,11 @@ class GeneratorsPanel(QWidget):
         self.style_group.setVisible(bool(layer and not is_overlay))
         self.layer_appearance_group.setVisible(enabled)
         self.overlay_group.setVisible(is_overlay)
-        self.apply_button.setVisible(not is_overlay)
-        self.apply_button.setEnabled(
-            bool(layer and not is_overlay and not layer.locked)
+        self.apply_button.setVisible(enabled)
+        self.apply_button.setText(
+            "APPLY OVERLAY SETTINGS" if is_overlay else "APPLY GENERATOR SETTINGS"
         )
+        self.apply_button.setEnabled(bool(layer and not layer.locked))
         self.remove_button.setEnabled(enabled)
         self.layer_appearance_group.setEnabled(bool(layer and not layer.locked))
         self.overlay_group.setEnabled(bool(layer and is_overlay and not layer.locked))
@@ -839,6 +840,7 @@ class GeneratorsPanel(QWidget):
             overlay_mask_source=str(self.overlay_mask_source.currentData() or ""),
             overlay_manual_override_until=__import__("time").time() + 30.0,
         )
+        self.manual_target_changed.emit("overlay.*")
         video = self.application._overlay_videos.get(layer.id)
         if video is not None:
             video.set_loop(layer.overlay_loop)
@@ -852,7 +854,16 @@ class GeneratorsPanel(QWidget):
 
     def apply_settings(self) -> None:
         layer = self._selected_layer()
-        if layer is None or layer.source_type != "generator" or layer.locked:
+        if layer is None or layer.locked:
+            return
+        if layer.source_type == "overlay":
+            self._apply_overlay_settings()
+            self._apply_layer_appearance()
+            self.hint_label.setText(
+                f"Applied overlay playback and appearance settings to {layer.name}."
+            )
+            return
+        if layer.source_type != "generator":
             return
 
         generator_type = layer.generator_type or "geometry"

@@ -246,3 +246,35 @@ def test_aco_import_reads_named_rgb_swatches_and_builds_four_colour_looks(tmp_pa
     assert look["primary_color"] == "#FF0000"
     assert look["secondary_color"] == "#00FF00"
     assert look["background_color"] == "#202020"
+
+def test_selected_overlay_exposes_apply_settings_action(qtbot) -> None:
+    from core.application import Application
+    from core.composition import Layer
+    from ui.generators_panel import GeneratorsPanel
+
+    application = Application()
+    try:
+        overlay = Layer(
+            id="overlay-apply-test",
+            name="Test Overlay",
+            source_type="overlay",
+            source_id="overlay:overlay-apply-test",
+            overlay_kind="image",
+        )
+        application.composition.layers.append(overlay)
+        panel = GeneratorsPanel(application)
+        qtbot.addWidget(panel)
+        panel.refresh(select_id=overlay.id)
+
+        assert panel.overlay_group.isVisible() is False or not panel.overlay_group.isHidden()
+        assert panel.apply_button.isHidden() is False
+        assert panel.apply_button.text() == "APPLY OVERLAY SETTINGS"
+        assert panel.apply_button.isEnabled()
+
+        panel.overlay_speed_spin.setValue(1.5)
+        panel.apply_settings()
+        assert overlay.overlay_speed == 1.5
+        assert "Applied overlay" in panel.hint_label.text()
+    finally:
+        application.shutdown()
+

@@ -61,3 +61,75 @@ def test_selected_layer_lock_checkbox_disables_layer_editors(qtbot) -> None:
         assert panel.transform_group.isEnabled() is True
     finally:
         application.shutdown()
+
+def test_performance_panel_surfaces_sonic_pi_and_reactive_route_presets(qtbot) -> None:
+    from core.modulation import ModulationRoute
+
+    application = Application()
+    try:
+        panel = PerformanceControlPanel(application)
+        qtbot.addWidget(panel)
+
+        assert "SONIC PI" in panel.osc_group.title()
+        assert panel.osc_start_button.text() == "START OSC RECEIVER"
+        assert panel.osc_port_spin.value() == 57121
+        assert panel.source_combo.findData("macro.energy") >= 0
+        assert panel.source_combo.findData("macro.cutoff") >= 0
+        assert panel.target_combo.findData("generator.text_animation_amount") >= 0
+        assert panel.target_combo.findData("automation.clip_switch_probability") >= 0
+        assert panel.audio_attack_spin is not panel.attack_spin
+        assert panel.audio_release_spin is not panel.release_spin
+
+        layout = panel.scroll.widget().layout()
+        group_positions = [
+            next(i for i in range(layout.count()) if layout.itemAt(i).widget() is group)
+            for group in (panel.osc_group, panel.scene_group)
+        ]
+        assert group_positions[0] < group_positions[1]
+
+        panel.audio_reactive_button.click()
+        targets = {route.target_id for route in application.modulation.routes}
+        assert {
+            "generator.animation_speed",
+            "generator.density",
+            "generator.text_animation_amount",
+            "automation.cut_interval",
+            "automation.clip_switch_probability",
+            "selected_layer.opacity",
+        }.issubset(targets)
+
+        custom = ModulationRoute(
+            "operator-authored-loop-route",
+            "audio.low",
+            "automation.loop_probability",
+            output_min=0.35,
+            output_max=0.7,
+        )
+        application.add_modulation_route(custom)
+        panel.sonic_pi_reactive_button.click()
+        preserved = next(
+            route for route in application.modulation.routes
+            if route.target_id == "automation.loop_probability"
+        )
+        assert preserved.source_id == "audio.low"
+        assert preserved.output_min == 0.35
+        assert "existing custom route(s) preserved" in panel.modulation_status.text()
+    finally:
+        application.shutdown()
+
+def test_layer_stack_exposes_resizable_table_and_effect_sections(qtbot) -> None:
+    from PySide6.QtCore import Qt
+
+    from ui.layer_panel import LayerPanel
+
+    application = Application()
+    try:
+        panel = LayerPanel(application)
+        qtbot.addWidget(panel)
+        assert panel.panel_splitter.orientation() == Qt.Orientation.Vertical
+        assert panel.panel_splitter.count() == 2
+        assert panel.panel_splitter.widget(0) is panel.table
+        assert panel.panel_splitter.widget(1) is panel.controls_scroll
+    finally:
+        application.shutdown()
+

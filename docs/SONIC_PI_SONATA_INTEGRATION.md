@@ -51,6 +51,19 @@ At the top of `SONATA_expanded.rb`, the helper exposes three values:
 
 A unique session identifier is generated at patch start from a wall-clock timestamp with a microsecond component; it does not depend on the patch's seeded musical random generator, so rapid restarts receive distinct IDs. A shared sequence counter increments for each outgoing message inside a short mutex-protected sender section, so concurrent musical loops cannot reuse or reorder sequence numbers. The helper uses Sonic Pi's `osc_send(host, port, path, *args)` API and does not depend on Sonic Pi's incoming OSC port. If AV Translator is closed, local UDP sends are harmless; the patch's audio structure and cues continue to run.
 
+## Connect Sonic Pi from the AV Translator UI
+
+1. Open the **AUDIO / CONTROL** dock.
+2. Under **SONIC PI CONNECTION · OSC /eli_lab/v1**, leave **RECEIVER ADDRESS** at `127.0.0.1` and **UDP PORT** at `57121` when Sonic Pi and AV Translator run on the same computer.
+3. Click **START OSC RECEIVER**. The status should change from `STOPPED` to `LISTENING`.
+4. Click **COPY SONATA SETTINGS** and paste the two lines into the sender configuration at the top of `SONATA_expanded.rb`, or verify that the patch already has the same host and port.
+5. Run `SONATA_expanded.rb` in Sonic Pi. The receiver should change to `LIVE`; received/accepted counts should increase and the active session ID should appear.
+6. To test the receiver without starting Sonic Pi, run the local test sender shown below.
+
+Sonic Pi is **not** an audio input device and will not appear in the audio-device dropdown. The OSC connection and audio capture are separate: use the OSC receiver for transport, scenes and macros; use an audio input or system loopback only when you also want live sound analysis.
+
+For Sonic Pi on a different computer, bind the receiver to the AV Translator computer's reachable LAN IPv4 address (or a deliberate interface), set `$sp_av_host` to that same address, and allow inbound UDP on the selected port in the host firewall. Do not use `127.0.0.1` for a remote sender; loopback only reaches the machine on which the receiver is running.
+
 ## Version 1 wire protocol
 
 Namespace: `/eli_lab/v1`. Every event begins with a string session ID and positive integer sequence number. Sequence numbers increase across all event types for one patch run. Restart the patch to generate a new session ID.

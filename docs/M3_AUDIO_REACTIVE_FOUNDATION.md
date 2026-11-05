@@ -77,6 +77,24 @@ The optional runtime dependency is `soundcard>=0.4.6`. Audio backend/device erro
 - Manual changes to master effects, selected layer appearance and generator settings temporarily take precedence over a route. The prior baseline is restored when a route is bypassed or released.
 - Scene profiles and modulation routes can be created/edited in the control dock.
 
+
+
+## M5 groundwork — expanded live targets
+
+The modulation target registry is being expanded beyond master effects and two generator parameters. The current M5 implementation branch adds safe, normalized targets for:
+
+- Layer transforms: opacity, rotation, uniform scale and X/Y position.
+- Generator motion: animation speed/amount, density and geometry rotation.
+- Text: animation speed/amount, font size and letter spacing.
+- Waveforms: amplitude and frequency.
+- Particles: speed, size, spread and trail.
+- Animated image overlays: playback speed and frame hold.
+- Auto Performance: loop probability, clip-switch probability, cut interval, segment length, layout interval, look interval and generator/text variation interval.
+
+The Audio / Control dock also has two route presets: **ADD AUDIO-REACTIVE ROUTES** and **ADD SONIC PI ROUTES**. They add starter mappings from audio bands/onsets or Sonic Pi energy/cutoff and transport state. Existing operator-authored routes are preserved; the presets do not silently replace a route that already owns a target.
+
+Generator targets act on the currently selected, unlocked, compatible generator. Overlay playback targets apply only to an animated image overlay. Auto Performance targets change the corresponding live director settings; locks and manual overrides continue to take precedence. The modulation worker boundary remains unchanged: routes are evaluated on the application tick, not in audio or OSC workers.
+
 ### 4. Persistence and lifecycle
 
 - Projects persist transport settings, audio analysis configuration, modulation routes and scene profiles.

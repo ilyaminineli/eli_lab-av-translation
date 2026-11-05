@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSlider,
+    QSplitter,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -48,17 +49,19 @@ class LayerPanel(QWidget):
 
         self.table = QTableWidget(0, 4)
         self.table.setHorizontalHeaderLabels(["Visible", "Layer", "Opacity", "Blend"])
-        self.table.horizontalHeader().setSectionResizeMode(
-            1, QHeaderView.ResizeMode.Stretch
-        )
-        self.table.horizontalHeader().setSectionResizeMode(
-            2, QHeaderView.ResizeMode.ResizeToContents
-        )
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
+        self.table.setColumnWidth(0, 58)
+        self.table.setColumnWidth(2, 78)
+        self.table.setColumnWidth(3, 82)
+        self.table.setMinimumHeight(160)
         self.table.verticalHeader().setVisible(False)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.itemChanged.connect(self._visibility_changed)
         self.table.currentCellChanged.connect(self._selection_changed)
-        layout.addWidget(self.table, 1)
 
         controls_body = QWidget()
         controls_layout = QVBoxLayout(controls_body)
@@ -144,11 +147,20 @@ class LayerPanel(QWidget):
         controls_layout.addStretch(1)
         self.controls_scroll = QScrollArea()
         self.controls_scroll.setWidgetResizable(True)
+        self.controls_scroll.setMinimumHeight(180)
         self.controls_scroll.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
         self.controls_scroll.setWidget(controls_body)
-        layout.addWidget(self.controls_scroll, 1)
+        self.panel_splitter = QSplitter(Qt.Orientation.Vertical, self)
+        self.panel_splitter.setChildrenCollapsible(False)
+        self.panel_splitter.setHandleWidth(6)
+        self.panel_splitter.addWidget(self.table)
+        self.panel_splitter.addWidget(self.controls_scroll)
+        self.panel_splitter.setStretchFactor(0, 2)
+        self.panel_splitter.setStretchFactor(1, 3)
+        self.panel_splitter.setSizes([260, 360])
+        layout.addWidget(self.panel_splitter, 1)
 
         self.layer_lock_check.toggled.connect(self._selected_layer_lock_changed)
         self.position_x[1].valueChanged.connect(self._position_x_changed)
@@ -187,7 +199,7 @@ class LayerPanel(QWidget):
     ) -> tuple[QLabel, QSlider]:
         row = QHBoxLayout()
         label = QLabel(f"{title}  {value}")
-        label.setMinimumWidth(125)
+        label.setMinimumWidth(96)
         slider = QSlider(Qt.Orientation.Horizontal)
         slider.setRange(minimum, maximum)
         slider.setValue(value)

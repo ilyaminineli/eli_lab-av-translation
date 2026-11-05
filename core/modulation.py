@@ -60,17 +60,86 @@ TARGET_SPECS: dict[str, ModulationTargetSpec] = {
     "selected_layer.rotation": ModulationTargetSpec(
         "selected_layer.rotation", "Selected layer rotation", -180.0, 180.0, "layer"
     ),
+    "selected_layer.scale": ModulationTargetSpec(
+        "selected_layer.scale", "Selected layer scale", 0.05, 2.0, "layer"
+    ),
+    "selected_layer.position_x": ModulationTargetSpec(
+        "selected_layer.position_x", "Selected layer X position", 0.0, 1.0, "layer"
+    ),
+    "selected_layer.position_y": ModulationTargetSpec(
+        "selected_layer.position_y", "Selected layer Y position", 0.0, 1.0, "layer"
+    ),
+    "generator.animation_speed": ModulationTargetSpec(
+        "generator.animation_speed", "Generator animation speed", 0.0, 8.0, "generator"
+    ),
     "generator.animation_amount": ModulationTargetSpec(
-        "generator.animation_amount", "Generator motion amount", 0.0, 0.45, "generator"
+        "generator.animation_amount", "Generator motion amount", 0.0, 360.0, "generator"
     ),
     "generator.density": ModulationTargetSpec(
         "generator.density", "Generator density", 1.0, 120.0, "generator"
     ),
+    "generator.rotation": ModulationTargetSpec(
+        "generator.rotation", "Geometry rotation", -360.0, 360.0, "generator"
+    ),
+    "generator.text_animation_speed": ModulationTargetSpec(
+        "generator.text_animation_speed", "Text animation speed", 0.0, 8.0, "generator"
+    ),
+    "generator.text_animation_amount": ModulationTargetSpec(
+        "generator.text_animation_amount", "Text animation amount", 0.0, 0.18, "generator"
+    ),
+    "generator.font_size": ModulationTargetSpec(
+        "generator.font_size", "Text font size", 12.0, 420.0, "generator"
+    ),
+    "generator.letter_spacing": ModulationTargetSpec(
+        "generator.letter_spacing", "Text letter spacing", -8.0, 48.0, "generator"
+    ),
+    "generator.waveform_amplitude": ModulationTargetSpec(
+        "generator.waveform_amplitude", "Waveform amplitude", 0.01, 0.48, "generator"
+    ),
+    "generator.waveform_frequency": ModulationTargetSpec(
+        "generator.waveform_frequency", "Waveform frequency", 0.1, 24.0, "generator"
+    ),
+    "generator.particle_speed": ModulationTargetSpec(
+        "generator.particle_speed", "Particle speed", 0.0, 2.0, "generator"
+    ),
+    "generator.particle_size": ModulationTargetSpec(
+        "generator.particle_size", "Particle size", 0.02, 0.8, "generator"
+    ),
+    "generator.particle_spread": ModulationTargetSpec(
+        "generator.particle_spread", "Particle spread", 0.0, 1.0, "generator"
+    ),
+    "generator.particle_trail": ModulationTargetSpec(
+        "generator.particle_trail", "Particle trail", 0.0, 1.0, "generator"
+    ),
+    "overlay.playback_speed": ModulationTargetSpec(
+        "overlay.playback_speed", "Animated overlay playback speed", 0.1, 4.0, "overlay"
+    ),
+    "overlay.frame_hold": ModulationTargetSpec(
+        "overlay.frame_hold", "Animated overlay frame hold", 1.0, 24.0, "overlay"
+    ),
     "automation.loop_probability": ModulationTargetSpec(
         "automation.loop_probability", "Auto loop probability", 0.0, 1.0, "automation"
     ),
+    "automation.clip_switch_probability": ModulationTargetSpec(
+        "automation.clip_switch_probability", "Auto clip switch probability", 0.0, 1.0, "automation"
+    ),
     "automation.cut_interval": ModulationTargetSpec(
         "automation.cut_interval", "Auto minimum cut interval", 1.0, 60.0, "automation"
+    ),
+    "automation.min_segment_seconds": ModulationTargetSpec(
+        "automation.min_segment_seconds", "Auto minimum segment length", 0.5, 30.0, "automation"
+    ),
+    "automation.max_segment_seconds": ModulationTargetSpec(
+        "automation.max_segment_seconds", "Auto maximum segment length", 0.5, 60.0, "automation"
+    ),
+    "automation.layout_interval": ModulationTargetSpec(
+        "automation.layout_interval", "Auto layout interval", 2.0, 120.0, "automation"
+    ),
+    "automation.effect_interval": ModulationTargetSpec(
+        "automation.effect_interval", "Auto look interval", 2.0, 120.0, "automation"
+    ),
+    "automation.generator_interval": ModulationTargetSpec(
+        "automation.generator_interval", "Auto generator / text interval", 3.0, 120.0, "automation"
     ),
 }
 
