@@ -110,3 +110,64 @@ def test_older_project_without_m3_settings_restores_default_control_configuratio
         assert application.scene_profiles.get("in").scene_id == "in"
     finally:
         application.shutdown()
+
+def test_application_round_trips_modulator_bank_followers_presets_and_assignments(tmp_path) -> None:
+    from core.modulator_bank import ModulatorDefinition
+    from core.performance_modifiers import LayerPerformanceModifier
+
+    application = Application()
+    path = tmp_path / "modulator-bank.eliav"
+    try:
+        layer = application.add_generator_layer("waveform")
+        definition = ModulatorDefinition(
+            modulator_id="saved-sonata-cutoff",
+            name="SONATA cutoff",
+            kind="follower",
+            input_source="macro.cutoff",
+            input_attack_ms=55.0,
+            input_release_ms=340.0,
+        )
+        application.add_modulator(definition)
+        preset_id = application.apply_modulator_preset(
+            definition.modulator_id,
+            "SONATA cutoff to waveform",
+        )
+        application.add_layer_performance_modifier(
+            layer.id,
+            LayerPerformanceModifier(
+                modifier_id="saved-cutoff-frequency",
+                name="Cutoff → waveform frequency",
+                source_id=f"modulator.{definition.modulator_id}",
+                target_id="generator.waveform_frequency",
+                depth=0.35,
+                polarity="positive",
+                curve="linear",
+            ),
+        )
+        application.save_project(path)
+
+        application.remove_modulator(definition.modulator_id)
+        application.delete_modulator_preset(preset_id)
+        application.load_project(path)
+
+        restored = application.modulator_bank.get(definition.modulator_id)
+        assert restored is not None
+        assert restored.kind == "follower"
+        assert restored.input_source == "macro.cutoff"
+        assert restored.input_attack_ms == 55.0
+        assert restored.input_release_ms == 340.0
+        assert application.modulator_bank.presets[preset_id].name == (
+            "SONATA cutoff to waveform"
+        )
+
+        restored_layer = application.composition.get_layer(layer.id)
+        assert restored_layer is not None
+        assert restored_layer.performance_modifiers[0]["source_id"] == (
+            f"modulator.{definition.modulator_id}"
+        )
+        assert restored_layer.performance_modifiers[0]["target_id"] == (
+            "generator.waveform_frequency"
+        )
+    finally:
+        application.shutdown()
+
