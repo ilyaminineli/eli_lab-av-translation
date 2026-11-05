@@ -21,7 +21,7 @@ Audio bands, onset/beat confidence, normalized transport phases/pulses, scene in
 
 ## MIDI controls
 
-The optional MIDI adapter uses `mido`; it does not make MIDI hardware a startup dependency. Device discovery is explicit. Port callbacks enqueue compact normalized events into a bounded queue; the application tick drains them and applies mappings outside the callback.
+The optional MIDI adapter uses `mido`; it does not make MIDI hardware a startup dependency. Device discovery is explicit. Port callbacks enqueue compact normalized events into a bounded queue; the application tick drains them and applies mappings outside the callback. The AUDIO / CONTROL panel exposes discovery, connect/disconnect and a basic CC 1 → `macro.energy` mapping action. The full learn-target editor and mapping inspector remain future work.
 
 Mappings support CC, note and pitch wheel messages, device/channel/number filters, target IDs, min/max scaling, linear/smoothstep/exponential curves and pickup. Pickup holds until the incoming physical control crosses or approaches the current virtual value. Mapping definitions persist, but physical positions and pickup latch state do not. Device loss is local and does not stop the performance.
 
@@ -37,11 +37,11 @@ Scene banks are project-level definitions. A complete `.eliset` contains composi
 
 The master OpenGL output is the authoritative composed image for preview and projector. Recording belongs after composition so it includes generators, overlays, blend modes and master effects. A production recorder must use bounded immutable frame handoff and a dedicated encoder worker; Qt paint and UI callbacks must not perform blocking encoding.
 
-Codec/format selection, audio muxing, frame pacing and hardware acceleration require target-machine validation. A successful software save operation is not sufficient to claim projector capture or A/V sync is signed off.
+Codec/format selection, audio muxing, frame pacing and hardware acceleration are not implemented in this increment and require target-machine validation. A successful software save operation is not sufficient to claim projector capture or A/V sync is signed off.
 
 ## Compact performance surface
 
-The show surface prioritizes transport, scene recall, macro values, Auto Performance run/stop, MIDI learn/status, output selection and recording status. Detailed media editing, generator authoring and modulation graph editing remain in the existing docks.
+The existing AUDIO / CONTROL panel now provides MIDI discovery/connect and a one-action starter mapping. A compact show surface with scene-bank navigation, macro controls, Auto Performance and recording/output status remains to implement. Detailed media editing, generator authoring and modulation graph editing stay in the existing docks.
 
 ## Verification
 
