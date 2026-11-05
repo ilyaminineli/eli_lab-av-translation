@@ -117,3 +117,18 @@ def test_performance_panel_surfaces_sonic_pi_and_reactive_route_presets(qtbot) -
     finally:
         application.shutdown()
 
+def test_layer_stack_exposes_resizable_table_and_effect_sections(qtbot) -> None:
+    from PySide6.QtCore import Qt
+    from ui.layer_panel import LayerPanel
+
+    application = Application()
+    try:
+        panel = LayerPanel(application)
+        qtbot.addWidget(panel)
+        assert panel.panel_splitter.orientation() == Qt.Orientation.Vertical
+        assert panel.panel_splitter.count() == 2
+        assert panel.panel_splitter.widget(0) is panel.table
+        assert panel.panel_splitter.widget(1) is panel.controls_scroll
+    finally:
+        application.shutdown()
+
