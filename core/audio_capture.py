@@ -410,7 +410,14 @@ class AudioCaptureService:
     def update_settings(self, settings: AudioAnalysisSettings) -> None:
         settings.normalize()
         with self._lock:
-            self.settings = settings
+            # Preserve the shared settings object referenced by the active analyzer.
+            self.settings.sensitivity = settings.sensitivity
+            self.settings.attack_ms = settings.attack_ms
+            self.settings.release_ms = settings.release_ms
+            self.settings.onset_threshold = settings.onset_threshold
+            self.settings.beat_min_bpm = settings.beat_min_bpm
+            self.settings.beat_max_bpm = settings.beat_max_bpm
+            self.settings.beat_confidence_min = settings.beat_confidence_min
 
     def latest_frame(self) -> AudioAnalysisFrame | None:
         return self.frames.latest()
