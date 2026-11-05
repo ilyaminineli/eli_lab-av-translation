@@ -801,7 +801,10 @@ class Application:
 
         if mode_active:
             if event.kind == "transport.stop":
-                if self.performance_mode.plan.stop_automation_on_patch_stop:
+                if (
+                    self.performance_mode.plan.stop_automation_on_patch_stop
+                    and self._performance_automation_owned
+                ):
                     self.stop_automation()
                 self.performance_mode.set_automation_armed(
                     self._performance_automation_armed,
