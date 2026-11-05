@@ -247,6 +247,11 @@ class Application:
         self.control_events.clear()
         self.performance_control.reset()
         self.transport.stop()
+        self.transport.load_settings({
+            "bpm": 120.0,
+            "beats_per_bar": 4,
+            "phrase_bars": 4,
+        })
         self.modulation.load_dict([])
         self.scene_profiles = SceneProfileRegistry()
         self.audio_capture.stop()
@@ -444,6 +449,12 @@ class Application:
 
     def set_transport_meter(self, beats_per_bar: int) -> None:
         self.transport.set_meter(beats_per_bar)
+        self.submit_control_event(ControlEvent(
+            "transport.meter",
+            "internal",
+            {"beats_per_bar": self.transport.beats_per_bar},
+        ))
+        self.process_control_events()
 
     def request_scene_selection(
             self,
@@ -862,6 +873,8 @@ class Application:
         self.audio_capture.stop()
         self._audio_sources.clear()
         self._latest_audio_frame = None
+        self.performance_control.bpm = self.transport.bpm
+        self.performance_control.beats_per_bar = self.transport.beats_per_bar
         self.modulation.reset_runtime()
         self._modulation_base_values.clear()
         performance_settings = app_state.get("performance_settings", {})
