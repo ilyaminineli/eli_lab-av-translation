@@ -537,7 +537,7 @@ class ModulatorBankEngine:
     @staticmethod
     def _stable_random(modulator_id: str, seed: int, index: int) -> float:
         digest = hashlib.blake2b(
-            f"{modulator_id}:{seed}:{index}".encode("utf-8"),
+            f"{modulator_id}:{seed}:{index}".encode(),
             digest_size=8,
         ).digest()
         return int.from_bytes(digest, "big") / float(2**64 - 1)
