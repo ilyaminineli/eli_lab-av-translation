@@ -270,3 +270,44 @@ def test_layer_panel_lists_active_bank_modulators_as_sources(qtbot) -> None:
     finally:
         application.shutdown()
 
+def test_sonic_pi_cutoff_follower_assigns_to_waveform_frequency(qtbot) -> None:
+    from ui.modulator_bank_panel import ModulatorBankPanel
+
+    application = Application()
+    try:
+        layer = application.add_generator_layer("waveform")
+        application.set_selected_layer_id(layer.id)
+        panel = ModulatorBankPanel(application)
+        qtbot.addWidget(panel)
+
+        panel._create_modulator("follower")
+        definition = panel._selected_definition()
+        assert definition is not None
+        assert definition.kind == "follower"
+
+        panel.input_source_combo.setCurrentIndex(
+            panel.input_source_combo.findData("macro.cutoff")
+        )
+        panel.input_attack_spin.setValue(50.0)
+        panel.input_release_spin.setValue(250.0)
+        panel._apply_editor()
+
+        target_index = panel.assignment_target_combo.findData(
+            "generator.waveform_frequency"
+        )
+        assert target_index >= 0
+        panel.assignment_target_combo.setCurrentIndex(target_index)
+        panel.assignment_depth.setValue(35)
+        panel._assign_selected()
+
+        assert len(layer.performance_modifiers) == 1
+        assignment = layer.performance_modifiers[0]
+        assert assignment["source_id"] == f"modulator.{definition.modulator_id}"
+        assert assignment["target_id"] == "generator.waveform_frequency"
+        assert assignment["polarity"] == "positive"
+        assert application.modulator_bank.get(
+            definition.modulator_id
+        ).input_source == "macro.cutoff"
+    finally:
+        application.shutdown()
+
