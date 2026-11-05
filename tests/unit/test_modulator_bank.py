@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 import pytest
 
 from core.modulator_bank import (
@@ -449,7 +451,7 @@ def test_sonic_pi_macro_follower_normalizes_smooths_and_releases_missing_input()
     )
     assert first["modulator.cutoff-follower"] == pytest.approx(0.0)
     assert rising["modulator.cutoff-follower"] == pytest.approx(
-        1.0 - __import__("math").exp(-1.0)
+        1.0 - math.exp(-1.0)
     )
 
     missing = engine.evaluate(bank, {}, now=10.2)
