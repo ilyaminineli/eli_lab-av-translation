@@ -108,9 +108,9 @@ class AutomationPanel(QWidget):
         layout.addWidget(self.overlay_check)
         layout.addWidget(self.palette_check)
         reactive_hint = QLabel(
-            "Audio and Sonic Pi can drive Auto Performance through AUDIO / CONTROL → "
-            "MODULATION MATRIX. Map audio bands, scene intensity or Sonic Pi energy/cutoff "
-            "to cut timing, clip switching, generator motion, text animation and overlays."
+            "Performance Mode installs shared audio/Sonic Pi routes and per-layer curves "
+            "automatically. Run SONATA after arming; phrase/scene events drive AUTO "
+            "PERFORMANCE while energy, cutoff and optional loopback audio drive the visuals."
         )
         reactive_hint.setWordWrap(True)
         reactive_hint.setObjectName("mutedLabel")
