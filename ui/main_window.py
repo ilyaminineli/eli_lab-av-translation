@@ -679,6 +679,7 @@ class MainWindow(QMainWindow):
     def _runtime_tick(self) -> None:
         self.application.refresh_frames()
         was_running = self.application.automation.running
+        previous_auto_action = self.application.automation.last_action
         previous_scene = self.application.performance_control.scene_id
         self.application.tick_performance_control()
         control_revision = self.application.performance_control.revision
@@ -695,6 +696,9 @@ class MainWindow(QMainWindow):
             )
 
         changed = self.application.tick_automation()
+        musical_change = (
+            self.application.automation.last_action != previous_auto_action
+        )
         running = self.application.automation.running
         if not was_running and running:
             self.automation_panel.set_running(
@@ -706,11 +710,15 @@ class MainWindow(QMainWindow):
                 False,
                 self.application.automation.last_action,
             )
-        if changed:
+        if changed or musical_change:
             self.deck_panel.refresh()
             self.layer_panel.refresh()
             self.effects_panel.sync_from_settings()
             self.generators_panel.refresh()
+        if running and musical_change:
+            self.automation_panel.set_status(
+                f"SONIC PI · {self.application.automation.last_action}"
+            )
 
         mode = self.application.performance_mode_snapshot()
         if mode["enabled"] != self.performance_mode_button.isChecked():
