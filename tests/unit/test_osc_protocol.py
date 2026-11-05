@@ -258,8 +258,38 @@ def test_sonic_pi_clock_drives_m3_transport_phase_modulation_source() -> None:
     application._audio_sources = {}
     application._external_clock_bar_at = time.monotonic() - 0.25
 
+    application.performance_control.bar_index = 205
     sources = application._modulation_sources()
     assert 0.35 <= sources["transport.phase"] <= 0.65
+    assert sources["transport.running"] == 1.0
+    assert sources["transport.beats_per_bar"] == 4.0
+    assert sources["transport.beat_position"] >= 816.0
+
+
+def test_sonic_pi_macro_sources_expire_instead_of_holding_stale_values() -> None:
+    from core.application import Application
+    from core.performance_control import ControlEvent, PerformanceControlState
+    from core.performance_transport import InternalTransport
+
+    state = PerformanceControlState()
+    stale_event = ControlEvent(
+        kind="macro.set",
+        source="sonic_pi",
+        payload={"name": "cutoff", "value": 0.9},
+        sequence=1,
+        session_id="stale-macro-session",
+        received_at=time.monotonic() - 10.0,
+    )
+    assert state.apply(stale_event)
+
+    application = Application.__new__(Application)
+    application.performance_control = state
+    application.transport = InternalTransport()
+    application._audio_sources = {}
+    application._external_clock_bar_at = None
+
+    sources = application._modulation_sources()
+    assert "macro.cutoff" not in sources
 
 
 def test_receiver_rate_limits_all_udp_datagrams() -> None:

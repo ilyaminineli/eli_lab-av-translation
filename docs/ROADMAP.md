@@ -345,8 +345,12 @@ Package the visual, audio and external-control systems into a flexible live perf
 - Per-layer mappings from rhythm, audio bands and Sonic Pi energy/cutoff to layer transforms, generator parameters and animated-overlay playback.
 - Live modifier meters and synchronized layer/generator controls, with manual override and lock precedence.
 - Pre-modulation baselines restored when modifiers are released and preserved when saving projects.
+- Dedicated Modulator Bank with smoothed Sonic Pi/audio control followers, threshold-triggered ADSR envelopes, transport-synced/free-running LFOs, step sequences, swing, ping-pong/reverse/seeded-random directions and gated/Euclidean rhythmic patterns.
+- SONATA `macro.energy` / `macro.cutoff` routed through reusable followers or direct layer modifiers, including waveform amplitude/frequency; stale macro feeds release instead of holding the last value.
+- Bank sources available to both per-layer modifier stacks and the global Modulation Matrix, including master effects and AUTO PERFORMANCE targets.
+- Built-in and user presets, cross-project JSON import/export, reusable assignments across layers and project persistence.
 
-See [M5 Performance Modifiers](M5_PERFORMANCE_MODIFIERS.md).
+See [M5 Performance Modifiers](M5_PERFORMANCE_MODIFIERS.md) and [M5 Modulator Bank](M5_MODULATOR_BANK.md).
 
 ## Planned implementation
 

@@ -116,10 +116,15 @@ class LayerPerformanceModifier:
     enabled: bool = True
 
     def normalize(self) -> None:
-        if self.source_id not in SOURCE_RANGES:
-            raise ValueError(f"Unknown performance modifier source: {self.source_id}")
-        if self.source_id not in PERFORMANCE_MODIFIER_SOURCES:
-            raise ValueError(f"Unsupported per-layer source: {self.source_id}")
+        is_modulator_source = self.source_id.startswith("modulator.")
+        if is_modulator_source:
+            if not self.source_id.removeprefix("modulator.").strip():
+                raise ValueError("A modulator source must include a modulator ID.")
+        else:
+            if self.source_id not in SOURCE_RANGES:
+                raise ValueError(f"Unknown performance modifier source: {self.source_id}")
+            if self.source_id not in PERFORMANCE_MODIFIER_SOURCES:
+                raise ValueError(f"Unsupported per-layer source: {self.source_id}")
         if self.target_id not in PERFORMANCE_MODIFIER_TARGETS:
             raise ValueError(f"Unknown performance modifier target: {self.target_id}")
         self.modifier_id = str(self.modifier_id).strip()[:40] or uuid4().hex[:10]
@@ -195,7 +200,12 @@ class LayerPerformanceModifierEngine:
                 self._runtime.pop(runtime_key, None)
                 self._live_values.pop(runtime_key, None)
 
-    def claimed_targets(self, layer, now: float | None = None) -> set[str]:
+    def claimed_targets(
+            self,
+            layer,
+            now: float | None = None,
+            available_sources: set[str] | None = None,
+    ) -> set[str]:
         if layer is None:
             return set()
         layer_id = str(layer.id)
@@ -208,8 +218,17 @@ class LayerPerformanceModifierEngine:
                 modifier = LayerPerformanceModifier.from_dict(raw)
             except (TypeError, ValueError, KeyError):
                 continue
+            source_requires_presence = modifier.source_id.startswith(
+                ("modulator.", "macro.")
+            )
+            source_available = (
+                available_sources is None
+                or not source_requires_presence
+                or modifier.source_id in available_sources
+            )
             if (
                     modifier.enabled
+                    and source_available
                     and stamp >= self._manual_until.get(
                         (layer_id, modifier.target_id), 0.0
                     )

@@ -27,6 +27,7 @@ from ui.effects_panel import EffectsPanel
 from ui.generators_panel import GeneratorsPanel
 from ui.layer_panel import LayerPanel
 from ui.media_browser import MediaBrowser
+from ui.modulator_bank_panel import ModulatorBankPanel
 from ui.output_window import OutputWindowManager
 from ui.performance_control_panel import PerformanceControlPanel
 from ui.performance_view import PerformanceView
@@ -98,6 +99,15 @@ class MainWindow(QMainWindow):
         self.performance_control_dock.setMinimumWidth(300)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.performance_control_dock)
         self.tabifyDockWidget(self.preview_dock, self.performance_control_dock)
+
+        self.modulator_bank_panel = ModulatorBankPanel(application, self)
+        self.modulator_bank_dock = self._make_dock(
+            "MODULATOR BANK",
+            self.modulator_bank_panel,
+        )
+        self.modulator_bank_dock.setMinimumWidth(320)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.modulator_bank_dock)
+        self.tabifyDockWidget(self.performance_control_dock, self.modulator_bank_dock)
         self.layer_dock.raise_()
         self.setCentralWidget(self._build_workspace())
 
@@ -136,6 +146,24 @@ class MainWindow(QMainWindow):
         self.layer_panel.selected_layer_changed.connect(self.generators_panel.select_layer)
         self.generators_panel.selected_layer_changed.connect(self.application.set_selected_layer_id)
         self.layer_panel.selected_layer_changed.connect(self.application.set_selected_layer_id)
+        self.layer_panel.selected_layer_changed.connect(
+            self.modulator_bank_panel.refresh_assignment_targets
+        )
+        self.modulator_bank_panel.bank_changed.connect(
+            self.layer_panel.sync_performance_modifier_sources
+        )
+        self.modulator_bank_panel.bank_changed.connect(
+            self.layer_panel.refresh_performance_modifiers
+        )
+        self.modulator_bank_panel.bank_changed.connect(
+            self.performance_control_panel.sync_modulator_sources
+        )
+        self.modulator_bank_panel.bank_changed.connect(
+            self.performance_control_panel.refresh_routes
+        )
+        self.modulator_bank_panel.assignment_created.connect(
+            self.layer_panel.refresh_performance_modifiers
+        )
         self.generators_panel.layer_properties_changed.connect(self.layer_panel.sync_layer_row)
         self.layer_panel.layer_properties_changed.connect(
             self.generators_panel.sync_layer_appearance
@@ -188,6 +216,9 @@ class MainWindow(QMainWindow):
         self._modifier_feedback_timer.timeout.connect(
             self.generators_panel.sync_live_modulation
         )
+        self._modifier_feedback_timer.timeout.connect(
+            self.modulator_bank_panel.refresh_live
+        )
         self._modifier_feedback_timer.start()
 
     def _build_workspace(self) -> QWidget:
@@ -236,6 +267,7 @@ class MainWindow(QMainWindow):
                 self.automation_dock,
                 self.preview_dock,
                 self.performance_control_dock,
+                self.modulator_bank_dock,
         ):
             dock.show()
         self.layer_dock.raise_()
@@ -570,6 +602,10 @@ class MainWindow(QMainWindow):
         self.performance_control_panel.sync_from_application()
         self.deck_panel.refresh()
         self.layer_panel.refresh()
+        self.modulator_bank_panel.refresh()
+        self.layer_panel.sync_performance_modifier_sources()
+        self.performance_control_panel.sync_modulator_sources()
+        self.performance_control_panel.refresh_routes()
         self.effects_panel.sync_from_settings()
         self.generators_panel.refresh()
         self.automation_panel.set_running(False, "Ready · import footage to begin.")
@@ -589,6 +625,10 @@ class MainWindow(QMainWindow):
             self.performance_control_panel.sync_from_application()
             self.deck_panel.refresh()
             self.layer_panel.refresh()
+            self.modulator_bank_panel.refresh()
+            self.layer_panel.sync_performance_modifier_sources()
+            self.performance_control_panel.sync_modulator_sources()
+            self.performance_control_panel.refresh_routes()
             self.effects_panel.sync_from_settings()
             self.generators_panel.refresh()
             self.statusBar().showMessage(f"Opened {Path(path).name}", 4000)
@@ -638,6 +678,7 @@ class MainWindow(QMainWindow):
         self._ui_settings.setValue("ui/main_window_state_v5", self.saveState(4))
         self._runtime_timer.stop()
         self._status_timer.stop()
+        self._modifier_feedback_timer.stop()
         self.media_browser.shutdown_workers()
         self.output_manager.close()
         self.performance_view.shutdown_renderer()

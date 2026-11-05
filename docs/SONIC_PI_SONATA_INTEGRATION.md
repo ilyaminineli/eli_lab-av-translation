@@ -82,6 +82,18 @@ Namespace: `/eli_lab/v1`. Every event begins with a string session ID and positi
 
 The initial `in` scene is announced before the first clock tick and therefore carries `bar_index=0` as a pre-clock marker; the first `/clock/bar` is bar 1. Every subsequent scene event is emitted after the preceding scene's bar-counted form block and carries the current 1-based bar index. The cutoff normalization is `clamp((sx_m_c - 48.0) / 70.0, 0.0, 1.0)`. Energy is already normalized in the patch. Macro messages are sent once per bar; a phrase cue is sent on four-bar boundaries. Bar messages are emitted once per bar, and a separate heartbeat is sent every four bars. The application treats SONATA as clock authority, disables its internal test clock on `transport/start` or, as a packet-loss fallback, the first accepted `clock/bar`, and derives the M3 `transport.phase` modulation source from the most recent bar clock. Macro values feed the existing M3 modulation matrix, including its smoothing, hold, lock, manual-override and intensity-ceiling behavior.
 
+### M5 Modulator Bank connection
+
+M5 consumes the same M4 signals without changing the OSC protocol or the SONATA patch:
+
+- `macro.energy` and `macro.cutoff` are available as direct layer-modifier sources and as inputs to reusable **Control Follower** modulators.
+- Both macros can trigger ADSR envelopes using a configurable normalized threshold.
+- Control Followers can be assigned to waveform amplitude/frequency, geometry, text, particles and other compatible layer targets. A follower can drive multiple assignments; no additional OSC message is needed per visual object.
+- Follower attack/release smoothing interpolates the once-per-bar SONATA macro updates at the application tick rate.
+- A macro source is considered stale after a bounded window (at least five seconds or two current bars, whichever is longer). Stale values are omitted, so follower assignments release to their baselines instead of holding the last received cutoff/energy value.
+
+The 93 SONATA audio loops remain untouched. OSC still carries only the transport, scene, macro and cue intent described above.
+
 ## Receiver safety and application threading
 
 - Default bind is loopback; binding to another interface is an explicit user choice.

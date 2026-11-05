@@ -152,3 +152,33 @@ def test_modulation_registry_exposes_visual_and_auto_performance_targets() -> No
     assert route.output_min == pytest.approx(0.0)
     assert route.output_max == pytest.approx(0.18)
 
+def test_modulation_matrix_accepts_reusable_bank_sources_for_global_targets() -> None:
+    matrix = ModulationMatrix()
+    matrix.add_route(ModulationRoute(
+        route_id="follower-to-grain",
+        source_id="modulator.energy-follower",
+        target_id="master.grain",
+        output_min=0.1,
+        output_max=0.9,
+        curve="smoothstep",
+        attack_ms=1.0,
+        release_ms=1.0,
+    ))
+
+    outputs, released = matrix.evaluate(
+        {"modulator.energy-follower": 0.5},
+        now=1.0,
+    )
+
+    assert outputs["master.grain"] == pytest.approx(0.5)
+    assert released == set()
+
+
+def test_modulation_matrix_rejects_empty_bank_source_identifier() -> None:
+    with pytest.raises(ValueError):
+        ModulationRoute(
+            "empty-bank-source",
+            "modulator.",
+            "master.grain",
+        ).normalize()
+

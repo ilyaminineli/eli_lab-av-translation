@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 import pytest
 
 from core.composition import Composition, Layer
@@ -222,6 +224,7 @@ def test_external_transport_exposes_beat_downbeat_phrase_and_bar_phase(monkeypat
         bpm=120.0,
         bar_index=1,
         macros={"energy": 0.7, "cutoff": 0.4},
+        macro_updated_at={"energy": 100.0, "cutoff": 100.0},
     )
     application.transport = SimpleNamespace(
         phrase_bars=4,
@@ -321,6 +324,7 @@ def test_save_project_stores_pre_modulation_values_and_layer_modifier_defs(tmp_p
     from core.automation import AutomationDirector
     from core.event_bus import EventBus
     from core.modulation import ModulationMatrix
+    from core.modulator_bank import ModulatorBank
     from core.performance_transport import InternalTransport
     from core.scene_profiles import SceneProfileRegistry
     from effects.settings import EffectSettings
@@ -367,6 +371,7 @@ def test_save_project_stores_pre_modulation_values_and_layer_modifier_defs(tmp_p
     application.transport = InternalTransport()
     application.audio_capture = SimpleNamespace(settings=AudioAnalysisSettings())
     application.modulation = ModulationMatrix()
+    application.modulator_bank = ModulatorBank()
     application.scene_profiles = SceneProfileRegistry()
     application.composition = Composition(layers=[layer])
     application.performance_modifier_engine = engine
@@ -389,6 +394,9 @@ def test_save_project_stores_pre_modulation_values_and_layer_modifier_defs(tmp_p
     assert application.project_manager.app_state["automation_settings"][
         "loop_probability"
     ] == 0.4
+    assert "modulators" in application.project_manager.app_state[
+        "performance_settings"
+    ]["modulator_bank"]
     # Saving is a snapshot operation: the live preview remains at its beat peak.
     assert layer.generator_settings["animation_amount"] == 48.0
 
@@ -435,6 +443,7 @@ def test_local_modifier_takes_and_releases_target_from_global_route() -> None:
     from core.automation import AutomationDirector
     from core.event_bus import EventBus
     from core.modulation import ModulationMatrix, ModulationRoute
+    from core.modulator_bank import ModulatorBank, ModulatorBankEngine
     from core.performance_control import PerformanceControlState
     from core.performance_transport import InternalTransport
     from effects.settings import EffectSettings
@@ -449,6 +458,7 @@ def test_local_modifier_takes_and_releases_target_from_global_route() -> None:
     application._audio_sources = {"audio.rms": 1.0}
     application.performance_control = PerformanceControlState()
     application.performance_control.macros["energy"] = 0.5
+    application.performance_control.macro_updated_at["energy"] = time.monotonic()
     application.transport = InternalTransport()
     application._external_clock_bar_at = None
     application.composition = Composition(layers=[layer])
@@ -457,6 +467,8 @@ def test_local_modifier_takes_and_releases_target_from_global_route() -> None:
     application.effects = EffectSettings()
     application.automation = AutomationDirector()
     application.modulation = ModulationMatrix()
+    application.modulator_bank = ModulatorBank()
+    application.modulator_bank_engine = ModulatorBankEngine()
     application.performance_modifier_engine = LayerPerformanceModifierEngine()
     application._modulation_base_values = {}
     application.events = EventBus()
@@ -524,4 +536,29 @@ def test_modifier_engine_prunes_removed_runtime_records() -> None:
 
     assert (layer.id, "temporary") not in engine._runtime
     assert engine.live_values(layer.id) == {}
+
+def test_stale_sonic_pi_macro_does_not_keep_a_layer_target_claimed() -> None:
+    modifier = LayerPerformanceModifier(
+        modifier_id="sonata-cutoff",
+        source_id="macro.cutoff",
+        target_id="generator.waveform_frequency",
+        depth=0.2,
+    )
+    layer = Layer(
+        id="waveform",
+        source_type="generator",
+        generator_type="waveform",
+        generator_settings={"amplitude": 0.22, "frequency": 2.5},
+        performance_modifiers=[modifier.to_dict()],
+    )
+    engine = LayerPerformanceModifierEngine()
+
+    assert engine.claimed_targets(
+        layer,
+        available_sources={"transport.phase"},
+    ) == set()
+    assert engine.claimed_targets(
+        layer,
+        available_sources={"macro.cutoff"},
+    ) == {"generator.waveform_frequency"}
 

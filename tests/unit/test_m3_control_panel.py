@@ -210,3 +210,139 @@ def test_layer_modifier_targets_only_offer_animated_overlay_playback(qtbot) -> N
     finally:
         application.shutdown()
 
+def test_modulator_bank_panel_loads_preset_and_assigns_to_selected_layer(qtbot) -> None:
+    from ui.modulator_bank_panel import ModulatorBankPanel
+
+    application = Application()
+    try:
+        layer = application.add_generator_layer("geometry")
+        application.set_selected_layer_id(layer.id)
+        panel = ModulatorBankPanel(application)
+        qtbot.addWidget(panel)
+
+        preset_index = panel.preset_combo.findData("lfo-sine-swell")
+        assert preset_index >= 0
+        panel.preset_combo.setCurrentIndex(preset_index)
+        panel._load_preset()
+
+        definition = panel._selected_definition()
+        assert definition is not None
+        assert definition.kind == "lfo"
+        assert definition.waveform == "sine"
+        assert panel.assignment_target_combo.currentData() == (
+            "generator.animation_amount"
+        )
+
+        panel._assign_selected()
+
+        assert len(layer.performance_modifiers) == 1
+        assignment = layer.performance_modifiers[0]
+        assert assignment["source_id"] == f"modulator.{definition.modulator_id}"
+        assert assignment["target_id"] == "generator.animation_amount"
+        assert assignment["polarity"] == "bipolar"
+    finally:
+        application.shutdown()
+
+
+def test_layer_panel_lists_active_bank_modulators_as_sources(qtbot) -> None:
+    from core.modulator_bank import ModulatorDefinition
+    from ui.layer_panel import LayerPanel
+
+    application = Application()
+    try:
+        layer = application.add_generator_layer("geometry")
+        application.set_selected_layer_id(layer.id)
+        definition = ModulatorDefinition(
+            modulator_id="bank-ui-source",
+            name="My slow LFO",
+            kind="lfo",
+        )
+        application.add_modulator(definition)
+        panel = LayerPanel(application)
+        qtbot.addWidget(panel)
+
+        panel.sync_performance_modifier_sources()
+
+        assert panel.modifier_source_combo.findData(
+            "modulator.bank-ui-source"
+        ) >= 0
+        assert panel.modifier_source_combo.currentText() != ""
+    finally:
+        application.shutdown()
+
+def test_sonic_pi_cutoff_follower_assigns_to_waveform_frequency(qtbot) -> None:
+    from ui.modulator_bank_panel import ModulatorBankPanel
+
+    application = Application()
+    try:
+        layer = application.add_generator_layer("waveform")
+        application.set_selected_layer_id(layer.id)
+        panel = ModulatorBankPanel(application)
+        qtbot.addWidget(panel)
+
+        panel._create_modulator("follower")
+        definition = panel._selected_definition()
+        assert definition is not None
+        assert definition.kind == "follower"
+
+        panel.input_source_combo.setCurrentIndex(
+            panel.input_source_combo.findData("macro.cutoff")
+        )
+        panel.input_attack_spin.setValue(50.0)
+        panel.input_release_spin.setValue(250.0)
+        panel._apply_editor()
+
+        target_index = panel.assignment_target_combo.findData(
+            "generator.waveform_frequency"
+        )
+        assert target_index >= 0
+        panel.assignment_target_combo.setCurrentIndex(target_index)
+        panel.assignment_depth.setValue(35)
+        panel._assign_selected()
+
+        assert len(layer.performance_modifiers) == 1
+        assignment = layer.performance_modifiers[0]
+        assert assignment["source_id"] == f"modulator.{definition.modulator_id}"
+        assert assignment["target_id"] == "generator.waveform_frequency"
+        assert assignment["polarity"] == "positive"
+        assert application.modulator_bank.get(
+            definition.modulator_id
+        ).input_source == "macro.cutoff"
+    finally:
+        application.shutdown()
+
+def test_performance_matrix_exposes_modulator_bank_sources(qtbot) -> None:
+    from core.modulator_bank import ModulatorDefinition
+
+    application = Application()
+    try:
+        definition = ModulatorDefinition(
+            modulator_id="global-matrix-lfo",
+            name="Global motion LFO",
+            kind="lfo",
+        )
+        application.add_modulator(definition)
+        panel = PerformanceControlPanel(application)
+        qtbot.addWidget(panel)
+
+        panel.sync_modulator_sources()
+
+        source_id = f"modulator.{definition.modulator_id}"
+        assert panel.source_combo.findData(source_id) >= 0
+        panel.source_combo.setCurrentIndex(panel.source_combo.findData(source_id))
+        panel.target_combo.setCurrentIndex(
+            panel.target_combo.findData("master.grain")
+        )
+        panel.add_route_button.click()
+
+        route = next(
+            route for route in application.modulation.routes
+            if route.source_id == source_id
+        )
+        assert route.target_id == "master.grain"
+        route_text = panel.route_list.item(0).text()
+        assert "Bank · Global motion LFO" in route_text
+        assert "Master grain" in route_text
+    finally:
+        application.shutdown()
+

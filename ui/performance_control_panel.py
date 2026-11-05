@@ -318,6 +318,7 @@ class PerformanceControlPanel(QWidget):
 
         self._load_scene_profile()
         self._target_changed()
+        self.sync_modulator_sources()
         self.refresh_audio_devices()
         self.refresh_routes()
         self.refresh_monitor()
@@ -707,12 +708,45 @@ class PerformanceControlPanel(QWidget):
             self.application.events.publish("performance.modulation.updated")
             self.application.apply_modulation()
 
+    def sync_modulator_sources(self) -> None:
+        """Expose active reusable bank outputs as global matrix sources."""
+        current = self.source_combo.currentData()
+        labels = {
+            source_id: label
+            for source_id, label in self.source_labels.items()
+            if not source_id.startswith("modulator.")
+        }
+        for definition in self.application.modulator_bank.list_modulators():
+            labels[f"modulator.{definition.modulator_id}"] = (
+                f"Bank · {definition.name}"
+            )
+        self.source_combo.blockSignals(True)
+        self.source_combo.clear()
+        for source_id, label in labels.items():
+            self.source_combo.addItem(label, source_id)
+        index = self.source_combo.findData(current)
+        if index < 0:
+            index = 0
+        self.source_combo.setCurrentIndex(index)
+        self.source_combo.blockSignals(False)
+        self.source_labels = labels
+
     def refresh_routes(self) -> None:
         self.route_list.blockSignals(True)
         self.route_list.clear()
         for route in self.application.modulation.routes:
+            source_label = self.source_labels.get(route.source_id)
+            if source_label is None and route.source_id.startswith("modulator."):
+                definition = self.application.modulator_bank.get(
+                    route.source_id.removeprefix("modulator.")
+                )
+                source_label = (
+                    f"Bank · {definition.name}"
+                    if definition is not None
+                    else route.source_id
+                )
             item = QListWidgetItem(
-                f"{self.source_labels.get(route.source_id, route.source_id)}  →  "
+                f"{source_label or route.source_id}  →  "
                 f"{TARGET_SPECS[route.target_id].label}"
             )
             item.setData(Qt.ItemDataRole.UserRole, route.route_id)
