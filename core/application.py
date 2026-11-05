@@ -916,7 +916,7 @@ class Application:
         targets = (
             [key for key, spec in TARGET_SPECS.items() if spec.category == "master"]
             if target_id == "master.*"
-            else [key for key in TARGET_SPECS if key.startswith(target_id)]
+            else [key for key in TARGET_SPECS if key.startswith(target_id[:-1])]
             if target_id.endswith(".*")
             else [target_id]
         )
