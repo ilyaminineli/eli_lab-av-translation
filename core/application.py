@@ -1790,8 +1790,12 @@ class Application:
                 _LOG.warning("Skipping invalid transport settings in scene %s", scene.scene_id)
         control_state = scene.snapshot.get("performance_control")
         if isinstance(control_state, dict):
+            current_intensity = float(self.performance_control.intensity)
+            requested_intensity = float(
+                control_state.get("intensity", current_intensity)
+            )
             self.performance_control.intensity = max(
-                0.0, min(1.0, float(control_state.get("intensity", self.performance_control.intensity)))
+                0.0, min(1.0, requested_intensity)
             )
             macros = control_state.get("macros")
             if isinstance(macros, dict):
