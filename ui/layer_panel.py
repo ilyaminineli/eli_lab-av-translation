@@ -639,10 +639,6 @@ class LayerPanel(QWidget):
                 depth = float(raw.get("depth", 0.0))
                 item = QListWidgetItem()
                 item.setData(Qt.ItemDataRole.UserRole, modifier_id)
-                item.setSizeHint(item.sizeHint().expandedTo(
-                    self.modifier_list.sizeHintForRow(0)
-                ))
-                self.modifier_list.addItem(item)
                 row = QWidget()
                 row_layout = QVBoxLayout(row)
                 row_layout.setContentsMargins(4, 2, 4, 2)
@@ -664,6 +660,9 @@ class LayerPanel(QWidget):
                 meter.setFormat("LIVE %p%")
                 meter.setMaximumHeight(14)
                 row_layout.addWidget(meter)
+                row.adjustSize()
+                item.setSizeHint(row.sizeHint())
+                self.modifier_list.addItem(item)
                 enabled.toggled.connect(
                     lambda state, owner=layer.id, mid=modifier_id:
                     self._toggle_performance_modifier(owner, mid, state)
@@ -672,11 +671,35 @@ class LayerPanel(QWidget):
                 self._modifier_widgets[modifier_id] = (enabled, detail, meter)
             self._modifier_signature = signature
 
+        # Keep the transform controls honest while a modifier is moving the layer.
+        transform_values = (
+            (self.position_x[1], round(layer.position[0] * 100)),
+            (self.position_y[1], round(layer.position[1] * 100)),
+            (self.scale[1], round(layer.scale[0] * 100)),
+            (self.rotation[1], round(layer.rotation)),
+        )
+        for slider, value in transform_values:
+            slider.blockSignals(True)
+            slider.setValue(value)
+            slider.blockSignals(False)
+        row = next(
+            (
+                index for index in range(self.table.rowCount())
+                if self.table.item(index, 1).data(Qt.ItemDataRole.UserRole) == layer.id
+            ),
+            -1,
+        )
+        opacity = self.table.cellWidget(row, 2) if row >= 0 else None
+        if isinstance(opacity, QSlider):
+            opacity.blockSignals(True)
+            opacity.setValue(round(layer.opacity * 100))
+            opacity.blockSignals(False)
+
         live = self.application.layer_performance_modifier_values(layer.id)
         for modifier_id, (_enabled, _detail, meter) in self._modifier_widgets.items():
             value = live.get(modifier_id)
             meter.setValue(round(max(0.0, min(1.0, value or 0.0)) * 100))
-            meter.setFormat("LIVE %p%" if value is not None else "IDLE")
+            meter.setFormat(f"LIVE {value:.2f}" if value is not None else "IDLE")
 
     def _load_layer_effects(self, layer) -> None:
         values = normalize_layer_effects(layer.layer_effects)
@@ -997,6 +1020,7 @@ class LayerPanel(QWidget):
             self.application.layer_manager.update_layer(
                 layer.id, position=(value / 100.0, layer.position[1])
             )
+            self.layer_properties_changed.emit(layer.id)
 
     def _position_y_changed(self, value: int) -> None:
         layer = self._selected_layer()
@@ -1004,6 +1028,7 @@ class LayerPanel(QWidget):
             self.application.layer_manager.update_layer(
                 layer.id, position=(layer.position[0], value / 100.0)
             )
+            self.layer_properties_changed.emit(layer.id)
 
     def _scale_changed(self, value: int) -> None:
         layer = self._selected_layer()
@@ -1012,6 +1037,7 @@ class LayerPanel(QWidget):
             self.application.layer_manager.update_layer(
                 layer.id, scale=(amount, amount)
             )
+            self.layer_properties_changed.emit(layer.id)
 
     def _rotation_changed(self, value: int) -> None:
         layer = self._selected_layer()
