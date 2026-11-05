@@ -262,6 +262,10 @@ class LayerPerformanceModifierEngine:
         stamp = time.monotonic() if now is None else float(now)
         contributions: dict[tuple[str, str], float] = {}
         current_live: dict[tuple[str, str], float] = {}
+        configured_runtime_keys: set[tuple[str, str]] = set()
+        for key, deadline in tuple(self._manual_until.items()):
+            if stamp >= deadline:
+                self._manual_until.pop(key, None)
         for layer in layers:
             parsed: list[LayerPerformanceModifier] = []
             for raw in getattr(layer, "performance_modifiers", []):
@@ -280,6 +284,8 @@ class LayerPerformanceModifierEngine:
                 target_key = (layer_id, modifier.target_id)
                 if stamp < self._manual_until.get(target_key, 0.0):
                     continue
+                runtime_key = (layer_id, modifier.modifier_id)
+                configured_runtime_keys.add(runtime_key)
                 raw_source = sources.get(modifier.source_id)
                 if raw_source is None:
                     continue
@@ -287,7 +293,6 @@ class LayerPerformanceModifierEngine:
                 if not math.isfinite(source):
                     continue
                 source = self._curve(source, modifier.curve)
-                runtime_key = (layer_id, modifier.modifier_id)
                 runtime = self._runtime.setdefault(runtime_key, _ModifierRuntime())
                 if runtime.current is None:
                     smoothed = source
@@ -308,6 +313,11 @@ class LayerPerformanceModifierEngine:
                 )
                 offset = polarity_value * (spec.maximum - spec.minimum) * modifier.depth
                 contributions[target_key] = contributions.get(target_key, 0.0) + offset
+
+        for runtime_key in tuple(self._runtime):
+            if runtime_key not in configured_runtime_keys:
+                self._runtime.pop(runtime_key, None)
+                self._live_values.pop(runtime_key, None)
 
         active_targets: set[tuple[str, str]] = set()
         outputs: dict[tuple[str, str], float] = {}
