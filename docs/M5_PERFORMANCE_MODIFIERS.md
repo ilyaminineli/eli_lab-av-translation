@@ -22,7 +22,7 @@ The quick buttons select a useful default target for the selected layer:
 | Layer type | Beat / downbeat / phrase target |
 |---|---|
 | Geometry | Generator animation amount |
-| Text Art | Text animation amount |
+| Text Art | Letter spacing (or text animation amount when a text motion mode is active) |
 | Waveform | Waveform amplitude |
 | Particles | Particle size |
 | Animated overlay | Overlay playback speed |
@@ -51,7 +51,7 @@ The beat pulse occupies the first 22% of a beat and then decays to zero. The bar
 
 A layer modifier can affect layer opacity, rotation, scale and X/Y position; generator animation speed/amount and type-specific density, rotation, text, waveform or particle values; or animated-image overlay playback speed and frame hold.
 
-Generator targets are filtered by selected layer type in the UI. For example, a Text Art layer offers text animation, font size and letter spacing, while a Waveform layer offers amplitude and frequency.
+Generator targets are filtered by selected layer type in the UI. A Text Art layer always offers font size and letter spacing; text-animation speed and amount appear only when a text motion mode is active. This means the quick PHRASE action has an immediate visible effect even when text animation is set to none. A Waveform layer offers amplitude and frequency.
 
 ## Response controls
 
