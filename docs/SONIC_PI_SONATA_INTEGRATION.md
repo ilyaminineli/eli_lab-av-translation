@@ -49,7 +49,7 @@ At the top of `SONATA_expanded.rb`, the helper exposes three values:
 - `$sp_av_host = "127.0.0.1"` — explicit AV Translator bind address.
 - `$sp_av_port = 57121` — match the UDP port shown in the AUDIO / CONTROL dock.
 
-A unique session identifier is generated at patch start. A shared sequence counter increments for each outgoing message. The helper uses Sonic Pi's `osc_send(host, port, path, *args)` API and does not depend on Sonic Pi's incoming OSC port. If AV Translator is closed, local UDP sends are harmless; the patch's audio structure and cues continue to run.
+A unique session identifier is generated at patch start. A shared sequence counter increments for each outgoing message inside a short mutex-protected sender section, so concurrent musical loops cannot reuse or reorder sequence numbers. The helper uses Sonic Pi's `osc_send(host, port, path, *args)` API and does not depend on Sonic Pi's incoming OSC port. If AV Translator is closed, local UDP sends are harmless; the patch's audio structure and cues continue to run.
 
 ## Version 1 wire protocol
 
@@ -67,7 +67,7 @@ Namespace: `/eli_lab/v1`. Every event begins with a string session ID and positi
 | `/cue/trigger` | cue name (identifier) | `cue.trigger` |
 | `/source/heartbeat` | none | `source.heartbeat` |
 
-The cutoff normalization is `clamp((sx_m_c - 48.0) / 70.0, 0.0, 1.0)`. Energy is already normalized in the patch. Macro messages are sent once per bar; a phrase cue is sent on four-bar boundaries. Bar messages are emitted once per bar, and a separate heartbeat is sent every four bars.
+The cutoff normalization is `clamp((sx_m_c - 48.0) / 70.0, 0.0, 1.0)`. Energy is already normalized in the patch. Macro messages are sent once per bar; a phrase cue is sent on four-bar boundaries. Bar messages are emitted once per bar, and a separate heartbeat is sent every four bars. SONATA's form thread changes scenes after `sync :sp_b`; each scene event therefore arrives on the patch's own musical bar boundary and includes that 1-based bar index. The application treats SONATA as clock authority, disables its internal test clock while the external session is running, and derives the M3 `transport.phase` modulation source from the most recent bar clock. Macro values feed the existing M3 modulation matrix, including its smoothing, hold, lock, manual-override and intensity-ceiling behavior.
 
 ## Receiver safety and application threading
 
