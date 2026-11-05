@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import logging
+import tempfile
 import time
 from pathlib import Path
 from typing import Any
@@ -22,8 +24,11 @@ from core.modulator_bank import (
 from core.osc_protocol import OSCReceiver
 from core.performance_control import ControlEvent, ControlEventQueue, PerformanceControlState
 from core.performance_environment import (
-    MIDIMapping, MIDIMappingEngine, MIDIInputService,
-    PerformanceScene, PerformanceSetStore,
+    MIDIInputService,
+    MIDIMapping,
+    MIDIMappingEngine,
+    PerformanceScene,
+    PerformanceSetStore,
 )
 from core.performance_manager import PerformanceManager
 from core.performance_modifiers import (
@@ -1549,7 +1554,10 @@ class Application:
 
     def set_midi_mappings(self, mappings: list[MIDIMapping | dict[str, Any]]) -> None:
         self.midi_mapping_engine.replace_mappings(mappings)
-        self.events.publish("performance.midi.mappings.updated", count=len(self.midi_mapping_engine.mappings))
+        self.events.publish(
+            "performance.midi.mappings.updated",
+            count=len(self.midi_mapping_engine.mappings),
+        )
 
     def _midi_target_values(self) -> dict[str, float]:
         values: dict[str, float] = {}
@@ -1577,14 +1585,17 @@ class Application:
                 values[target] = current
         values["scene.intensity"] = float(self.performance_control.intensity)
         values["transport.tempo"] = float(self.transport.bpm)
-        values["automation.loop_probability"] = float(self.automation.settings.loop_probability)
-        values["automation.clip_switch_probability"] = float(self.automation.settings.clip_switch_probability)
-        values["automation.cut_interval"] = float(self.automation.settings.min_cut_interval)
-        values["automation.min_segment_seconds"] = float(self.automation.settings.min_segment_seconds)
-        values["automation.max_segment_seconds"] = float(self.automation.settings.max_segment_seconds)
-        values["automation.layout_interval"] = float(self.automation.settings.min_layout_interval)
-        values["automation.effect_interval"] = float(self.automation.settings.min_effect_interval)
-        values["automation.generator_interval"] = float(self.automation.settings.min_generator_interval)
+        settings = self.automation.settings
+        values["automation.loop_probability"] = float(settings.loop_probability)
+        values["automation.clip_switch_probability"] = float(
+            settings.clip_switch_probability
+        )
+        values["automation.cut_interval"] = float(settings.min_cut_interval)
+        values["automation.min_segment_seconds"] = float(settings.min_segment_seconds)
+        values["automation.max_segment_seconds"] = float(settings.max_segment_seconds)
+        values["automation.layout_interval"] = float(settings.min_layout_interval)
+        values["automation.effect_interval"] = float(settings.min_effect_interval)
+        values["automation.generator_interval"] = float(settings.min_generator_interval)
         for name, value in self.performance_control.macros.items():
             values[f"macro.{name}"] = float(value)
         return values
@@ -1693,7 +1704,11 @@ class Application:
                 setattr(self.effects, key, value)
         if isinstance(scene.snapshot.get("automation_settings"), dict):
             allowed = AutomationSettings.__dataclass_fields__
-            values = {key: value for key, value in scene.snapshot["automation_settings"].items() if key in allowed}
+            values = {
+                key: value
+                for key, value in scene.snapshot["automation_settings"].items()
+                if key in allowed
+            }
             settings = AutomationSettings(**values)
             settings.normalize()
             self.automation.settings = settings
@@ -1703,8 +1718,6 @@ class Application:
     def save_performance_set(self, path: str | Path) -> Path:
         # Reuse project snapshot logic so per-layer/global modulation baselines
         # are restored in the package without changing the live performance.
-        import tempfile
-        import json
         previous_project_path = self.current_project_path
         try:
             with tempfile.TemporaryDirectory(prefix="eli-m5-set-") as temp_dir:
@@ -1736,9 +1749,7 @@ class Application:
             scene.normalize()
             scenes[scene.scene_id] = scene
         mappings = [MIDIMapping.from_dict(raw) for raw in payload.get("midi_mappings", [])]
-        from tempfile import TemporaryDirectory
-        import json
-        with TemporaryDirectory(prefix="eli-m5-restore-") as temp_dir:
+        with tempfile.TemporaryDirectory(prefix="eli-m5-restore-") as temp_dir:
             staged_project = Path(temp_dir) / "restore.eliav"
             project_payload = {
                 "format": "eli_lab_av_translator",
@@ -1752,7 +1763,10 @@ class Application:
                     "performance_settings": payload.get("performance_settings", {}),
                 },
             }
-            staged_project.write_text(json.dumps(project_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            staged_project.write_text(
+                json.dumps(project_payload, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
             self.load_project(staged_project)
         # The staged project file is temporary; do not retain its deleted path or
         # let a later ordinary project-save action overwrite the .eliset package.
@@ -1777,8 +1791,13 @@ class Application:
                 "modulation_routes": self.modulation.to_dict(),
                 "scene_profiles": self.scene_profiles.to_dict(),
                 "modulator_bank": self.modulator_bank.to_dict(),
-                "midi_mappings": getattr(getattr(self, "midi_mapping_engine", None), "to_dict", lambda: [])(),
-                "performance_scenes": [scene.to_dict() for scene in getattr(self, "performance_scenes", {}).values()],
+                "midi_mappings": getattr(
+                    getattr(self, "midi_mapping_engine", None), "to_dict", lambda: []
+                )(),
+                "performance_scenes": [
+                    scene.to_dict()
+                    for scene in getattr(self, "performance_scenes", {}).values()
+                ],
             },
         }
         composition_snapshot = Composition.from_dict(self.composition.to_dict())
@@ -1824,7 +1843,9 @@ class Application:
 
         # The global modulation matrix also writes into the live composition.
         # Save its pre-modulation values so a project never opens on a random beat peak.
-        selected_layer = composition_snapshot.get_layer(getattr(self, "_selected_layer_id", None) or "")
+        selected_layer = composition_snapshot.get_layer(
+            getattr(self, "_selected_layer_id", None) or ""
+        )
         effect_state = app_state["effects"]
         automation_state = app_state["automation_settings"]
         for target_id, base_value in getattr(self, "_modulation_base_values", {}).items():
