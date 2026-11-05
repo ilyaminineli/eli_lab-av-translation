@@ -1177,10 +1177,19 @@ class Application:
                 if not isinstance(raw, dict):
                     continue
                 local_target = str(raw.get("target_id", ""))
+                selected_layer_aliases = {
+                    "selected_layer.opacity": "layer.opacity",
+                    "selected_layer.rotation": "layer.rotation",
+                    "selected_layer.scale": "layer.scale",
+                    "selected_layer.position_x": "layer.position_x",
+                    "selected_layer.position_y": "layer.position_y",
+                }
+                local_alias = selected_layer_aliases.get(target_id)
                 if (
                         target_id == "generator.*" and local_target.startswith("generator.")
                         or target_id == "overlay.*" and local_target.startswith("overlay.")
                         or target_id == "selected_layer.*" and local_target.startswith("layer.")
+                        or local_target == local_alias
                         or target_id == local_target
                 ):
                     local_targets.add(local_target)
