@@ -49,7 +49,23 @@ class AutomationPanel(QWidget):
                 ("Until stopped", None),
         ):
             self.duration_combo.addItem(label, seconds)
+        self.duration_combo.setCurrentIndex(self.duration_combo.count() - 1)
         form.addRow("SESSION LENGTH", self.duration_combo)
+
+        self.performance_style_combo = QComboBox()
+        self.performance_style_combo.addItem("Random", "random")
+        self.performance_style_combo.addItem("Structured", "structured")
+        self.performance_style_combo.addItem("Generative", "generative")
+        self.performance_style_combo.setCurrentIndex(2)
+        form.addRow("PERFORMANCE STYLE", self.performance_style_combo)
+
+        self.musical_sync_combo = QComboBox()
+        self.musical_sync_combo.addItem("Time-based", "time")
+        self.musical_sync_combo.addItem("Bar-synchronised", "bar")
+        self.musical_sync_combo.addItem("Phrase-synchronised", "phrase")
+        self.musical_sync_combo.addItem("Hybrid", "hybrid")
+        self.musical_sync_combo.setCurrentIndex(2)
+        form.addRow("MUSICAL SYNC", self.musical_sync_combo)
 
         self.cut_combo = QComboBox()
         self.cut_combo.addItem("Slow cuts · 18–38 sec", "slow")
@@ -92,9 +108,9 @@ class AutomationPanel(QWidget):
         layout.addWidget(self.overlay_check)
         layout.addWidget(self.palette_check)
         reactive_hint = QLabel(
-            "Audio and Sonic Pi can drive Auto Performance through AUDIO / CONTROL → "
-            "MODULATION MATRIX. Map audio bands, scene intensity or Sonic Pi energy/cutoff "
-            "to cut timing, clip switching, generator motion, text animation and overlays."
+            "Performance Mode installs shared audio/Sonic Pi routes and per-layer curves "
+            "automatically. Run SONATA after arming; phrase/scene events drive AUTO "
+            "PERFORMANCE while energy, cutoff and optional loopback audio drive the visuals."
         )
         reactive_hint.setWordWrap(True)
         reactive_hint.setObjectName("mutedLabel")
@@ -185,7 +201,34 @@ class AutomationPanel(QWidget):
             randomize_palette=self.palette_check.isChecked(),
             min_generator_interval=max(12.0, cut_min * 1.5),
             max_generator_interval=max(24.0, cut_max * 2.0),
+            performance_style=str(self.performance_style_combo.currentData()),
+            musical_sync=str(self.musical_sync_combo.currentData()),
         )
+
+    def sync_performance_plan(self, plan) -> None:
+        settings = getattr(plan, "automation_settings", {}) or {}
+        for combo, key, fallback in (
+            (self.performance_style_combo, "performance_style", "generative"),
+            (self.musical_sync_combo, "musical_sync", "phrase"),
+        ):
+            index = combo.findData(settings.get(key, fallback))
+            if index >= 0:
+                combo.setCurrentIndex(index)
+        duration_index = self.duration_combo.findData(
+            getattr(plan, "automation_duration_seconds", None)
+        )
+        if duration_index >= 0:
+            self.duration_combo.setCurrentIndex(duration_index)
+        for control, key in (
+            (self.layout_check, "randomize_layout"),
+            (self.effects_check, "randomize_effects"),
+            (self.generator_check, "randomize_generators"),
+            (self.layer_fx_check, "randomize_layer_effects"),
+            (self.overlay_check, "randomize_overlays"),
+            (self.palette_check, "randomize_palette"),
+        ):
+            if key in settings:
+                control.setChecked(bool(settings[key]))
 
     def _start(self) -> None:
         self.start_requested.emit(

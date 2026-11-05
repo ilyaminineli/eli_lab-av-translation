@@ -53,6 +53,24 @@ class PerformanceControlPanel(QWidget):
         root.setContentsMargins(8, 8, 8, 8)
         root.setSpacing(8)
 
+        self.autonomous_mode_group = QGroupBox("AUTONOMOUS PERFORMANCE MODE")
+        mode_layout = QVBoxLayout(self.autonomous_mode_group)
+        self.performance_mode_status_label = QLabel(
+            "OFF · arm the show from the main Performance toolbar."
+        )
+        self.performance_mode_status_label.setWordWrap(True)
+        self.performance_mode_status_label.setObjectName("sectionHeading")
+        self.performance_mode_hint_label = QLabel(
+            "Press PERFORMANCE MODE, then run SONATA Expanded in Sonic Pi. The first "
+            "transport packet starts AUTO PERFORMANCE; bars, phrases, energy, cutoff "
+            "and optional system-loopback audio drive the installed curves."
+        )
+        self.performance_mode_hint_label.setWordWrap(True)
+        self.performance_mode_hint_label.setObjectName("mutedLabel")
+        mode_layout.addWidget(self.performance_mode_status_label)
+        mode_layout.addWidget(self.performance_mode_hint_label)
+        root.addWidget(self.autonomous_mode_group)
+
         self.transport_group = QGroupBox("INTERNAL TRANSPORT / TEST CLOCK")
         transport_form = QFormLayout(self.transport_group)
         self.bpm_spin = QDoubleSpinBox()
@@ -186,13 +204,17 @@ class PerformanceControlPanel(QWidget):
         osc_buttons.addWidget(self.osc_stop_button)
         osc_form.addRow(osc_buttons)
         osc_form.addRow(self.osc_copy_button)
-        self.osc_status_label = QLabel("STOPPED · start the receiver, then run SONATA in Sonic Pi.")
+        self.osc_status_label = QLabel(
+            "STOPPED · Performance Mode starts the receiver automatically; "
+            "manual start is also available."
+        )
         self.osc_status_label.setWordWrap(True)
         osc_form.addRow("CONNECTION", self.osc_status_label)
         self.osc_hint_label = QLabel(
             "Sonic Pi is an OSC control source, not an item in the audio-device list. "
             "For Sonic Pi on this computer, use 127.0.0.1 and the same UDP port in "
-            "SONATA_expanded.rb. Start this receiver before running the patch."
+            "SONATA_expanded.rb. Press PERFORMANCE MODE, then run the patch; the "
+            "receiver and default reactive curves are armed automatically."
         )
         self.osc_hint_label.setWordWrap(True)
         self.osc_hint_label.setObjectName("mutedLabel")
@@ -726,6 +748,9 @@ class PerformanceControlPanel(QWidget):
         self.midi_status_label.setText("MIDI mapping removed.")
 
     def sync_from_application(self) -> None:
+        plan = self.application.performance_mode.plan
+        self.osc_bind_edit.setText(plan.osc_bind_address)
+        self.osc_port_spin.setValue(plan.osc_port)
         transport = self.application.transport
         self.bpm_spin.blockSignals(True)
         self.bpm_spin.setValue(transport.bpm)
@@ -759,6 +784,17 @@ class PerformanceControlPanel(QWidget):
         self.sync_scene_selection(scene_id)
         self.refresh_routes()
         self.refresh_audio_devices()
+        if plan.audio_test_signal:
+            requested_audio = "test"
+        elif plan.audio_device_id:
+            requested_audio = plan.audio_device_id
+        elif not plan.prefer_loopback:
+            requested_audio = None
+        else:
+            requested_audio = self.audio_device_combo.currentData()
+        audio_index = self.audio_device_combo.findData(requested_audio)
+        if audio_index >= 0:
+            self.audio_device_combo.setCurrentIndex(audio_index)
         self._refresh_midi_target_choices()
         self.refresh_midi_mappings(force=True)
         self.refresh_performance_scenes(force=True)
@@ -840,13 +876,21 @@ class PerformanceControlPanel(QWidget):
 
     def refresh_audio_devices(self) -> None:
         selected = self.audio_device_combo.currentData()
+        had_selection = getattr(self, "_audio_selection_initialized", False)
         self.audio_device_combo.blockSignals(True)
         self.audio_device_combo.clear()
+        self.audio_device_combo.addItem(
+            "Sonic Pi macros only · no local capture",
+            None,
+        )
         self.audio_device_combo.addItem("Deterministic test signal", "test")
+        loopback_index = -1
         try:
             devices = self.application.audio_capture.list_devices()
             for device in devices:
                 self.audio_device_combo.addItem(device.label, device.id)
+                if device.is_loopback and loopback_index < 0:
+                    loopback_index = self.audio_device_combo.count() - 1
             message = f"{len(devices)} audio input(s) available."
         except Exception as exc:
             message = f"Audio backend unavailable · {exc}"
@@ -854,8 +898,16 @@ class PerformanceControlPanel(QWidget):
         else:
             self._audio_discovery_error = ""
         index = self.audio_device_combo.findData(selected)
-        self.audio_device_combo.setCurrentIndex(index if index >= 0 else 0)
+        if had_selection and index >= 0:
+            self.audio_device_combo.setCurrentIndex(index)
+        elif loopback_index >= 0:
+            # Prefer system output loopback for true audio reactivity. If no
+            # supported loopback exists, Sonic Pi control macros still work.
+            self.audio_device_combo.setCurrentIndex(loopback_index)
+        else:
+            self.audio_device_combo.setCurrentIndex(0)
         self.audio_device_combo.blockSignals(False)
+        self._audio_selection_initialized = True
         self.audio_state_label.setText(message)
 
     def _start_audio(self) -> None:
@@ -1163,6 +1215,45 @@ class PerformanceControlPanel(QWidget):
         self.route_list.blockSignals(False)
 
     def refresh_monitor(self) -> None:
+        mode = self.application.performance_mode_snapshot()
+        if not mode["enabled"]:
+            self.performance_mode_status_label.setText(
+                "OFF · press PERFORMANCE MODE in the main toolbar to arm the show."
+            )
+        elif mode["phase"] == "live":
+            automation = "RUNNING" if mode["automation_running"] else "ARMED"
+            self.performance_mode_status_label.setText(
+                f"LIVE · SONIC PI · AUTO {automation} · {mode['audio_status']}"
+            )
+        elif mode["phase"] == "degraded":
+            self.performance_mode_status_label.setText(
+                f"DEGRADED · {mode['error'] or 'check receiver and audio status'}"
+            )
+        else:
+            automation = "ARMED" if mode["automation_armed"] else "READY"
+            self.performance_mode_status_label.setText(
+                f"ARMED · waiting for SONATA · AUTO {automation} · "
+                f"{mode['audio_status']}"
+            )
+        diagnostics = self.application.performance_diagnostics()
+        osc = diagnostics["osc"]
+        audio = diagnostics["audio"]
+        control_metrics = diagnostics["control"]
+        automation = diagnostics["automation"]
+        self.performance_mode_status_label.setToolTip(
+            f"OSC {osc['status']} · accepted {osc['accepted']} · "
+            f"rejected {osc['rejected']} · dropped {osc['dropped']}\n"
+            f"Audio {audio['state']} · queue {audio['queue_depth']} · "
+            f"dropped {audio['dropped_frames']}\n"
+            f"Routes {control_metrics['enabled_routes']}/{control_metrics['total_routes']} · "
+            f"modulators {control_metrics['active_modulators']}/"
+            f"{control_metrics['modulators']} · layer curves "
+            f"{control_metrics['enabled_layer_modifiers']}/"
+            f"{control_metrics['layer_modifiers']}\n"
+            f"AUTO {automation['style']} / {automation['musical_sync']} · "
+            f"{automation['section']} · energy {automation['energy']:.2f} · "
+            f"cutoff {automation['cutoff']:.2f}"
+        )
         transport = self.application.transport
         control = self.application.performance_control
         if control.source_id == "sonic_pi":

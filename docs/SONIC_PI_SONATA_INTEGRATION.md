@@ -51,18 +51,17 @@ At the top of `SONATA_expanded.rb`, the helper exposes three values:
 
 A unique session identifier is generated at patch start from a wall-clock timestamp with a microsecond component; it does not depend on the patch's seeded musical random generator, so rapid restarts receive distinct IDs. A shared sequence counter increments for each outgoing message inside a short mutex-protected sender section, so concurrent musical loops cannot reuse or reorder sequence numbers. The helper uses Sonic Pi's `osc_send(host, port, path, *args)` API and does not depend on Sonic Pi's incoming OSC port. If AV Translator is closed, local UDP sends are harmless; the patch's audio structure and cues continue to run.
 
-## Connect Sonic Pi from the AV Translator UI
+## One-button autonomous connection
 
-1. Open the **AUDIO / CONTROL** dock.
-2. Under **SONIC PI CONNECTION · OSC /eli_lab/v1**, leave **RECEIVER ADDRESS** at `127.0.0.1` and **UDP PORT** at `57121` when Sonic Pi and AV Translator run on the same computer.
-3. Click **START OSC RECEIVER**. The status should change from `STOPPED` to `LISTENING`.
-4. Click **COPY SONATA SETTINGS** and paste the two lines into the sender configuration at the top of `SONATA_expanded.rb`, or verify that the patch already has the same host and port.
-5. Run `SONATA_expanded.rb` in Sonic Pi. The receiver should change to `LIVE`; received/accepted counts should increase and the active session ID should appear.
-6. To test the receiver without starting Sonic Pi, run the local test sender shown below.
+1. Prepare the composition and choose the local audio source in AUDIO / CONTROL. For actual analysis of the sound playing from Sonic Pi, select the system-loopback device. Choose Sonic Pi macros only to run without local audio capture.
+2. Verify the OSC bind address and port. Same-computer use defaults to 127.0.0.1:57121. COPY SONATA SETTINGS copies the address and port lines for the patch.
+3. Press PERFORMANCE MODE in the main toolbar. The application starts the OSC receiver automatically, starts the selected local audio capture if requested, installs missing default modulation curves and AUTO PERFORMANCE assignments, and arms phrase-aware automation.
+4. Run SONATA_expanded.rb in Sonic Pi. The first transport/start or clock/bar packet switches the mode from ARMED to LIVE and starts AUTO PERFORMANCE. Scene changes and phrase cues then drive visual variations.
+5. Watch AUDIO / CONTROL for receiver freshness, audio source state, modulation outputs and AUTO PERFORMANCE status. Stop SONATA to stop automation; press STOP PERFORMANCE MODE to release resources owned by the mode and restore generated mapping baselines.
 
-Sonic Pi is **not** an audio input device and will not appear in the audio-device dropdown. The OSC connection and audio capture are separate: use the OSC receiver for transport, scenes and macros; use an audio input or system loopback only when you also want live sound analysis.
+The mode may also reuse an OSC receiver that was started manually. It will not close a receiver or audio stream that was already running before Performance Mode took ownership. Sonic Pi is an OSC control source, not an audio-device entry: normalized energy/cutoff and transport continue to work without local audio capture, while system loopback adds real audio-band/onset analysis.
 
-For Sonic Pi on a different computer, bind the receiver to the AV Translator computer's reachable LAN IPv4 address (or a deliberate interface), set `$sp_av_host` to that same address, and allow inbound UDP on the selected port in the host firewall. Do not use `127.0.0.1` for a remote sender; loopback only reaches the machine on which the receiver is running.
+For a remote Sonic Pi computer, bind to the AV Translator computer's reachable LAN IPv4 address and set $sp_av_host to the same address. Do not use 127.0.0.1 for a remote sender; loopback only reaches the machine on which the receiver runs.
 
 ## Version 1 wire protocol
 
@@ -80,7 +79,7 @@ Namespace: `/eli_lab/v1`. Every event begins with a string session ID and positi
 | `/cue/trigger` | cue name (identifier) | `cue.trigger` |
 | `/source/heartbeat` | none | `source.heartbeat` |
 
-The initial `in` scene is announced before the first clock tick and therefore carries `bar_index=0` as a pre-clock marker; the first `/clock/bar` is bar 1. Every subsequent scene event is emitted after the preceding scene's bar-counted form block and carries the current 1-based bar index. The cutoff normalization is `clamp((sx_m_c - 48.0) / 70.0, 0.0, 1.0)`. Energy is already normalized in the patch. Macro messages are sent once per bar; a phrase cue is sent on four-bar boundaries. Bar messages are emitted once per bar, and a separate heartbeat is sent every four bars. The application treats SONATA as clock authority, disables its internal test clock on `transport/start` or, as a packet-loss fallback, the first accepted `clock/bar`, and derives the M3 `transport.phase` modulation source from the most recent bar clock. Macro values feed the existing M3 modulation matrix, including its smoothing, hold, lock, manual-override and intensity-ceiling behavior.
+The initial `in` scene is announced before the first clock tick and therefore carries `bar_index=0` as a pre-clock marker; the first `/clock/bar` is bar 1. Every subsequent scene event is emitted after the preceding scene's bar-counted form block and carries the current 1-based bar index. The cutoff normalization is `clamp((sx_m_c - 48.0) / 70.0, 0.0, 1.0)`. Energy is already normalized in the patch. Macro messages are sent once per bar; a phrase cue is sent on four-bar boundaries. Bar messages are emitted once per bar, and a separate heartbeat is sent every four bars. The application treats SONATA as clock authority, disables its internal test clock on `transport/start` or, as a packet-loss fallback, the first accepted `clock/bar`, and derives the M3 `transport.phase` modulation source from the most recent bar clock. Macro values feed the existing M3 modulation matrix and the generated M5 routes/modulators, including smoothing, hold, lock, manual-override and intensity-ceiling behaviour.
 
 ### M5 Modulator Bank connection
 
@@ -122,4 +121,4 @@ The script sends start, bar, scene, energy/cutoff, heartbeat, phrase and end eve
 4. Stop/restart the patch and confirm the new session is accepted while delayed packets from the prior session are rejected.
 5. Stop AV Translator's receiver, confirm SONATA audio continues, then restart the receiver and restart SONATA.
 
-**Validation boundary:** protocol, sender insertion and receiver tests are implemented. The complete 384-bar performance has not been executed inside Sonic Pi in CI; timing and machine-specific rehearsal remain a manual sign-off.
+**Validation boundary:** the OSC protocol and sender insertion are implemented. The complete 384-bar performance has not been executed inside Sonic Pi by the current quality workflow; timing and machine-specific rehearsal remain a manual sign-off.

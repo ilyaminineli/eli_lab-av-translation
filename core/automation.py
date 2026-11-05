@@ -43,6 +43,8 @@ class AutomationSettings:
     text_language: str = "bilingual"
     text_theme: str = "random"
     text_fragments: int = 16
+    performance_style: str = "random"
+    musical_sync: str = "time"
 
     def normalize(self) -> None:
         self.min_segment_seconds = max(0.5, float(self.min_segment_seconds))
@@ -64,6 +66,10 @@ class AutomationSettings:
         if self.text_theme not in {"random", "memory", "body", "signal", "ritual", "identity"}:
             self.text_theme = "random"
         self.text_fragments = max(1, min(60, int(self.text_fragments)))
+        if self.performance_style not in {"random", "structured", "generative"}:
+            self.performance_style = "random"
+        if self.musical_sync not in {"time", "bar", "phrase", "hybrid"}:
+            self.musical_sync = "time"
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -107,6 +113,12 @@ class AutomationDirector:
         self._layout_due: float | None = None
         self._effects_due: float | None = None
         self._generators_due: float | None = None
+        self._performance_energy = 0.0
+        self._performance_cutoff = 0.5
+        self._performance_intensity = 0.0
+        self._performance_bar_index = 0
+        self._performance_section = "idle"
+        self._last_musical_event_at = 0.0
 
     @staticmethod
     def _interval(rng: random.Random, low: float, high: float) -> float:
@@ -126,9 +138,6 @@ class AutomationDirector:
             asset for asset in assets
             if asset.status not in {"error", "unsupported"} and Path(asset.path).is_file()
         ]
-        if not candidates:
-            raise ValueError("No playable video files are available for automation.")
-
         self.settings = settings or AutomationSettings()
         self.settings.normalize()
         self._assets = candidates
@@ -154,11 +163,11 @@ class AutomationDirector:
             if self._load_random_segment(deck, None, started):
                 loaded += 1
 
-        if not loaded:
+        if not loaded and candidates:
             self.running = False
             self._deck_due.clear()
             raise ValueError(
-                "No unlocked video deck could load a playable clip. "
+                "Playable footage exists, but no unlocked video deck could load it. "
                 "Unlock a deck and check that the imported videos are readable."
             )
 
@@ -433,6 +442,169 @@ class AutomationDirector:
                     changed += 1
         return changed
 
+    def set_performance_context(
+            self,
+            energy: float,
+            cutoff: float,
+            intensity: float,
+            bar_index: int = 0,
+    ) -> None:
+        """Refresh normalized musical context used by phrase-aware automation."""
+        self._performance_energy = max(0.0, min(1.0, float(energy)))
+        self._performance_cutoff = max(0.0, min(1.0, float(cutoff)))
+        self._performance_intensity = max(0.0, min(1.0, float(intensity)))
+        self._performance_bar_index = max(0, int(bar_index))
+
+    @staticmethod
+    def _scene_section(scene_id: str) -> str:
+        if scene_id in {"in", "c", "end"}:
+            return "intro" if scene_id == "in" else "outro"
+        if scene_id in {"ssp", "intd", "trns", "rls"}:
+            return "breakdown"
+        if scene_id in {"peak", "rc_w", "s_s", "rc"}:
+            return "peak"
+        return "development"
+
+    def on_musical_event(
+            self,
+            event: str,
+            *,
+            scene_id: str = "",
+            intensity: float | None = None,
+            energy: float | None = None,
+            cutoff: float | None = None,
+            bar_index: int | None = None,
+            now: float | None = None,
+    ) -> bool:
+        """Make visual decisions on Sonic Pi bar, phrase and scene boundaries."""
+        if not self.running:
+            return False
+        stamp = time.monotonic() if now is None else float(now)
+        if intensity is not None:
+            self._performance_intensity = max(0.0, min(1.0, float(intensity)))
+        if energy is not None:
+            self._performance_energy = max(0.0, min(1.0, float(energy)))
+        if cutoff is not None:
+            self._performance_cutoff = max(0.0, min(1.0, float(cutoff)))
+        if bar_index is not None:
+            self._performance_bar_index = max(0, int(bar_index))
+
+        if event == "scene":
+            self._performance_section = self._scene_section(scene_id)
+            if scene_id == "end":
+                self.running = False
+                self.last_action = "SONATA end scene · automation stopped"
+                return True
+            if self.settings.musical_sync == "time":
+                return False
+        elif event == "bar":
+            if self.settings.musical_sync not in {"bar", "hybrid"}:
+                return False
+        elif event == "phrase":
+            if self.settings.musical_sync not in {"phrase", "hybrid"}:
+                return False
+        else:
+            return False
+
+        energy = self._performance_energy
+        cutoff = self._performance_cutoff
+        intensity = self._performance_intensity
+        if self.settings.performance_style == "random":
+            strength = 0.22 + 0.24 * energy + 0.20 * intensity
+        elif self.settings.performance_style == "structured":
+            section_scale = {
+                "intro": 0.20,
+                "development": 0.52,
+                "peak": 0.88,
+                "breakdown": 0.28,
+                "outro": 0.12,
+            }.get(self._performance_section, 0.4)
+            strength = section_scale * (0.45 + 0.55 * max(energy, intensity))
+        else:
+            strength = 0.12 + 0.68 * max(energy, intensity)
+        strength = max(0.05, min(0.94, strength))
+        cutoff_drive = 0.65 + 0.7 * cutoff
+
+        changed = False
+        if event in {"scene", "phrase"} or (
+            event == "bar" and self.settings.performance_style == "generative"
+        ):
+            if (
+                self.settings.randomize_layout
+                and (self._layout_due is None or stamp >= self._layout_due)
+                and self.rng.random() < min(0.98, strength * cutoff_drive)
+            ):
+                self._randomize_layout()
+                self._layout_due = stamp + self._interval(
+                    self.rng,
+                    self.settings.min_layout_interval,
+                    self.settings.max_layout_interval,
+                )
+                changed = True
+            if (
+                self.settings.randomize_effects
+                and (self._effects_due is None or stamp >= self._effects_due)
+                and self.rng.random() < min(0.96, strength * (0.8 + 0.2 * energy))
+            ):
+                self._randomize_effects()
+                self._effects_due = stamp + self._interval(
+                    self.rng,
+                    self.settings.min_effect_interval,
+                    self.settings.max_effect_interval,
+                )
+                changed = True
+            if (
+                (
+                    self.settings.randomize_generators
+                    or self.settings.randomize_palette
+                    or self.settings.randomize_layer_effects
+                    or self.settings.randomize_overlays
+                )
+                and (self._generators_due is None or stamp >= self._generators_due)
+                and self.rng.random() < min(0.98, strength * (0.75 + 0.25 * cutoff))
+            ):
+                changed = bool(self._randomize_generators()) or changed
+                self._generators_due = stamp + self._interval(
+                    self.rng,
+                    self.settings.min_generator_interval,
+                    self.settings.max_generator_interval,
+                )
+
+        if event == "phrase":
+            self._trigger_phrase_cuts(
+                stamp,
+                min(0.95, strength * self.settings.clip_switch_probability),
+            )
+        elif event == "bar" and self.settings.performance_style == "generative":
+            self._trigger_phrase_cuts(
+                stamp,
+                min(0.35, strength * self.settings.clip_switch_probability * 0.22),
+            )
+
+        self._last_musical_event_at = stamp
+        section = (
+            f"{self._performance_section} · "
+            if self._performance_section != "idle" else ""
+        )
+        action = "musical variation" if changed else "musical cue evaluated"
+        self.last_action = (
+            f"{section}{action} · {event} · energy {energy:.2f} · "
+            f"cutoff {cutoff:.2f} · intensity {intensity:.2f}"
+        )
+        return changed
+
+    def _trigger_phrase_cuts(self, now: float, probability: float) -> None:
+        if not self._assets:
+            return
+        for deck_id, deck in self._decks.items():
+            if getattr(deck, "locked", False):
+                continue
+            due = self._deck_due.get(deck_id, 0.0)
+            if now < due or self.rng.random() >= probability:
+                continue
+            self._load_random_segment(deck, getattr(deck, "asset_id", None), now)
+
+
     def tick(self, now: float | None = None) -> bool:
 
         if not self.running:
@@ -444,25 +616,30 @@ class AutomationDirector:
             return True
 
         changed = False
-        for deck_id, deck in self._decks.items():
-            if getattr(deck, "locked", False):
-                continue
-            due = self._deck_due.get(deck_id)
-            if due is None:
-                self._deck_due[deck_id] = current + self._interval(
-                    self.rng, self.settings.min_cut_interval, self.settings.max_cut_interval
-                )
-                continue
-            if current < due:
-                continue
-            asset_id = getattr(deck, "asset_id", None)
-            loaded = self._load_random_segment(deck, asset_id, current)
-            if loaded:
-                self.last_action = f"Random cut · {deck_id.upper()}"
-            changed = changed or loaded
+        run_time_events = self.settings.musical_sync in {"time", "hybrid"}
+        if run_time_events:
+            for deck_id, deck in self._decks.items():
+                if getattr(deck, "locked", False):
+                    continue
+                due = self._deck_due.get(deck_id)
+                if due is None:
+                    self._deck_due[deck_id] = current + self._interval(
+                        self.rng,
+                        self.settings.min_cut_interval,
+                        self.settings.max_cut_interval,
+                    )
+                    continue
+                if current < due:
+                    continue
+                asset_id = getattr(deck, "asset_id", None)
+                loaded = self._load_random_segment(deck, asset_id, current)
+                if loaded:
+                    self.last_action = f"Random cut · {deck_id.upper()}"
+                changed = changed or loaded
 
         if (
-                self.settings.randomize_layout
+                run_time_events
+                and self.settings.randomize_layout
                 and self._layout_due is not None
                 and current >= self._layout_due
         ):
@@ -474,7 +651,8 @@ class AutomationDirector:
             changed = True
 
         if (
-                self.settings.randomize_effects
+                run_time_events
+                and self.settings.randomize_effects
                 and self._effects_due is not None
                 and current >= self._effects_due
         ):
@@ -486,7 +664,8 @@ class AutomationDirector:
             changed = True
 
         if (
-                (
+                run_time_events
+                and (
                         self.settings.randomize_generators
                         or self.settings.randomize_palette
                         or self.settings.randomize_layer_effects

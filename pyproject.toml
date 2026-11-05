@@ -23,8 +23,6 @@ midi = [
     "python-rtmidi>=1.5",
 ]
 dev = [
-    "pytest>=8.0",
-    "pytest-qt>=4.4",
     "ruff>=0.6",
 ]
 
@@ -35,9 +33,6 @@ py-modules = ["config"]
 where = ["."]
 include = ["core*", "effects*", "generators*", "media*", "rendering*", "ui*"]
 
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "-ra"
 
 [tool.ruff]
 line-length = 100

@@ -36,6 +36,14 @@ from core.performance_modifiers import (
     LayerPerformanceModifier,
     LayerPerformanceModifierEngine,
 )
+from core.performance_service import (
+    PerformanceModePlan,
+    PerformanceModeService,
+    install_default_layer_modifiers,
+    install_default_matrix_routes,
+    install_default_modulators,
+    set_default_routing_enabled,
+)
 from core.performance_transport import InternalTransport, Quantization
 from core.project_manager import ProjectManager
 from core.scene_profiles import SceneProfile, SceneProfileRegistry
@@ -84,6 +92,11 @@ class Application:
         self.control_events = ControlEventQueue()
         self.osc_receiver = OSCReceiver(self.submit_control_event)
         self.performance_control = PerformanceControlState()
+        self.performance_mode = PerformanceModeService()
+        self._performance_automation_settings: AutomationSettings | None = None
+        self._performance_automation_duration: float | None = None
+        self._performance_automation_armed = False
+        self._performance_automation_owned = False
         self.midi_mapping_engine = MIDIMappingEngine()
         self._midi_learn_request: dict[str, Any] | None = None
         self._midi_learn_last_event = ""
@@ -101,6 +114,7 @@ class Application:
         self.audio_capture = AudioCaptureService()
         self._audio_sources: dict[str, float] = {}
         self._latest_audio_frame: AudioAnalysisFrame | None = None
+        self._audio_last_received_at = 0.0
         self._selected_layer_id: str | None = None
         self._modulation_base_values: dict[str, float] = {}
         self._animation_started_at = time.perf_counter()
@@ -292,6 +306,8 @@ class Application:
         return self.layer_manager.remove_layer(layer_id)
 
     def reset_project(self) -> None:
+        if self.performance_mode.enabled:
+            self.stop_performance_mode()
         self.automation.stop()
         self.midi_mapping_engine.load_dict([])
         self._midi_learn_request = None
@@ -399,6 +415,84 @@ class Application:
             frames[f"overlay:{layer_id}"] = snapshot
         return frames
 
+    def performance_diagnostics(self) -> dict[str, Any]:
+        """Unified non-blocking diagnostics for the operator performance surface."""
+        osc = self.osc_receiver.snapshot()
+        audio_state = self.audio_capture.state.value
+        route_outputs = self.modulation.outputs()
+        modifiers = [
+            raw
+            for layer in self.composition.layers
+            for raw in layer.performance_modifiers
+            if isinstance(raw, dict)
+        ]
+        return {
+            "mode": self.performance_mode.snapshot(),
+            "osc": {
+                "status": osc.get("status"),
+                "last_message_age": osc.get("last_message_age"),
+                "received": osc.get("received", 0),
+                "accepted": osc.get("accepted", 0),
+                "rejected": osc.get("rejected", 0),
+                "dropped": osc.get("dropped", 0),
+            },
+            "audio": {
+                "state": audio_state,
+                "source": self.audio_capture.source_kind,
+                "name": self.audio_capture.selected_device_name,
+                "error": self.audio_capture.error,
+                "queue_depth": len(self.audio_capture.frames),
+                "dropped_frames": self.audio_capture.frames.dropped,
+                "last_frame_age": (
+                    max(0.0, time.monotonic() - self._audio_last_received_at)
+                    if self._audio_last_received_at else None
+                ),
+            },
+            "control": {
+                "queue_depth": len(self.control_events),
+                "dropped_events": self.control_events.dropped_events,
+                "enabled_routes": sum(route.enabled for route in self.modulation.routes),
+                "total_routes": len(self.modulation.routes),
+                "active_outputs": len(route_outputs),
+                "modulators": len(self.modulator_bank.list_modulators()),
+                "active_modulators": len(self.modulator_bank_engine.live_values()),
+                "layer_modifiers": len(modifiers),
+                "enabled_layer_modifiers": sum(
+                    bool(item.get("enabled", True)) for item in modifiers
+                ),
+            },
+            "automation": {
+                "running": self.automation.running,
+                "last_action": self.automation.last_action,
+                "style": self.automation.settings.performance_style,
+                "musical_sync": self.automation.settings.musical_sync,
+                "bar_index": self.automation._performance_bar_index,
+                "section": self.automation._performance_section,
+                "energy": self.automation._performance_energy,
+                "cutoff": self.automation._performance_cutoff,
+            },
+            "video": self.performance_snapshot(),
+        }
+
+    def _monitor_performance_mode(self) -> None:
+        if not self.performance_mode.enabled:
+            return
+        osc = self.osc_receiver.snapshot()
+        state = self.performance_mode.snapshot_state
+        if not osc.get("running"):
+            if state.phase != "degraded":
+                self.performance_mode.mark_degraded(
+                    "Sonic Pi receiver unavailable",
+                    str(osc.get("last_error") or "OSC receiver stopped"),
+                )
+        elif osc.get("status") == "STALE" and state.phase == "live":
+            self.performance_mode.mark_waiting("Sonic Pi signal stale")
+        audio_state = self.audio_capture.state.value
+        if audio_state in {"device_lost", "error"}:
+            state.audio_status = f"{audio_state} · Sonic Pi macros continue"
+        elif state.audio_owned and audio_state == "running":
+            state.audio_status = self.audio_capture.selected_device_name or "audio input"
+
     def performance_snapshot(self) -> dict[str, int | float]:
         deck_stats = [deck.performance_stats() for deck in self.decks.values()]
         deck_stats.extend(
@@ -464,6 +558,308 @@ class Application:
             self.events.publish("performance.osc.stopped")
         return stopped
 
+    def start_performance_mode(
+            self,
+            plan: PerformanceModePlan | dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Arm audio, Sonic Pi ingress, shared curves and unattended automation."""
+        if plan is None:
+            plan = self.performance_mode.plan
+        elif isinstance(plan, dict):
+            plan = PerformanceModePlan(**plan)
+        if not isinstance(plan, PerformanceModePlan):
+            raise TypeError("Performance Mode requires a PerformanceModePlan.")
+        self.performance_mode.begin(plan)
+        errors: list[str] = []
+        osc_owned = False
+        audio_owned = False
+        audio_status = "Sonic Pi macros only"
+
+        try:
+            receiver = self.osc_receiver.snapshot()
+            if not receiver["running"]:
+                self.start_osc_receiver(plan.osc_bind_address, plan.osc_port)
+                osc_owned = True
+            else:
+                # Use the already-open receiver as the single source of truth.
+                plan.osc_bind_address = str(receiver["bind_address"])
+                plan.osc_port = int(receiver["port"])
+
+            audio_device_id = plan.audio_device_id
+            if not audio_device_id and plan.prefer_loopback and not plan.audio_test_signal:
+                try:
+                    audio_device_id = next(
+                        (
+                            device.id
+                            for device in self.audio_capture.list_devices()
+                            if device.is_loopback
+                        ),
+                        "",
+                    )
+                    if audio_device_id:
+                        plan.audio_device_id = audio_device_id
+                except Exception:
+                    audio_device_id = ""
+            if plan.audio_test_signal or audio_device_id:
+                capture_state = self.audio_capture.state.value
+                if capture_state in {"running", "starting"}:
+                    audio_status = f"already active · {self.audio_capture.selected_device_name}"
+                else:
+                    try:
+                        self.start_audio_capture(
+                            device_id=audio_device_id or None,
+                            test_signal=plan.audio_test_signal,
+                        )
+                        audio_owned = True
+                        audio_status = self.audio_capture.selected_device_name or "audio input"
+                    except Exception as exc:
+                        # The visual show still operates from Sonic Pi energy/cutoff
+                        # and transport if local loopback is unavailable.
+                        audio_status = f"local capture unavailable · {exc} · Sonic Pi macros active"
+                        self.events.publish("performance.mode.audio_fallback", error=str(exc))
+            else:
+                audio_status = "Sonic Pi macros only · no local audio capture"
+
+            if plan.install_default_mappings:
+                route_count = install_default_matrix_routes(self.modulation)
+                modulator_ids = install_default_modulators(self.modulator_bank)
+                modifier_count = install_default_layer_modifiers(
+                    self.composition.layers,
+                    modulator_ids,
+                )
+                set_default_routing_enabled(
+                    self.modulation,
+                    self.modulator_bank,
+                    self.composition.layers,
+                    True,
+                )
+                self.events.publish(
+                    "performance.defaults.installed",
+                    routes=route_count,
+                    layer_modifiers=modifier_count,
+                    modulators=len(modulator_ids),
+                )
+
+            settings_data = dict(plan.automation_settings)
+            allowed = AutomationSettings.__dataclass_fields__
+            settings = AutomationSettings(**{
+                key: value for key, value in settings_data.items() if key in allowed
+            })
+            settings.normalize()
+            self._performance_automation_settings = settings
+            self._performance_automation_duration = plan.automation_duration_seconds
+            self._performance_automation_armed = bool(plan.start_automation)
+
+            self.performance_mode.mark_armed(
+                osc_owned=osc_owned,
+                audio_owned=audio_owned,
+                audio_status=audio_status,
+            )
+            self.performance_mode.set_automation_armed(
+                self._performance_automation_armed,
+                self.automation.running,
+            )
+            live_receiver = self.osc_receiver.snapshot()
+            if (
+                self.performance_control.source_id == "sonic_pi"
+                and self.performance_control.transport_running
+                and live_receiver.get("status") == "LIVE"
+            ):
+                self._activate_armed_performance_automation()
+                self.performance_mode.mark_live(
+                    "existing Sonic Pi transport",
+                    self.osc_receiver.snapshot().get("active_session", ""),
+                )
+        except Exception as exc:
+            errors.append(str(exc))
+            self.performance_mode.mark_degraded("performance mode startup", "; ".join(errors))
+            # A partial startup is recoverable. Keep the mode armed if the OSC
+            # receiver is available; Stop Performance Mode owns the cleanup path.
+            self.performance_mode.snapshot_state.osc_owned = osc_owned
+            self.performance_mode.snapshot_state.audio_owned = audio_owned
+            self.performance_mode.snapshot_state.audio_status = audio_status
+
+        snapshot = self.performance_mode.snapshot()
+        self.events.publish("performance.mode.changed", state=snapshot)
+        return snapshot
+
+    def _activate_armed_performance_automation(self) -> bool:
+        if not self.performance_mode.enabled or not self._performance_automation_armed:
+            return False
+        if self.automation.running:
+            self._performance_automation_armed = False
+            self._performance_automation_owned = False
+            self.performance_mode.set_automation_armed(False, True)
+            return True
+        settings = self._performance_automation_settings or AutomationSettings(
+            performance_style="generative",
+            musical_sync="phrase",
+        )
+        try:
+            self.start_automation(
+                collection_id=None,
+                settings=settings,
+                duration_seconds=self._performance_automation_duration,
+            )
+        except (TypeError, ValueError, RuntimeError) as exc:
+            self.performance_mode.mark_degraded(
+                "AUTO PERFORMANCE could not start",
+                str(exc),
+            )
+            self.performance_mode.set_automation_armed(False, False)
+            self._performance_automation_armed = False
+            return False
+        self._performance_automation_armed = False
+        self._performance_automation_owned = True
+        self.performance_mode.set_automation_armed(False, True)
+        self.events.publish("performance.mode.automation_started")
+        return True
+
+    def _automation_musical_context(
+            self,
+            sources: dict[str, float] | None = None,
+    ) -> tuple[float, float]:
+        values = self._modulation_sources() if sources is None else sources
+        energy = max(
+            float(values.get("macro.energy", 0.0)),
+            float(values.get("audio.rms", 0.0)),
+            float(values.get("audio.peak", 0.0)) * 0.85,
+            float(values.get("audio.low", 0.0)) * 0.80,
+            float(values.get("audio.onset", 0.0)) * 0.70,
+        )
+        cutoff = max(
+            float(values.get("macro.cutoff", 0.0)),
+            float(values.get("audio.high", 0.0)),
+        )
+        return max(0.0, min(1.0, energy)), max(0.0, min(1.0, cutoff))
+
+    def _handle_performance_mode_event(self, event: ControlEvent) -> None:
+        if event.source != "sonic_pi":
+            return
+        mode_active = self.performance_mode.enabled
+        if not mode_active and not self.automation.running:
+            return
+
+        snapshot = self.osc_receiver.snapshot()
+        session_id = event.session_id or str(snapshot.get("active_session", ""))
+        if mode_active:
+            self.performance_mode.note_event(event.kind, session_id)
+
+        sources = self._modulation_sources()
+        energy, cutoff = self._automation_musical_context(sources)
+        self.automation.set_performance_context(
+            energy=energy,
+            cutoff=cutoff,
+            intensity=float(self.performance_control.intensity),
+            bar_index=int(self.performance_control.bar_index),
+        )
+
+        if mode_active and event.kind in {"transport.start", "clock.bar"}:
+            self.performance_mode.mark_live(event.kind, session_id)
+            self._activate_armed_performance_automation()
+
+        # A manually started AUTO PERFORMANCE session can also subscribe to
+        # SONATA cues; only the one-button mode owns receiver/audio lifecycle.
+        if self.automation.running:
+            if event.kind == "scene.select":
+                self.automation.on_musical_event(
+                    "scene",
+                    scene_id=str(event.payload.get("scene_id", "")),
+                    intensity=float(
+                        event.payload.get(
+                            "intensity",
+                            self.performance_control.intensity,
+                        )
+                    ),
+                    energy=energy,
+                    cutoff=cutoff,
+                    bar_index=int(
+                        event.payload.get(
+                            "bar_index",
+                            self.performance_control.bar_index,
+                        )
+                    ),
+                )
+            elif event.kind == "clock.bar":
+                self.automation.on_musical_event(
+                    "bar",
+                    intensity=float(self.performance_control.intensity),
+                    energy=energy,
+                    cutoff=cutoff,
+                    bar_index=int(self.performance_control.bar_index),
+                )
+            elif event.kind == "cue.trigger":
+                cue = str(event.payload.get("name", "")).lower()
+                if cue == "phrase" or cue.startswith("phrase_"):
+                    self.automation.on_musical_event(
+                        "phrase",
+                        intensity=float(self.performance_control.intensity),
+                        energy=energy,
+                        cutoff=cutoff,
+                        bar_index=int(self.performance_control.bar_index),
+                    )
+
+        if mode_active:
+            if event.kind == "transport.stop":
+                if (
+                    self.performance_mode.plan.stop_automation_on_patch_stop
+                    and self._performance_automation_owned
+                ):
+                    self.stop_automation()
+                # Keep the show armed for a SONATA restart. The next
+                # transport/start or clock/bar event starts a fresh AUTO pass.
+                self._performance_automation_armed = bool(
+                    self.performance_mode.plan.start_automation
+                )
+                self.performance_mode.set_automation_armed(
+                    self._performance_automation_armed,
+                    self.automation.running,
+                )
+                self.performance_mode.mark_waiting("Sonic Pi transport stopped")
+            elif event.kind in {"scene.select", "clock.bar", "cue.trigger"}:
+                self.performance_mode.set_automation_armed(
+                    self._performance_automation_armed,
+                    self.automation.running,
+                )
+
+    def stop_performance_mode(self) -> dict[str, Any]:
+        """Stop only services owned by the mode and restore modulation baselines."""
+        if not self.performance_mode.enabled:
+            return self.performance_mode.snapshot()
+        previous = self.performance_mode.stop()
+        self._performance_automation_armed = False
+        self._performance_automation_settings = None
+        self._performance_automation_duration = None
+        if self._performance_automation_owned and self.automation.running:
+            self.stop_automation()
+        self._performance_automation_owned = False
+        if previous.audio_owned:
+            self.stop_audio_capture()
+        if previous.osc_owned:
+            self.stop_osc_receiver()
+        self.transport.stop()
+        self._external_clock_bar_at = None
+        self.performance_control.reset()
+        if previous.audio_owned:
+            self._audio_sources.clear()
+            self._latest_audio_frame = None
+            self._audio_last_received_at = 0.0
+        if self.performance_mode.plan.install_default_mappings:
+            set_default_routing_enabled(
+                self.modulation,
+                self.modulator_bank,
+                self.composition.layers,
+                False,
+            )
+        # Disabled AUTO routes/modifiers release to their stored baselines on
+        # this tick. User-authored routes and layer modifiers remain untouched.
+        self.apply_modulation()
+        self.events.publish("performance.mode.changed", state=self.performance_mode.snapshot())
+        return self.performance_mode.snapshot()
+
+    def performance_mode_snapshot(self) -> dict[str, Any]:
+        return self.performance_mode.snapshot()
+
     def submit_control_event(self, event: ControlEvent) -> bool:
         """Submit a normalized event from an internal or future external source."""
         return self.control_events.submit(event)
@@ -513,6 +909,7 @@ class Application:
                             self.recall_performance_scene(scene_id, morph_seconds=duration)
                         else:
                             self._activate_scene_profile(scene_id)
+                    self._handle_performance_mode_event(event)
             except (TypeError, ValueError, KeyError) as exc:
                 _LOG.warning(
                     "Rejected performance control event %s from %s: %s",
@@ -662,6 +1059,7 @@ class Application:
             raise ValueError("Select an audio input or system-loopback device first.")
         self._audio_sources.clear()
         self._latest_audio_frame = None
+        self._audio_last_received_at = 0.0
         self.events.publish(
             "audio.capture.started",
             source=self.audio_capture.source_kind,
@@ -677,10 +1075,13 @@ class Application:
         self.audio_capture.start_replay(samples, sample_rate, repeat=repeat)
         self._audio_sources.clear()
         self._latest_audio_frame = None
+        self._audio_last_received_at = 0.0
 
     def stop_audio_capture(self) -> bool:
         stopped = self.audio_capture.stop()
         self._audio_sources.clear()
+        self._latest_audio_frame = None
+        self._audio_last_received_at = 0.0
         self.events.publish("audio.capture.stopped", stopped=stopped)
         return stopped
 
@@ -694,6 +1095,8 @@ class Application:
             return 0
         self._latest_audio_frame = frames[-1]
         self._audio_sources = self._latest_audio_frame.sources()
+        self._audio_last_received_at = time.monotonic()
+        self._audio_last_received_at = time.monotonic()
         self.events.publish(
             "audio.analysis.updated",
             features=self._audio_sources.copy(),
@@ -725,6 +1128,13 @@ class Application:
 
     def _modulation_sources(self) -> dict[str, float]:
         values = dict(self._audio_sources)
+        now = time.monotonic()
+        if (
+            self._audio_last_received_at <= 0.0
+            or now - self._audio_last_received_at > 1.5
+        ):
+            values = {key: value for key, value in values.items()
+                      if not key.startswith("audio.")}
         values["transport.intensity"] = self.performance_control.intensity
         external_clock_active = (
                 self.performance_control.source_id == "sonic_pi"
@@ -811,7 +1221,6 @@ class Application:
             * max(1, beats_per_bar)
             * 2.0,
         )
-        now = time.monotonic()
         macro_timestamps = getattr(
             self.performance_control, "macro_updated_at", {}
         )
@@ -1515,11 +1924,27 @@ class Application:
         processed_events = self.process_control_events()
         processed_audio = self.process_audio_frames()
         self._tick_scene_morph()
+        sources = self._modulation_sources()
+        energy, cutoff = self._automation_musical_context(sources)
+        self.automation.set_performance_context(
+            energy=energy,
+            cutoff=cutoff,
+            intensity=float(self.performance_control.intensity),
+            bar_index=int(self.performance_control.bar_index),
+        )
         self.apply_modulation()
+        self._monitor_performance_mode()
         return processed_events + processed_audio + len(clock_events) + midi_events
 
     def tick_automation(self) -> bool:
         changed = self.automation.tick()
+        if self.performance_mode.enabled:
+            self.performance_mode.set_automation_armed(
+                self._performance_automation_armed,
+                self.automation.running,
+            )
+            if not self.automation.running:
+                self._performance_automation_owned = False
         if changed:
             for deck_id, deck in self.decks.items():
                 if deck.current_frame is None:
@@ -1898,6 +2323,10 @@ class Application:
     def stop_automation(self) -> None:
         self.automation.stop()
         self._automation_collection_id = None
+        if self.performance_mode.enabled:
+            self._performance_automation_armed = False
+            self._performance_automation_owned = False
+            self.performance_mode.set_automation_armed(False, False)
         self.events.publish("automation.stopped")
 
     def save_project(self, path: str | Path) -> Path:
@@ -1918,9 +2347,25 @@ class Application:
                     scene.to_dict()
                     for scene in getattr(self, "performance_scenes", {}).values()
                 ],
+                "performance_mode_plan": self.performance_mode.plan.to_dict(),
             },
         }
         composition_snapshot = Composition.from_dict(self.composition.to_dict())
+        if self.performance_mode.enabled:
+            # Persist a ready-to-edit project, not a show that starts modulating
+            # immediately on open. The saved Performance Mode button remains off.
+            performance_settings = app_state["performance_settings"]
+            for route in performance_settings.get("modulation_routes", []):
+                if str(route.get("route_id", "")).startswith("auto-performance-"):
+                    route["enabled"] = False
+            bank_state = performance_settings.get("modulator_bank", {})
+            for definition in bank_state.get("modulators", []):
+                if str(definition.get("name", "")).startswith("AUTO ·"):
+                    definition["enabled"] = False
+            for layer in composition_snapshot.layers:
+                for modifier in layer.performance_modifiers:
+                    if str(modifier.get("name", "")).startswith("AUTO ·"):
+                        modifier["enabled"] = False
         for (layer_id, target_id), base_value in (
                 self.performance_modifier_engine.base_values().items()
         ):
@@ -2037,6 +2482,8 @@ class Application:
         return saved_path
 
     def load_project(self, path: str | Path) -> None:
+        if self.performance_mode.enabled:
+            self.stop_performance_mode()
         composition, deck_states = self.project_manager.load(path)
         self.control_events.clear()
         self.performance_control.reset()
@@ -2098,7 +2545,16 @@ class Application:
         self.performance_modifier_engine.reset()
         self._modulation_base_values.clear()
         performance_settings = app_state.get("performance_settings", {})
+        self.performance_mode.plan = PerformanceModePlan()
         if isinstance(performance_settings, dict):
+            if isinstance(performance_settings.get("performance_mode_plan"), dict):
+                try:
+                    self.performance_mode.plan = PerformanceModePlan(
+                        **performance_settings["performance_mode_plan"]
+                    )
+                    self.performance_mode.plan.normalize()
+                except (TypeError, ValueError):
+                    _LOG.warning("Skipping invalid saved Performance Mode preferences")
             if isinstance(performance_settings.get("transport"), dict):
                 self.transport.load_settings(performance_settings["transport"])
             if isinstance(performance_settings.get("audio_analysis"), dict):
@@ -2155,6 +2611,8 @@ class Application:
         self.events.publish("project.loaded", path=self.current_project_path)
 
     def shutdown(self) -> None:
+        if self.performance_mode.enabled:
+            self.stop_performance_mode()
         self.midi_input.stop()
         self.osc_receiver.stop()
         self.control_events.clear()

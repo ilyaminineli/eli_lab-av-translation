@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import random
 import re
+from functools import lru_cache
 from pathlib import Path
 
 # Curated phrases are retained as a reliable fallback and for short-form collage text.
@@ -85,19 +86,43 @@ _THEME_HINTS = {
 
 
 def _dictionary_candidates(root: Path, language: str, theme: str) -> list[str]:
-    """Read the repository's local dictionaries lazily; never require them to exist."""
-    candidates: list[str] = []
-    dictionary_dir = root / "dictionary"
+    """Return cached, normalised candidates for one dictionary version."""
+    dictionary_dir = root.expanduser().resolve() / "dictionary"
     if not dictionary_dir.is_dir():
-        return candidates
-    files = sorted(dictionary_dir.glob("*.txt"))
+        return []
+    signature = []
+    for path in sorted(dictionary_dir.glob("*.txt")):
+        try:
+            stat = path.stat()
+        except OSError:
+            continue
+        signature.append((str(path), stat.st_mtime_ns, stat.st_size))
+    return list(_cached_dictionary_candidates(
+        language,
+        theme,
+        tuple(signature),
+    ))
+
+
+@lru_cache(maxsize=32)
+def _cached_dictionary_candidates(
+        language: str,
+        theme: str,
+        signature: tuple[tuple[str, int, int], ...],
+) -> tuple[str, ...]:
+    """Build a bounded dictionary index once per language/theme/file version."""
+    files = [Path(path) for path, _mtime, _size in signature]
     if language == "english":
-        files = [p for p in files if p.stem.lower() in set("abcdefghijklmnopqrstuvwxyz")]
+        files = [path for path in files if path.stem.lower() in set("abcdefghijklmnopqrstuvwxyz")]
     elif language == "japanese":
-        files = [p for p in files if p.name == "special_readings.txt"]
+        files = [path for path in files if path.name == "special_readings.txt"]
     else:
-        files = [p for p in files if p.name in {"special_readings.txt", "supplementary_kanji.txt"}]
+        files = [
+            path for path in files
+            if path.name in {"special_readings.txt", "supplementary_kanji.txt"}
+        ]
     hints = tuple(item.casefold() for item in _THEME_HINTS.get(theme, ()))
+    candidates: list[str] = []
     for path in files:
         try:
             with path.open("r", encoding="utf-8-sig", errors="ignore") as handle:
@@ -105,33 +130,42 @@ def _dictionary_candidates(root: Path, language: str, theme: str) -> list[str]:
                     line = raw.strip()
                     if not line or len(line) > 72 or line.startswith("#"):
                         continue
-                    # English dictionary files are alphabetized; use one clean lexical headword.
-                    # Japanese reading lists may be tab-separated; choose the CJK column.
-                    parts = [part.strip("・、。[](){}") for part in re.split(r"[\t,;| ]+", line)]
+                    parts = [
+                        part.strip("・、。[](){}")
+                        for part in re.split(r"[\t,;| ]+", line)
+                    ]
                     parts = [part for part in parts if part]
                     if language == "english":
-                        term = next((
-                            part for part in parts
-                            if re.fullmatch(r"[A-Za-z][A-Za-z'’-]*", part)
-                        ), "")
-                    else:
-                        term = next((
-                            part for part in parts
-                            if any(
-                            "\u3040" <= ch <= "\u30ff"
-                            or "\u4e00" <= ch <= "\u9fff"
-                            for ch in part
+                        term = next(
+                            (
+                                part for part in parts
+                                if re.fullmatch(r"[A-Za-z][A-Za-z'’-]*", part)
+                            ),
+                            "",
                         )
-                        ), "")
+                    else:
+                        term = next(
+                            (
+                                part for part in parts
+                                if any(
+                                    "\u3040" <= char <= "\u30ff"
+                                    or "\u4e00" <= char <= "\u9fff"
+                                    for char in part
+                                )
+                            ),
+                            "",
+                        )
                     if not term or len(term) > 24:
                         continue
                     if hints and not any(hint in line.casefold() for hint in hints):
                         continue
-                    candidates.append(term.upper() if language == "english" else term)
+                    candidates.append(
+                        term.upper() if language == "english" else term
+                    )
         except OSError:
             continue
-    # Bound memory and keep sampling responsive on multi-megabyte wordlists.
-    return list(dict.fromkeys(candidates))[:12000]
+    # The immutable cached tuple prevents callers from mutating the shared index.
+    return tuple(list(dict.fromkeys(candidates))[:12000])
 
 
 def random_text_sample(
