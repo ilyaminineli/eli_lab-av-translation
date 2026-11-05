@@ -1,7 +1,7 @@
 # eli_lab AV Translator — Product Roadmap
 
 **Roadmap snapshot:** 5 November 2026  
-**Current priority:** M3 software implementation is complete; perform physical Windows audio/loopback sign-off, then begin M4 Sonic Pi OSC integration. The Video Mixer hardware release gate remains a separate open track.
+**Current priority:** complete the live SONATA 384-bar rehearsal and M3 Windows audio/loopback sign-off. M4 software implementation is complete; the Video Mixer hardware release gate remains a separate open track.
 
 ## Product goal
 
@@ -21,7 +21,7 @@ The roadmap is deliberately staged. M0–M2 establish the visual instrument. M3 
 | M1 — Video Collage | Core implemented; reliability pass in progress | Folder indexing, four decoder decks, transforms, blending and random collage behaviour are present. Safe library cleanup, bounded import workers, decoder retirement and preview output limits are now implemented in the hardening branch. |
 | M2 — Generative Visuals | Initial generator layers implemented | GPU master looks plus first-class geometry, text-art and waveform layers with cached RGBA content, shader animation and project persistence. Particle simulation, imported image/animated overlays, vector paths and richer text motion remain. |
 | M3 — Audio-Reactive Engine & Control Foundation | Software implementation complete; Windows hardware sign-off pending | Internal transport and quantization, SoundCard input/loopback capture, FFT/onset/tempo analysis, scene profiles, editable modulation matrix, lock/manual-override precedence, persistence and regression coverage are implemented. Physical device/reconnect and sustained-session checks remain on the performance PC. |
-| M4 — Sonic Pi Integration | Planned | The SONATA patch has been inspected; it currently uses internal Sonic Pi cues/state and contains no OSC sender. Versioned OSC receiver, protocol and patch sender remain. |
+| M4 — Sonic Pi Integration | Software complete; live rehearsal pending | Versioned `/eli_lab/v1` receiver, test sender, diagnostics, bounded validation, M3 clock/modulation bridge and optional SONATA sender are implemented. Verify the complete 384-bar performance on the target machine. |
 | M5 — Performance Environment | Planned / foundations only | Full MIDI mapping, preset/scene banks, recording and advanced output routing remain future work. |
 
 ### Observed machine test
