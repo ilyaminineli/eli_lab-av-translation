@@ -42,6 +42,7 @@ from core.performance_service import (
     install_default_layer_modifiers,
     install_default_matrix_routes,
     install_default_modulators,
+    set_default_routing_enabled,
 )
 from core.performance_transport import InternalTransport, Quantization
 from core.project_manager import ProjectManager
@@ -95,6 +96,7 @@ class Application:
         self._performance_automation_settings: AutomationSettings | None = None
         self._performance_automation_duration: float | None = None
         self._performance_automation_armed = False
+        self._performance_automation_owned = False
         self.midi_mapping_engine = MIDIMappingEngine()
         self._midi_learn_request: dict[str, Any] | None = None
         self._midi_learn_last_event = ""
@@ -526,6 +528,12 @@ class Application:
                     self.composition.layers,
                     modulator_ids,
                 )
+                set_default_routing_enabled(
+                    self.modulation,
+                    self.modulator_bank,
+                    self.composition.layers,
+                    True,
+                )
                 self.events.publish(
                     "performance.defaults.installed",
                     routes=route_count,
@@ -585,6 +593,7 @@ class Application:
             return False
         if self.automation.running:
             self._performance_automation_armed = False
+            self._performance_automation_owned = False
             self.performance_mode.set_automation_armed(False, True)
             return True
         settings = self._performance_automation_settings or AutomationSettings(
@@ -606,6 +615,7 @@ class Application:
             self._performance_automation_armed = False
             return False
         self._performance_automation_armed = False
+        self._performance_automation_owned = True
         self.performance_mode.set_automation_armed(False, True)
         self.events.publish("performance.mode.automation_started")
         return True
@@ -676,9 +686,10 @@ class Application:
             return self.performance_mode.snapshot()
         previous = self.performance_mode.stop()
         self._performance_automation_armed = False
+        self._performance_automation_owned = False
         self._performance_automation_settings = None
         self._performance_automation_duration = None
-        if previous.automation_running:
+        if self._performance_automation_owned and self.automation.running:
             self.stop_automation()
         if previous.audio_owned:
             self.stop_audio_capture()
@@ -687,17 +698,19 @@ class Application:
         self.transport.stop()
         self._external_clock_bar_at = None
         self.performance_control.reset()
-        if previous.audio_owned or not (
-            self.audio_capture.state.value in {"running", "starting"}
-        ):
+        if previous.audio_owned:
             self._audio_sources.clear()
             self._latest_audio_frame = None
             self._audio_last_received_at = 0.0
+        set_default_routing_enabled(
+            self.modulation,
+            self.modulator_bank,
+            self.composition.layers,
+            False,
+        )
+        # Disabled AUTO routes/modifiers release to their stored baselines on
+        # this tick. User-authored routes and layer modifiers remain untouched.
         self.apply_modulation()
-        self.performance_modifier_engine.reset()
-        self.modulation.reset_runtime()
-        self.modulator_bank_engine.reset()
-        self._modulation_base_values.clear()
         self.events.publish("performance.mode.changed", state=self.performance_mode.snapshot())
         return self.performance_mode.snapshot()
 
