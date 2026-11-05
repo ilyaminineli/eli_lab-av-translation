@@ -8,11 +8,19 @@ The bank is available as a dedicated **MODULATOR BANK** dock, next to **AUDIO / 
 
 ## Modulator types
 
+### Control follower · external source
+
+A control follower turns an existing continuous control signal into a reusable named source. It can follow SONATA's `macro.energy` or `macro.cutoff`, scene intensity, transport phase/pulses, or the audio RMS, peak, frequency bands and onset.
+
+Each follower provides an input range, linear/smoothstep/exponential response, inversion, and independent attack/release smoothing. Its normalized 0–1 output can be assigned to multiple targets/layers exactly like an LFO or sequence. Followers do not require the transport to run, so audio and macro control remain usable independently.
+
+SONATA sends its macros once per bar. The application keeps a received macro available for a bounded freshness window (at least five seconds, or two current bars if longer). When that source becomes stale or disappears, the follower stops publishing an output and its assignments release to their baselines. This avoids a disconnected Sonic Pi session leaving a waveform parameter frozen at its last value.
+
 ### Envelope · ADSR
 
 An envelope is triggered by a selected event and follows attack, decay, sustain, gate and release stages.
 
-Available trigger sources include every beat, bar downbeat, phrase start, audio onset, audio peak and Sonic Pi energy. Retrigger behaviour can restart the envelope or remain legato while the current envelope is active.
+Available trigger sources include every beat, bar downbeat, phrase start, audio onset, audio peak, Sonic Pi energy and Sonic Pi cutoff. The normalized trigger threshold is editable. Retrigger behaviour can restart the envelope or remain legato while the current envelope is active.
 
 When transport-synced, stage times are measured in beats. In free-run mode, they are measured in seconds.
 
@@ -51,7 +59,7 @@ The Layer dock's existing per-layer modifier list displays bank sources by name 
 
 ## Presets
 
-The bank includes built-in presets for slow phrase swells, quarter-note triangle motion, dotted pulses, beat plucks, downbeat envelopes, audio-onset envelopes, four-on-the-floor, clave-inspired accents, triplet shimmer, a bipolar staircase and seeded random drift.
+The bank includes built-in presets for Sonic Pi energy and cutoff followers, slow phrase swells, quarter-note triangle motion, dotted pulses, beat plucks, downbeat envelopes, audio-onset envelopes, four-on-the-floor, clave-inspired accents, triplet shimmer, a bipolar staircase and seeded random drift.
 
 - **LOAD PRESET** creates a new active modulator from the selected preset; it does not overwrite the current modulator.
 - **SAVE AS PRESET** stores the selected modulator as a user preset.
@@ -66,6 +74,8 @@ Active modulators and user presets are saved in the current AV Translator projec
 Each layer assignment retains its own depth and polarity. **AUTO** uses positive response for envelopes and bipolar response for LFOs, step sequences and rhythm patterns. Explicit positive and bipolar choices remain available. Existing smoothstep, linear and exponential response curves are supported.
 
 Assignments continue to use the existing per-layer lock/manual-override and global-route ownership rules. The bank engine only generates normalized control values; the application tick applies those values to layers and generator settings.
+
+For a waveform generator, the selected-layer assignment targets include **Waveform amplitude** and **Waveform frequency**. A typical SONATA mapping is: load **Follower · Sonic Pi energy**, assign it to waveform amplitude, then load **Follower · Sonic Pi cutoff** and assign it to waveform frequency. The same two reusable followers can also drive geometry, text, particles and other compatible visual targets on separate layers.
 
 ## Timing and persistence
 
