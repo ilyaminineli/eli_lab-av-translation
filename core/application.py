@@ -2294,6 +2294,21 @@ class Application:
             },
         }
         composition_snapshot = Composition.from_dict(self.composition.to_dict())
+        if self.performance_mode.enabled:
+            # Persist a ready-to-edit project, not a show that starts modulating
+            # immediately on open. The saved Performance Mode button remains off.
+            performance_settings = app_state["performance_settings"]
+            for route in performance_settings.get("modulation_routes", []):
+                if str(route.get("route_id", "")).startswith("auto-performance-"):
+                    route["enabled"] = False
+            bank_state = performance_settings.get("modulator_bank", {})
+            for definition in bank_state.get("modulators", []):
+                if str(definition.get("name", "")).startswith("AUTO ·"):
+                    definition["enabled"] = False
+            for layer in composition_snapshot.layers:
+                for modifier in layer.performance_modifiers:
+                    if str(modifier.get("name", "")).startswith("AUTO ·"):
+                        modifier["enabled"] = False
         for (layer_id, target_id), base_value in (
                 self.performance_modifier_engine.base_values().items()
         ):
@@ -2473,6 +2488,7 @@ class Application:
         self.performance_modifier_engine.reset()
         self._modulation_base_values.clear()
         performance_settings = app_state.get("performance_settings", {})
+        self.performance_mode.plan = PerformanceModePlan()
         if isinstance(performance_settings, dict):
             if isinstance(performance_settings.get("performance_mode_plan"), dict):
                 try:
