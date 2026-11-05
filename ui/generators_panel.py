@@ -767,6 +767,9 @@ class GeneratorsPanel(QWidget):
         layer = self._selected_layer()
         if layer is None:
             return
+        self.opacity_slider.blockSignals(True)
+        self.opacity_slider.setValue(round(layer.opacity * 100))
+        self.opacity_slider.blockSignals(False)
         if layer.source_type == "overlay":
             player = self.application._overlay_images.get(layer.id)
             if player is None or not player.animated:
