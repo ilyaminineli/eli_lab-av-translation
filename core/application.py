@@ -262,7 +262,9 @@ class Application:
         layer = self.composition.get_layer(layer_id)
         if layer is not None and layer.source_type == "overlay":
             self._remove_overlay_runtime(layer_id)
-        self.performance_modifier_engine.clear_layer(layer_id)
+        modifier_engine = getattr(self, "performance_modifier_engine", None)
+        if modifier_engine is not None:
+            modifier_engine.clear_layer(layer_id)
         return self.layer_manager.remove_layer(layer_id)
 
     def reset_project(self) -> None:
@@ -1144,12 +1146,14 @@ class Application:
             for raw in layer.performance_modifiers
             if isinstance(raw, dict)
         }
-        self.performance_modifier_engine.notify_manual_override(
-            layer_id,
-            local_targets,
-            layer.performance_modifiers,
-            duration_seconds,
-        )
+        modifier_engine = getattr(self, "performance_modifier_engine", None)
+        if modifier_engine is not None:
+            modifier_engine.notify_manual_override(
+                layer_id,
+                local_targets,
+                layer.performance_modifiers,
+                duration_seconds,
+            )
         if layer_id == self._selected_layer_id:
             self.notify_manual_override("selected_layer.*", duration_seconds)
 
@@ -1171,7 +1175,8 @@ class Application:
                 self._modulation_base_values[key] = current
             self.modulation.manual_override(key, duration_seconds)
         selected = self.composition.get_layer(self._selected_layer_id or "")
-        if selected is not None:
+        modifier_engine = getattr(self, "performance_modifier_engine", None)
+        if selected is not None and modifier_engine is not None:
             local_targets = set()
             for raw in selected.performance_modifiers:
                 if not isinstance(raw, dict):
@@ -1193,7 +1198,7 @@ class Application:
                         or target_id == local_target
                 ):
                     local_targets.add(local_target)
-            self.performance_modifier_engine.notify_manual_override(
+            modifier_engine.notify_manual_override(
                 selected.id,
                 local_targets,
                 selected.performance_modifiers,
