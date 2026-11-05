@@ -496,6 +496,25 @@ class Application:
             state=self.performance_control.snapshot(),
         )
 
+    def set_layer_locked(self, layer_id: str, locked: bool) -> None:
+        layer = self.composition.get_layer(layer_id)
+        if layer is None or layer.locked == bool(locked):
+            return
+        target_ids = (
+            "selected_layer.opacity",
+            "selected_layer.rotation",
+            "generator.animation_amount",
+            "generator.density",
+        )
+        if locked and layer_id == self._selected_layer_id:
+            for target_id in target_ids:
+                base = self._modulation_base_values.pop(target_id, None)
+                if base is not None:
+                    self._set_modulation_target(target_id, base)
+                self.modulation.manual_override(target_id, 0.25)
+        layer.locked = bool(locked)
+        self.events.publish("layer.locked", layer_id=layer_id, locked=layer.locked)
+
     def set_selected_layer_id(self, layer_id: str | None) -> None:
         next_id = layer_id or None
         if next_id == self._selected_layer_id:
