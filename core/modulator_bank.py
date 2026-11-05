@@ -159,9 +159,9 @@ class ModulatorDefinition:
         if not isinstance(self.step_values, list):
             self.step_values = [1.0, 0.0, 0.0, 0.0]
         self.step_values = [
-            max(0.0, min(1.0, float(value)))
-            for value in self.step_values[:64]
-        ] or [0.5]
+                               max(0.0, min(1.0, float(value)))
+                               for value in self.step_values[:64]
+                           ] or [0.5]
         self.division_beats = max(1.0 / 96.0, min(64.0, float(self.division_beats)))
         self.step_rate_hz = max(0.01, min(64.0, float(self.step_rate_hz)))
         if self.interpolation not in {"hold", "linear", "smooth"}:
@@ -536,7 +536,7 @@ class ModulatorBank:
         if not isinstance(payload, dict):
             raise ValueError("Modulator preset file must contain a JSON object.")
         if payload.get("format") not in {
-                None, "eli-lab-modulator-presets"
+            None, "eli-lab-modulator-presets"
         }:
             raise ValueError("This file is not an ELI LAB modulator preset bank.")
         raw_presets = payload.get("presets")
@@ -614,7 +614,7 @@ class ModulatorBankEngine:
             f"{modulator_id}:{seed}:{index}".encode(),
             digest_size=8,
         ).digest()
-        return int.from_bytes(digest, "big") / float(2**64 - 1)
+        return int.from_bytes(digest, "big") / float(2 ** 64 - 1)
 
     @staticmethod
     def _reset_position(
@@ -757,8 +757,8 @@ class ModulatorBankEngine:
             active = previous_age < gate + release
 
         trigger_high = (
-            float(sources.get(definition.trigger_source, 0.0))
-            >= definition.trigger_threshold
+                float(sources.get(definition.trigger_source, 0.0))
+                >= definition.trigger_threshold
         )
         if trigger_high and not runtime.previous_trigger:
             if definition.retrigger == "restart" or not active:
@@ -815,8 +815,8 @@ class ModulatorBankEngine:
                     runtime.last_update = stamp
                     continue
                 normalized = (
-                    float(raw_input) - definition.input_min
-                ) / max(1e-9, definition.input_max - definition.input_min)
+                                     float(raw_input) - definition.input_min
+                             ) / max(1e-9, definition.input_max - definition.input_min)
                 normalized = max(0.0, min(1.0, normalized))
                 if definition.input_curve == "smoothstep":
                     normalized = normalized * normalized * (3.0 - 2.0 * normalized)
@@ -890,8 +890,8 @@ class ModulatorBankEngine:
                     step_position = position * definition.step_rate_hz
                     cycle_index = int(step_position // sequence_steps)
                     local_position = (
-                        step_position % sequence_steps
-                    ) * definition.division_beats
+                                             step_position % sequence_steps
+                                     ) * definition.division_beats
                     cycle_beats = definition.division_beats * sequence_steps
                 value = self._sequence_value(
                     definition,
@@ -912,4 +912,3 @@ class ModulatorBankEngine:
     def reset(self) -> None:
         self._runtime.clear()
         self._live_values.clear()
-

@@ -208,8 +208,8 @@ class AutomationPanel(QWidget):
     def sync_performance_plan(self, plan) -> None:
         settings = getattr(plan, "automation_settings", {}) or {}
         for combo, key, fallback in (
-            (self.performance_style_combo, "performance_style", "generative"),
-            (self.musical_sync_combo, "musical_sync", "phrase"),
+                (self.performance_style_combo, "performance_style", "generative"),
+                (self.musical_sync_combo, "musical_sync", "phrase"),
         ):
             index = combo.findData(settings.get(key, fallback))
             if index >= 0:
@@ -220,12 +220,12 @@ class AutomationPanel(QWidget):
         if duration_index >= 0:
             self.duration_combo.setCurrentIndex(duration_index)
         for control, key in (
-            (self.layout_check, "randomize_layout"),
-            (self.effects_check, "randomize_effects"),
-            (self.generator_check, "randomize_generators"),
-            (self.layer_fx_check, "randomize_layer_effects"),
-            (self.overlay_check, "randomize_overlays"),
-            (self.palette_check, "randomize_palette"),
+                (self.layout_check, "randomize_layout"),
+                (self.effects_check, "randomize_effects"),
+                (self.generator_check, "randomize_generators"),
+                (self.layer_fx_check, "randomize_layer_effects"),
+                (self.overlay_check, "randomize_overlays"),
+                (self.palette_check, "randomize_palette"),
         ):
             if key in settings:
                 control.setChecked(bool(settings[key]))

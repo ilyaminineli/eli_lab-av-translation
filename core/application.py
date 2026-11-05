@@ -661,9 +661,9 @@ class Application:
             )
             live_receiver = self.osc_receiver.snapshot()
             if (
-                self.performance_control.source_id == "sonic_pi"
-                and self.performance_control.transport_running
-                and live_receiver.get("status") == "LIVE"
+                    self.performance_control.source_id == "sonic_pi"
+                    and self.performance_control.transport_running
+                    and live_receiver.get("status") == "LIVE"
             ):
                 self._activate_armed_performance_automation()
                 self.performance_mode.mark_live(
@@ -802,8 +802,8 @@ class Application:
         if mode_active:
             if event.kind == "transport.stop":
                 if (
-                    self.performance_mode.plan.stop_automation_on_patch_stop
-                    and self._performance_automation_owned
+                        self.performance_mode.plan.stop_automation_on_patch_stop
+                        and self._performance_automation_owned
                 ):
                     self.stop_automation()
                 # Keep the show armed for a SONATA restart. The next
@@ -1130,8 +1130,8 @@ class Application:
         values = dict(self._audio_sources)
         now = time.monotonic()
         if (
-            self._audio_last_received_at <= 0.0
-            or now - self._audio_last_received_at > 1.5
+                self._audio_last_received_at <= 0.0
+                or now - self._audio_last_received_at > 1.5
         ):
             values = {key: value for key, value in values.items()
                       if not key.startswith("audio.")}
@@ -1185,18 +1185,18 @@ class Application:
         else:
             bar_index = 0
         phrase_start = (
-            bar_index > 0
-            and (bar_index - 1) % phrase_bars == 0
-            and beat_index == 0
-            and clock_active
+                bar_index > 0
+                and (bar_index - 1) % phrase_bars == 0
+                and beat_index == 0
+                and clock_active
         )
         phrase_pulse = beat_pulse if phrase_start else 0.0
 
         if clock_active:
             beat_position = (
-                max(0, bar_index - 1) * beats_per_bar
-                + beat_index
-                + beat_phase
+                    max(0, bar_index - 1) * beats_per_bar
+                    + beat_index
+                    + beat_phase
             )
         else:
             beat_position = 0.0
@@ -1821,7 +1821,7 @@ class Application:
                 available_sources=set(sources),
             )
             if selected is not None
-            and self._get_layer_modifier_target(selected.id, target_id) is not None
+               and self._get_layer_modifier_target(selected.id, target_id) is not None
         }
         global_aliases = {
             "layer.opacity": "selected_layer.opacity",
@@ -1952,7 +1952,6 @@ class Application:
             self.events.publish("automation.changed", action=self.automation.last_action)
         return changed
 
-
     # M5 — MIDI controls and complete performance sets.
     @staticmethod
     def discover_midi_inputs() -> list[str]:
@@ -2001,22 +2000,22 @@ class Application:
         values: dict[str, float] = {}
         for layer in self.composition.layers:
             for target in (
-                "layer.opacity", "layer.rotation", "layer.scale",
-                "layer.position_x", "layer.position_y",
-                "generator.animation_speed", "generator.animation_amount",
-                "generator.density", "generator.rotation",
-                "generator.text_animation_speed", "generator.text_animation_amount",
-                "generator.font_size", "generator.letter_spacing",
-                "generator.waveform_amplitude", "generator.waveform_frequency",
-                "generator.particle_speed", "generator.particle_size",
-                "generator.particle_spread", "generator.particle_trail",
+                    "layer.opacity", "layer.rotation", "layer.scale",
+                    "layer.position_x", "layer.position_y",
+                    "generator.animation_speed", "generator.animation_amount",
+                    "generator.density", "generator.rotation",
+                    "generator.text_animation_speed", "generator.text_animation_amount",
+                    "generator.font_size", "generator.letter_spacing",
+                    "generator.waveform_amplitude", "generator.waveform_frequency",
+                    "generator.particle_speed", "generator.particle_size",
+                    "generator.particle_spread", "generator.particle_trail",
             ):
                 current = self._get_layer_modifier_target(layer.id, target)
                 if current is not None:
                     values[f"layer.{layer.id}.{target}"] = current
         for target in (
-            "master.brightness", "master.exposure", "master.contrast",
-            "master.saturation", "master.grain", "master.glitch", "master.vignette",
+                "master.brightness", "master.exposure", "master.contrast",
+                "master.saturation", "master.grain", "master.glitch", "master.vignette",
         ):
             current = self._get_modulation_target(target)
             if current is not None:
@@ -2062,7 +2061,7 @@ class Application:
             )
             return
         for target, mapped in self.midi_mapping_engine.process(
-            device_id, message, channel, number, value, self._midi_target_values()
+                device_id, message, channel, number, value, self._midi_target_values()
         ):
             self._apply_midi_target(target, mapped)
 
@@ -2135,9 +2134,9 @@ class Application:
             return False
         duration = max(0.0, min(60.0, float(morph_seconds)))
         if (
-            scene.quantization == "immediate"
-            or not self.transport.running
-            or self.transport.paused
+                scene.quantization == "immediate"
+                or not self.transport.running
+                or self.transport.paused
         ):
             return self.recall_performance_scene(scene.scene_id, morph_seconds=duration)
         self._pending_scene_morph_seconds[scene.scene_id] = duration
@@ -2576,8 +2575,8 @@ class Application:
             self.modulation.routes = [
                 route for route in self.modulation.routes
                 if (
-                    not route.source_id.startswith("modulator.")
-                    or route.source_id in known_modulator_sources
+                        not route.source_id.startswith("modulator.")
+                        or route.source_id in known_modulator_sources
                 )
             ]
             self.modulation.reset_runtime()

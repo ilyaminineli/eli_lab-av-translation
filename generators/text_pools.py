@@ -148,10 +148,10 @@ def _cached_dictionary_candidates(
                             (
                                 part for part in parts
                                 if any(
-                                    "\u3040" <= char <= "\u30ff"
-                                    or "\u4e00" <= char <= "\u9fff"
-                                    for char in part
-                                )
+                                "\u3040" <= char <= "\u30ff"
+                                or "\u4e00" <= char <= "\u9fff"
+                                for char in part
+                            )
                             ),
                             "",
                         )

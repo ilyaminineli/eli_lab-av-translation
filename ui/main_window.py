@@ -400,8 +400,8 @@ class MainWindow(QMainWindow):
             duration = self.automation_panel.duration_combo.currentData()
             plan = PerformanceModePlan(
                 osc_bind_address=(
-                    self.performance_control_panel.osc_bind_edit.text().strip()
-                    or "127.0.0.1"
+                        self.performance_control_panel.osc_bind_edit.text().strip()
+                        or "127.0.0.1"
                 ),
                 osc_port=self.performance_control_panel.osc_port_spin.value(),
                 audio_device_id=audio_device_id,
@@ -697,7 +697,7 @@ class MainWindow(QMainWindow):
 
         changed = self.application.tick_automation()
         musical_change = (
-            self.application.automation.last_action != previous_auto_action
+                self.application.automation.last_action != previous_auto_action
         )
         running = self.application.automation.running
         if not was_running and running:

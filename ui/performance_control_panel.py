@@ -159,10 +159,10 @@ class PerformanceControlPanel(QWidget):
         self.performance_scene_name = QLineEdit("Scene 01")
         self.performance_scene_quantization = QComboBox()
         for label, value in (
-            ("Immediate", "immediate"),
-            ("Next beat", "beat"),
-            ("Next bar", "bar"),
-            ("Next phrase", "phrase"),
+                ("Immediate", "immediate"),
+                ("Next beat", "beat"),
+                ("Next bar", "bar"),
+                ("Next phrase", "phrase"),
         ):
             self.performance_scene_quantization.addItem(label, value)
         self.performance_scene_morph = QDoubleSpinBox()
@@ -392,7 +392,6 @@ class PerformanceControlPanel(QWidget):
         modulation_layout.addWidget(self.modulation_status)
         root.addWidget(self.modulation_group)
 
-
         root.addStretch(1)
         self.scroll.setWidget(body)
         outer.addWidget(self.scroll, 1)
@@ -538,8 +537,8 @@ class PerformanceControlPanel(QWidget):
             return
         scene_id = str(item.data(Qt.ItemDataRole.UserRole))
         if self.application.schedule_performance_scene(
-            scene_id,
-            morph_seconds=self.performance_scene_morph.value(),
+                scene_id,
+                morph_seconds=self.performance_scene_morph.value(),
         ):
             self.midi_status_label.setText(
                 f"Scene scheduled · {item.text()} · morph "
@@ -674,10 +673,10 @@ class PerformanceControlPanel(QWidget):
         self.midi_mapping_list.clear()
         for mapping in mappings:
             label = (
-                f"{mapping.device_id} · CH {mapping.channel + 1} · "
-                f"{mapping.message.upper()} {mapping.number} → {mapping.target} · "
-                f"{mapping.minimum:g}…{mapping.maximum:g} · {mapping.curve}"
-                + (" · PICKUP" if mapping.pickup else "")
+                    f"{mapping.device_id} · CH {mapping.channel + 1} · "
+                    f"{mapping.message.upper()} {mapping.number} → {mapping.target} · "
+                    f"{mapping.minimum:g}…{mapping.maximum:g} · {mapping.curve}"
+                    + (" · PICKUP" if mapping.pickup else "")
             )
             item = QListWidgetItem(label)
             item.setData(Qt.ItemDataRole.UserRole, mapping.mapping_id)

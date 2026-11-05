@@ -69,6 +69,7 @@ class MIDIMapping:
 
 class MIDIMappingEngine:
     """Applies learned mappings without owning devices or touching the renderer."""
+
     def __init__(self) -> None:
         self.mappings: list[MIDIMapping] = []
         self._pickup_armed: dict[str, bool] = {}
@@ -115,10 +116,10 @@ class MIDIMappingEngine:
             self._previous[item.mapping_id] = physical
             if item.pickup and item.target in current_targets:
                 target_norm = (float(current_targets[item.target]) - item.minimum) / (
-                    item.maximum - item.minimum
+                        item.maximum - item.minimum
                 )
                 crossed = previous is not None and (previous - target_norm) * (
-                    physical - target_norm
+                        physical - target_norm
                 ) <= 0
                 close = abs(physical - target_norm) <= 0.015
                 if not (self._pickup_armed.get(item.mapping_id, False) or crossed or close):
@@ -161,6 +162,7 @@ class PerformanceScene:
 
 class PerformanceSetStore:
     """Versioned, atomic set persistence. Validation occurs before application mutation."""
+
     @staticmethod
     def build_payload(composition: dict[str, Any], decks: list[dict[str, Any]],
                       effects: dict[str, Any], automation_settings: dict[str, Any],
@@ -229,7 +231,7 @@ class SceneMorph:
     def value(self, now: float | None = None) -> tuple[float, dict[str, float]]:
         stamp = time.monotonic() if now is None else float(now)
         fraction = 1.0 if self.duration <= 0 else max(0.0, min(1.0,
-            (stamp - self.started_at) / self.duration))
+                                                               (stamp - self.started_at) / self.duration))
         eased = fraction * fraction * (3.0 - 2.0 * fraction)
         return fraction, {key: self.start[key] + (self.end[key] - self.start[key]) * eased
                           for key in self.start.keys() & self.end.keys()}
@@ -237,6 +239,7 @@ class SceneMorph:
 
 class MIDIInputService:
     """Optional mido input with bounded callback-to-UI event delivery."""
+
     def __init__(self, callback, queue_capacity: int = 256) -> None:
         self.callback = callback
         self.queue_capacity = max(1, int(queue_capacity))
@@ -264,7 +267,7 @@ class MIDIInputService:
         try:
             import mido
             self._port = mido.open_input(device_name,
-                callback=lambda message: self._receive(device_name, message))
+                                         callback=lambda message: self._receive(device_name, message))
             self.device_id = str(device_name)
             self.state, self.error = "running", ""
             return True

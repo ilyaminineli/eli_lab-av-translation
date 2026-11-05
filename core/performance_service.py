@@ -176,7 +176,6 @@ DEFAULT_MATRIX_ROUTES: tuple[tuple[str, str, float, float, bool, float], ...] = 
     ("audio.onset", "automation.min_segment_seconds", 18.0, 3.0, False, 0.55),
 )
 
-
 DEFAULT_MODULATORS: tuple[tuple[str, str], ...] = (
     ("follower-sonic-pi-energy", "AUTO · Sonic Pi energy"),
     ("follower-sonic-pi-cutoff", "AUTO · Sonic Pi cutoff"),
@@ -250,9 +249,9 @@ def _modifier(
 ) -> LayerPerformanceModifier:
     return LayerPerformanceModifier(
         modifier_id=(
-            f"auto-{source_id.removeprefix('modulator.').replace('.', '-')}-"
-            f"{target_id.replace('.', '-')}"
-        )[:40],
+                        f"auto-{source_id.removeprefix('modulator.').replace('.', '-')}-"
+                        f"{target_id.replace('.', '-')}"
+                    )[:40],
         name=f"AUTO · {name}",
         source_id=source_id,
         target_id=target_id,
@@ -427,4 +426,3 @@ def set_default_routing_enabled(
         for record in records:
             if isinstance(record, dict) and str(record.get("name", "")).startswith("AUTO ·"):
                 record["enabled"] = state
-

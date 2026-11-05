@@ -222,16 +222,16 @@ class LayerPerformanceModifierEngine:
                 ("modulator.", "macro.")
             )
             source_available = (
-                available_sources is None
-                or not source_requires_presence
-                or modifier.source_id in available_sources
+                    available_sources is None
+                    or not source_requires_presence
+                    or modifier.source_id in available_sources
             )
             if (
                     modifier.enabled
                     and source_available
                     and stamp >= self._manual_until.get(
-                        (layer_id, modifier.target_id), 0.0
-                    )
+                (layer_id, modifier.target_id), 0.0
+            )
             ):
                 result.add(modifier.target_id)
         return result

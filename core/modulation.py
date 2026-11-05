@@ -168,8 +168,8 @@ class ModulationRoute:
 
     def normalize(self) -> None:
         is_bank_source = (
-            self.source_id.startswith("modulator.")
-            and bool(self.source_id.removeprefix("modulator.").strip())
+                self.source_id.startswith("modulator.")
+                and bool(self.source_id.removeprefix("modulator.").strip())
         )
         if self.source_id not in SOURCE_RANGES and not is_bank_source:
             raise ValueError(f"Unknown modulation source: {self.source_id}")

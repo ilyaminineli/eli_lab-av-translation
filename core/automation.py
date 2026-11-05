@@ -527,12 +527,12 @@ class AutomationDirector:
 
         changed = False
         if event in {"scene", "phrase"} or (
-            event == "bar" and self.settings.performance_style == "generative"
+                event == "bar" and self.settings.performance_style == "generative"
         ):
             if (
-                self.settings.randomize_layout
-                and (self._layout_due is None or stamp >= self._layout_due)
-                and self.rng.random() < min(0.98, strength * cutoff_drive)
+                    self.settings.randomize_layout
+                    and (self._layout_due is None or stamp >= self._layout_due)
+                    and self.rng.random() < min(0.98, strength * cutoff_drive)
             ):
                 self._randomize_layout()
                 self._layout_due = stamp + self._interval(
@@ -542,9 +542,9 @@ class AutomationDirector:
                 )
                 changed = True
             if (
-                self.settings.randomize_effects
-                and (self._effects_due is None or stamp >= self._effects_due)
-                and self.rng.random() < min(0.96, strength * (0.8 + 0.2 * energy))
+                    self.settings.randomize_effects
+                    and (self._effects_due is None or stamp >= self._effects_due)
+                    and self.rng.random() < min(0.96, strength * (0.8 + 0.2 * energy))
             ):
                 self._randomize_effects()
                 self._effects_due = stamp + self._interval(
@@ -554,14 +554,14 @@ class AutomationDirector:
                 )
                 changed = True
             if (
-                (
-                    self.settings.randomize_generators
-                    or self.settings.randomize_palette
-                    or self.settings.randomize_layer_effects
-                    or self.settings.randomize_overlays
-                )
-                and (self._generators_due is None or stamp >= self._generators_due)
-                and self.rng.random() < min(0.98, strength * (0.75 + 0.25 * cutoff))
+                    (
+                            self.settings.randomize_generators
+                            or self.settings.randomize_palette
+                            or self.settings.randomize_layer_effects
+                            or self.settings.randomize_overlays
+                    )
+                    and (self._generators_due is None or stamp >= self._generators_due)
+                    and self.rng.random() < min(0.98, strength * (0.75 + 0.25 * cutoff))
             ):
                 changed = bool(self._randomize_generators()) or changed
                 self._generators_due = stamp + self._interval(
@@ -603,7 +603,6 @@ class AutomationDirector:
             if now < due or self.rng.random() >= probability:
                 continue
             self._load_random_segment(deck, getattr(deck, "asset_id", None), now)
-
 
     def tick(self, now: float | None = None) -> bool:
 
@@ -666,11 +665,11 @@ class AutomationDirector:
         if (
                 run_time_events
                 and (
-                        self.settings.randomize_generators
-                        or self.settings.randomize_palette
-                        or self.settings.randomize_layer_effects
-                        or self.settings.randomize_overlays
-                )
+                self.settings.randomize_generators
+                or self.settings.randomize_palette
+                or self.settings.randomize_layer_effects
+                or self.settings.randomize_overlays
+        )
                 and self._generators_due is not None
                 and current >= self._generators_due
         ):
