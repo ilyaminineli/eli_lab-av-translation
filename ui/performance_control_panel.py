@@ -12,10 +12,10 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QProgressBar,
-    QLineEdit,
     QPushButton,
     QScrollArea,
     QSpinBox,
@@ -625,16 +625,29 @@ class PerformanceControlPanel(QWidget):
 
     def refresh_monitor(self) -> None:
         transport = self.application.transport
-        transport_state = (
-            "RUN" if transport.running and not transport.paused
-            else "PAUSE" if transport.paused
-            else "STOP"
-        )
-        self.transport_status.setText(
-            f"{transport_state} · {transport.bpm:g} BPM · BAR {transport.bar_index} · "
-            f"BEAT {transport.beat_index + 1}/{transport.beats_per_bar} · "
-            f"PHRASE {transport.phrase_index}"
-        )
+        control = self.application.performance_control
+        if control.source_id == "sonic_pi":
+            transport_state = (
+                "RUN" if control.transport_running
+                else "PAUSE" if control.transport_paused
+                else "STOP"
+            )
+            phrase = (max(0, control.bar_index - 1) // transport.phrase_bars) + 1
+            self.transport_status.setText(
+                f"{transport_state} · SONIC PI · {control.bpm:g} BPM · "
+                f"BAR {control.bar_index} · PHRASE {phrase}"
+            )
+        else:
+            transport_state = (
+                "RUN" if transport.running and not transport.paused
+                else "PAUSE" if transport.paused
+                else "STOP"
+            )
+            self.transport_status.setText(
+                f"{transport_state} · {transport.bpm:g} BPM · BAR {transport.bar_index} · "
+                f"BEAT {transport.beat_index + 1}/{transport.beats_per_bar} · "
+                f"PHRASE {transport.phrase_index}"
+            )
         state = self.application.audio_capture.state
         if (
                 self.application.audio_capture.source_kind in {"input", "loopback"}
