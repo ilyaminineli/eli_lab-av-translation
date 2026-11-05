@@ -14,14 +14,14 @@ from core.composition import Composition, Layer
 from core.event_bus import EventBus
 from core.layer_manager import LayerManager
 from core.modulation import TARGET_SPECS, ModulationMatrix
-from core.osc_protocol import OSCReceiver
-from core.performance_control import ControlEvent, ControlEventQueue, PerformanceControlState
-from core.performance_manager import PerformanceManager
 from core.modulator_bank import (
     ModulatorBank,
     ModulatorBankEngine,
     ModulatorDefinition,
 )
+from core.osc_protocol import OSCReceiver
+from core.performance_control import ControlEvent, ControlEventQueue, PerformanceControlState
+from core.performance_manager import PerformanceManager
 from core.performance_modifiers import (
     LayerPerformanceModifier,
     LayerPerformanceModifierEngine,
