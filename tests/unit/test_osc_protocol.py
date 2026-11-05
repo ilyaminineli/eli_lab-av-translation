@@ -54,6 +54,7 @@ def test_protocol_rejects_unknown_routes_types_ranges_and_macro_names() -> None:
         ("/eli_lab/v1/macro/set", ("session-a", 2, "energy", 1.1)),
         ("/eli_lab/v1/clock/bar", ("session-a", 2, 0, 92.0, 4)),
         ("/eli_lab/v1/scene/select", ("session-a", 2, "dev", True, 2)),
+        ("/eli_lab/v1/scene/select", ("session-a", 2, "unknown", 0.5, 2)),
         ("/eli_lab/v1/transport/tempo", ("session-a", 2, float("nan"))),
     )
     for address, args in invalid:
@@ -135,3 +136,32 @@ def test_receiver_recovers_after_invalid_datagram_and_counts_queue_drops() -> No
     finally:
         sock.close()
         receiver.stop()
+
+
+def test_sonic_pi_start_takes_authority_from_internal_test_clock() -> None:
+    from core.application import Application
+    from core.event_bus import EventBus
+    from core.performance_control import ControlEvent, ControlEventQueue, PerformanceControlState
+    from core.performance_transport import InternalTransport
+
+    application = Application.__new__(Application)
+    application.events = EventBus()
+    application.control_events = ControlEventQueue()
+    application.performance_control = PerformanceControlState()
+    application.transport = InternalTransport()
+    application.transport.start()
+
+    assert application.transport.running is True
+    assert application.submit_control_event(ControlEvent(
+        "transport.start",
+        "sonic_pi",
+        {"bpm": 92.0, "beats_per_bar": 4},
+        sequence=1,
+        session_id="session-sonata",
+    ))
+
+    assert application.process_control_events() == 1
+    assert application.transport.running is False
+    assert application.performance_control.transport_running is True
+    assert application.performance_control.bpm == 92.0
+    assert application.performance_control.beats_per_bar == 4
