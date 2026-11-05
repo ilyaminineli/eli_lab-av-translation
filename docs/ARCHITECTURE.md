@@ -36,24 +36,28 @@ AutomationDirector uses monotonic deadlines for each deck, layout change, effect
 
 ## Performance control plane
 
-M3 introduces a renderer-independent control contract in `core/performance_control.py`:
+M3 adds a renderer-independent control layer across the performance-control, transport, audio-analysis, audio-capture and modulation modules.
 
-1. Source adapters create validated `ControlEvent` messages.
-2. Events enter a bounded, thread-safe `ControlEventQueue`.
-3. The normal application/UI tick drains a bounded batch and applies it to `PerformanceControlState`.
-4. The state exposes transport (BPM, meter, beat/bar), scene, normalized intensity, named macros and cues.
-5. Future M3 modulation routes map these values to explicitly registered visual targets with ranges, smoothing, bypass, locks and manual-override precedence.
+1. Source adapters create validated ControlEvent messages.
+2. Events enter a bounded, thread-safe ControlEventQueue.
+3. The normal application/UI tick drains a bounded batch and applies it to PerformanceControlState.
+4. InternalTransport advances from monotonic deadlines; it emits beat/bar events and quantized scene changes without a sleeping clock thread.
+5. The SoundCard worker owns the active input/loopback recorder, analyzes captured blocks and publishes into a bounded latest-frame queue.
+6. The application tick consumes audio feature snapshots (RMS, peak, low/mid/high, onset and optional tempo/confidence) and combines them with transport and named macro sources.
+7. ModulationMatrix maps only registered sources to registered visual targets with safe ranges, curves, smoothing, bypass, hold, intensity ceilings, layer locks and manual-override precedence.
+8. Resulting values update existing effect/layer/generator/automation models. Renderers remain unaware of SoundCard, input devices or any source protocol.
 
-The current first slice implements the event/state boundary and status display. It does not yet include audio capture, FFT analysis or visual target routing.
+Audio workers never call Qt widgets or OpenGL. Device loss is isolated to the capture service; the video session continues. Synthetic and fixture-replay sources use the same analysis path as hardware input.
 
-Adapters must not mutate composition or UI state from worker threads. OSC and audio workers publish events only; application-owned state changes happen in the controlled application tick. Rendering reads the resulting normal composition/effect/generator model and remains unaware of the source protocol.
+## Scene profiles
+
+SceneProfileRegistry stores user-facing scene IDs, intensity, master look and Japanese colour palette. The initial profiles match the 16 scene IDs in the SONATA patch. Scene changes may apply immediately or be quantized to a beat, bar or phrase boundary. M4 OSC will publish normalized events into the same control contract rather than directly mutating visual objects.
 
 ## Project data
 
-A project file uses the .eliav extension and UTF-8 JSON. Schema version 2 stores composition, deck assignments, segment in/out points, loop settings, effect settings and automation settings. M3 mapping/profile persistence will be added when those user-facing settings are implemented; transient live transport and source state are not project data.
+A project file uses the .eliav extension and UTF-8 JSON. Schema version 2 stores composition, deck assignments, segment in/out points, loop settings, effect settings and automation settings. User-facing M3 transport configuration, analysis settings, modulation routes and scene profiles are persisted; transient live transport position, source handles and audio buffers are not project data.
 
 ## Future extensions
 
-- M3 audio analysis, transport/scene state and modulation routing.
 - M4 versioned Sonic Pi OSC event bridge and visual action mapping.
 - MIDI mapping, performance banks, recording and advanced output routing.
