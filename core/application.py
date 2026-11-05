@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from config import PROJECT_ROOT, RESOURCE_DIR, VIDEO_DECK_IDS
+from config import RESOURCE_DIR, VIDEO_DECK_IDS
 from core.audio_analysis import AudioAnalysisFrame, AudioAnalysisSettings
 from core.audio_capture import AudioCaptureService
 from core.automation import AutomationDirector, AutomationSettings
