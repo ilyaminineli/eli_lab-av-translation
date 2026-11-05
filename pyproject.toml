@@ -14,6 +14,7 @@ dependencies = [
     "av>=12.0",
     "numpy>=1.26",
     "soundcard>=0.4.6",
+    "python-osc>=1.10.2,<2",
 ]
 
 [project.optional-dependencies]
