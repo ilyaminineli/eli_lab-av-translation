@@ -200,3 +200,16 @@ def test_scene_event_rejects_invalid_scene_identifier() -> None:
     )
     with pytest.raises(ValueError):
         state.apply(event)
+
+
+
+def test_transport_meter_event_updates_meter_without_starting_transport() -> None:
+    state = PerformanceControlState()
+    assert state.apply(ControlEvent(
+        "transport.meter",
+        "internal",
+        {"beats_per_bar": 7},
+    ))
+    assert state.beats_per_bar == 7
+    assert state.transport_running is False
+    assert state.transport_paused is False
