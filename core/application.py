@@ -415,6 +415,84 @@ class Application:
             frames[f"overlay:{layer_id}"] = snapshot
         return frames
 
+    def performance_diagnostics(self) -> dict[str, Any]:
+        """Unified non-blocking diagnostics for the operator performance surface."""
+        osc = self.osc_receiver.snapshot()
+        audio_state = self.audio_capture.state.value
+        route_outputs = self.modulation.outputs()
+        modifiers = [
+            raw
+            for layer in self.composition.layers
+            for raw in layer.performance_modifiers
+            if isinstance(raw, dict)
+        ]
+        return {
+            "mode": self.performance_mode.snapshot(),
+            "osc": {
+                "status": osc.get("status"),
+                "last_message_age": osc.get("last_message_age"),
+                "received": osc.get("received", 0),
+                "accepted": osc.get("accepted", 0),
+                "rejected": osc.get("rejected", 0),
+                "dropped": osc.get("dropped", 0),
+            },
+            "audio": {
+                "state": audio_state,
+                "source": self.audio_capture.source_kind,
+                "name": self.audio_capture.selected_device_name,
+                "error": self.audio_capture.error,
+                "queue_depth": len(self.audio_capture.frames),
+                "dropped_frames": self.audio_capture.frames.dropped,
+                "last_frame_age": (
+                    max(0.0, time.monotonic() - self._audio_last_received_at)
+                    if self._audio_last_received_at else None
+                ),
+            },
+            "control": {
+                "queue_depth": len(self.control_events),
+                "dropped_events": self.control_events.dropped_events,
+                "enabled_routes": sum(route.enabled for route in self.modulation.routes),
+                "total_routes": len(self.modulation.routes),
+                "active_outputs": len(route_outputs),
+                "modulators": len(self.modulator_bank.list_modulators()),
+                "active_modulators": len(self.modulator_bank_engine.live_values()),
+                "layer_modifiers": len(modifiers),
+                "enabled_layer_modifiers": sum(
+                    bool(item.get("enabled", True)) for item in modifiers
+                ),
+            },
+            "automation": {
+                "running": self.automation.running,
+                "last_action": self.automation.last_action,
+                "style": self.automation.settings.performance_style,
+                "musical_sync": self.automation.settings.musical_sync,
+                "bar_index": self.automation._performance_bar_index,
+                "section": self.automation._performance_section,
+                "energy": self.automation._performance_energy,
+                "cutoff": self.automation._performance_cutoff,
+            },
+            "video": self.performance_snapshot(),
+        }
+
+    def _monitor_performance_mode(self) -> None:
+        if not self.performance_mode.enabled:
+            return
+        osc = self.osc_receiver.snapshot()
+        state = self.performance_mode.snapshot_state
+        if not osc.get("running"):
+            if state.phase != "degraded":
+                self.performance_mode.mark_degraded(
+                    "Sonic Pi receiver unavailable",
+                    str(osc.get("last_error") or "OSC receiver stopped"),
+                )
+        elif osc.get("status") == "STALE" and state.phase == "live":
+            self.performance_mode.mark_waiting("Sonic Pi signal stale")
+        audio_state = self.audio_capture.state.value
+        if audio_state in {"device_lost", "error"}:
+            state.audio_status = f"{audio_state} · Sonic Pi macros continue"
+        elif state.audio_owned and audio_state == "running":
+            state.audio_status = self.audio_capture.selected_device_name or "audio input"
+
     def performance_snapshot(self) -> dict[str, int | float]:
         deck_stats = [deck.performance_stats() for deck in self.decks.values()]
         deck_stats.extend(
@@ -486,7 +564,7 @@ class Application:
     ) -> dict[str, Any]:
         """Arm audio, Sonic Pi ingress, shared curves and unattended automation."""
         if plan is None:
-            plan = PerformanceModePlan()
+            plan = self.performance_mode.plan
         elif isinstance(plan, dict):
             plan = PerformanceModePlan(**plan)
         if not isinstance(plan, PerformanceModePlan):
@@ -696,6 +774,7 @@ class Application:
         self._performance_automation_duration = None
         if self._performance_automation_owned and self.automation.running:
             self.stop_automation()
+        self._performance_automation_owned = False
         if previous.audio_owned:
             self.stop_audio_capture()
         if previous.osc_owned:
@@ -1797,6 +1876,7 @@ class Application:
             bar_index=int(self.performance_control.bar_index),
         )
         self.apply_modulation()
+        self._monitor_performance_mode()
         return processed_events + processed_audio + len(clock_events) + midi_events
 
     def tick_automation(self) -> bool:
@@ -2210,6 +2290,7 @@ class Application:
                     scene.to_dict()
                     for scene in getattr(self, "performance_scenes", {}).values()
                 ],
+                "performance_mode_plan": self.performance_mode.plan.to_dict(),
             },
         }
         composition_snapshot = Composition.from_dict(self.composition.to_dict())
@@ -2393,6 +2474,14 @@ class Application:
         self._modulation_base_values.clear()
         performance_settings = app_state.get("performance_settings", {})
         if isinstance(performance_settings, dict):
+            if isinstance(performance_settings.get("performance_mode_plan"), dict):
+                try:
+                    self.performance_mode.plan = PerformanceModePlan(
+                        **performance_settings["performance_mode_plan"]
+                    )
+                    self.performance_mode.plan.normalize()
+                except (TypeError, ValueError):
+                    _LOG.warning("Skipping invalid saved Performance Mode preferences")
             if isinstance(performance_settings.get("transport"), dict):
                 self.transport.load_settings(performance_settings["transport"])
             if isinstance(performance_settings.get("audio_analysis"), dict):
