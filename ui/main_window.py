@@ -261,6 +261,7 @@ class MainWindow(QMainWindow):
                 self.automation_dock,
                 self.preview_dock,
                 self.performance_control_dock,
+                self.modulator_bank_dock,
         ):
             dock.show()
         self.layer_dock.raise_()
