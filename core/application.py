@@ -32,6 +32,30 @@ from media.video_deck import VideoDeck
 
 _LOG = logging.getLogger(__name__)
 
+_SELECTED_LAYER_MODULATION_TARGETS = (
+    "selected_layer.opacity",
+    "selected_layer.rotation",
+    "selected_layer.scale",
+    "selected_layer.position_x",
+    "selected_layer.position_y",
+    "generator.animation_speed",
+    "generator.animation_amount",
+    "generator.density",
+    "generator.rotation",
+    "generator.text_animation_speed",
+    "generator.text_animation_amount",
+    "generator.font_size",
+    "generator.letter_spacing",
+    "generator.waveform_amplitude",
+    "generator.waveform_frequency",
+    "generator.particle_speed",
+    "generator.particle_size",
+    "generator.particle_spread",
+    "generator.particle_trail",
+    "overlay.playback_speed",
+    "overlay.frame_hold",
+)
+
 
 class Application:
     """Coordinates application services without depending on Qt widgets."""
@@ -549,12 +573,7 @@ class Application:
         layer = self.composition.get_layer(layer_id)
         if layer is None or layer.locked == bool(locked):
             return
-        target_ids = (
-            "selected_layer.opacity",
-            "selected_layer.rotation",
-            "generator.animation_amount",
-            "generator.density",
-        )
+        target_ids = _SELECTED_LAYER_MODULATION_TARGETS
         if locked and layer_id == self._selected_layer_id:
             for target_id in target_ids:
                 base = self._modulation_base_values.pop(target_id, None)
@@ -569,12 +588,7 @@ class Application:
         previous_id = self._selected_layer_id
         if next_id == previous_id:
             return
-        target_ids = (
-            "selected_layer.opacity",
-            "selected_layer.rotation",
-            "generator.animation_amount",
-            "generator.density",
-        )
+        target_ids = _SELECTED_LAYER_MODULATION_TARGETS
         if previous_id is not None:
             for target_id in target_ids:
                 base = self._modulation_base_values.pop(target_id, None)
@@ -686,6 +700,7 @@ class Application:
             }:
                 return float(getattr(self.effects, field))
             return None
+
         if target_id.startswith("selected_layer."):
             layer = self.composition.get_layer(self._selected_layer_id or "")
             if layer is None or layer.locked:
@@ -693,20 +708,73 @@ class Application:
             field = target_id.split(".", 1)[1]
             if field in {"opacity", "rotation"}:
                 return float(getattr(layer, field))
+            if field == "position_x":
+                return float(layer.position[0])
+            if field == "position_y":
+                return float(layer.position[1])
+            if field == "scale":
+                return float(layer.scale[0])
             return None
+
         if target_id.startswith("generator."):
             layer = self.composition.get_layer(self._selected_layer_id or "")
             if layer is None or layer.locked or layer.source_type != "generator":
                 return None
             field = target_id.split(".", 1)[1]
-            if field in {"animation_amount", "density"}:
-                value = layer.generator_settings.get(field)
-                return float(value) if isinstance(value, (int, float)) else None
+            settings = normalize_settings(
+                layer.generator_type or "geometry",
+                layer.generator_settings,
+            )
+            setting_key = {
+                "animation_speed": "animation_speed",
+                "animation_amount": "animation_amount",
+                "density": "density",
+                "rotation": "rotation",
+                "text_animation_speed": "text_animation_speed",
+                "text_animation_amount": "text_animation_amount",
+                "font_size": "font_size",
+                "letter_spacing": "letter_spacing",
+                "waveform_amplitude": "amplitude",
+                "waveform_frequency": "frequency",
+                "particle_speed": "speed",
+                "particle_size": "size",
+                "particle_spread": "spread",
+                "particle_trail": "trail",
+            }.get(field)
+            value = settings.get(setting_key) if setting_key else None
+            return float(value) if isinstance(value, (int, float)) else None
+
+        if target_id.startswith("overlay."):
+            layer = self.composition.get_layer(self._selected_layer_id or "")
+            player = self._overlay_images.get(layer.id) if layer is not None else None
+            if (
+                    layer is None or layer.locked or layer.source_type != "overlay"
+                    or player is None or not player.animated
+            ):
+                return None
+            field = target_id.split(".", 1)[1]
+            if field == "playback_speed":
+                return float(layer.overlay_speed)
+            if field == "frame_hold":
+                return float(layer.overlay_frame_hold)
             return None
-        if target_id == "automation.loop_probability":
-            return float(self.automation.settings.loop_probability)
-        if target_id == "automation.cut_interval":
-            return float(self.automation.settings.min_cut_interval)
+
+        if target_id.startswith("automation."):
+            field = target_id.split(".", 1)[1]
+            settings = self.automation.settings
+            mapping = {
+                "loop_probability": "loop_probability",
+                "clip_switch_probability": "clip_switch_probability",
+                "cut_interval": "min_cut_interval",
+                "min_segment_seconds": "min_segment_seconds",
+                "max_segment_seconds": "max_segment_seconds",
+                "layout_interval": "min_layout_interval",
+                "effect_interval": "min_effect_interval",
+                "generator_interval": "min_generator_interval",
+            }
+            setting_key = mapping.get(field)
+            value = getattr(settings, setting_key) if setting_key else None
+            return float(value) if isinstance(value, (int, float)) else None
         return None
 
     def _set_modulation_target(self, target_id: str, value: float) -> bool:
@@ -720,6 +788,7 @@ class Application:
                 self.effects.preset_name = "Custom"
                 return True
             return False
+
         if target_id.startswith("selected_layer."):
             layer = self.composition.get_layer(self._selected_layer_id or "")
             if layer is None or layer.locked:
@@ -727,31 +796,107 @@ class Application:
             field = target_id.split(".", 1)[1]
             if field in {"opacity", "rotation"}:
                 setattr(layer, field, float(value))
-                self.events.publish("layer.modulated", layer_id=layer.id, target=target_id)
-                return True
-            return False
+            elif field == "position_x":
+                layer.position = (max(0.0, min(1.0, float(value))), layer.position[1])
+            elif field == "position_y":
+                layer.position = (layer.position[0], max(0.0, min(1.0, float(value))))
+            elif field == "scale":
+                scale = max(0.05, min(2.0, float(value)))
+                layer.scale = (scale, scale)
+            else:
+                return False
+            self.events.publish("layer.modulated", layer_id=layer.id, target=target_id)
+            return True
+
         if target_id.startswith("generator."):
             layer = self.composition.get_layer(self._selected_layer_id or "")
             if layer is None or layer.locked or layer.source_type != "generator":
                 return False
             field = target_id.split(".", 1)[1]
-            if field not in {"animation_amount", "density"} or not layer.generator_type:
+            setting_key = {
+                "animation_speed": "animation_speed",
+                "animation_amount": "animation_amount",
+                "density": "density",
+                "rotation": "rotation",
+                "text_animation_speed": "text_animation_speed",
+                "text_animation_amount": "text_animation_amount",
+                "font_size": "font_size",
+                "letter_spacing": "letter_spacing",
+                "waveform_amplitude": "amplitude",
+                "waveform_frequency": "frequency",
+                "particle_speed": "speed",
+                "particle_size": "size",
+                "particle_spread": "spread",
+                "particle_trail": "trail",
+            }.get(field)
+            if not setting_key or not layer.generator_type:
                 return False
-            settings = dict(layer.generator_settings)
-            settings[field] = value
+            settings = normalize_settings(layer.generator_type, layer.generator_settings)
+            if setting_key not in settings:
+                return False
+            current = settings[setting_key]
+            settings[setting_key] = (
+                int(round(value))
+                if isinstance(current, int) and not isinstance(current, bool)
+                else float(value)
+            )
             layer.generator_settings = normalize_settings(layer.generator_type, settings)
             self.events.publish("layer.modulated", layer_id=layer.id, target=target_id)
             return True
-        if target_id == "automation.loop_probability":
-            self.automation.settings.loop_probability = max(0.0, min(1.0, float(value)))
-            return True
-        if target_id == "automation.cut_interval":
-            minimum = max(1.0, min(60.0, float(value)))
-            self.automation.settings.min_cut_interval = minimum
-            self.automation.settings.max_cut_interval = max(
-                minimum,
-                self.automation.settings.max_cut_interval,
+
+        if target_id.startswith("overlay."):
+            layer = self.composition.get_layer(self._selected_layer_id or "")
+            player = self._overlay_images.get(layer.id) if layer is not None else None
+            if (
+                    layer is None or layer.locked or layer.source_type != "overlay"
+                    or player is None or not player.animated
+            ):
+                return False
+            field = target_id.split(".", 1)[1]
+            if field == "playback_speed":
+                layer.overlay_speed = max(0.1, min(4.0, float(value)))
+            elif field == "frame_hold":
+                layer.overlay_frame_hold = max(1, min(24, int(round(value))))
+            else:
+                return False
+            player.configure_playback(
+                layer.overlay_speed,
+                layer.overlay_frame_hold,
+                layer.overlay_loop,
             )
+            self.events.publish("layer.modulated", layer_id=layer.id, target=target_id)
+            return True
+
+        if target_id.startswith("automation."):
+            field = target_id.split(".", 1)[1]
+            settings = self.automation.settings
+            if field in {"loop_probability", "clip_switch_probability"}:
+                setattr(settings, field, max(0.0, min(1.0, float(value))))
+            elif field == "cut_interval":
+                minimum = max(1.0, min(60.0, float(value)))
+                settings.min_cut_interval = minimum
+                settings.max_cut_interval = max(minimum, settings.max_cut_interval)
+            elif field == "min_segment_seconds":
+                minimum = max(0.5, min(30.0, float(value)))
+                settings.min_segment_seconds = minimum
+                settings.max_segment_seconds = max(minimum, settings.max_segment_seconds)
+            elif field == "max_segment_seconds":
+                maximum = max(0.5, min(60.0, float(value)))
+                settings.max_segment_seconds = maximum
+                settings.min_segment_seconds = min(settings.min_segment_seconds, maximum)
+            elif field in {"layout_interval", "effect_interval", "generator_interval"}:
+                minimum = max(2.0, min(120.0, float(value)))
+                field_map = {
+                    "layout_interval": ("min_layout_interval", "max_layout_interval"),
+                    "effect_interval": ("min_effect_interval", "max_effect_interval"),
+                    "generator_interval": ("min_generator_interval", "max_generator_interval"),
+                }
+                low_field, high_field = field_map[field]
+                setattr(settings, low_field, minimum)
+                setattr(settings, high_field, max(minimum, getattr(settings, high_field)))
+            else:
+                return False
+            settings.normalize()
             return True
         return False
 
