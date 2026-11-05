@@ -148,15 +148,16 @@ class InternalTransport:
             raise ValueError(f"Unsupported quantization: {quantization}")
         due: int | None = None
         if self.running and not self.paused and quantization != "immediate":
-            next_beat = self.total_beats + 1
+            next_beat = self.total_beats
             if quantization == "beat":
                 due = next_beat
             else:
                 bar_beats = self.beats_per_bar
-                if quantization == "bar":
-                    unit = bar_beats
-                else:
-                    unit = bar_beats * self.phrase_bars
+                unit = (
+                    bar_beats
+                    if quantization == "bar"
+                    else bar_beats * self.phrase_bars
+                )
                 due = ((next_beat + unit - 1) // unit) * unit
         item = ScheduledScene(str(scene_id), value, due, stamp)
         if due is None:
@@ -200,18 +201,16 @@ class InternalTransport:
 
             due_items = [
                 item for item in self._pending_scenes
-                if item.due_beat is None or item.due_beat <= self.total_beats
+                if item.due_beat is None or item.due_beat <= self.total_beats - 1
             ]
             for item in due_items:
-                new_bar_index = self.total_beats // self.beats_per_bar + 1
                 events.append(ControlEvent(
                     "scene.select",
                     self.source,
                     {
                         "scene_id": item.scene_id,
                         "intensity": item.intensity,
-                        "bar_index": new_bar_index,
-                    },
+                        "bar_index": bar_index,
                     received_at=beat_time,
                 ))
                 self._pending_scenes.remove(item)
