@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from core.composition import Layer
+import pytest
+
+from core.composition import Composition, Layer
 from core.performance_modifiers import (
     LayerPerformanceModifier,
     LayerPerformanceModifierEngine,
@@ -124,8 +126,8 @@ def test_modifiers_are_independent_per_layer_and_add_for_one_target() -> None:
         now=1.0,
     )
 
-    assert outputs[("one", "layer.scale")] == 1.195
-    assert outputs[("two", "layer.scale")] == 1.0975
+    assert outputs[("one", "layer.scale")] == pytest.approx(1.195)
+    assert outputs[("two", "layer.scale")] == pytest.approx(1.0975)
     assert store["one"]["layer.scale"] > store["two"]["layer.scale"]
 
 
@@ -309,4 +311,84 @@ def test_application_reads_and_writes_layer_scoped_generator_targets() -> None:
         "app-layer", "layer.rotation", 45.0
     )
     assert layer.rotation == 45.0
+
+def test_save_project_stores_pre_modulation_values_and_layer_modifier_defs(tmp_path) -> None:
+    from pathlib import Path
+    from types import SimpleNamespace
+
+    from core.application import Application
+    from core.audio_analysis import AudioAnalysisSettings
+    from core.automation import AutomationDirector
+    from core.event_bus import EventBus
+    from core.modulation import ModulationMatrix
+    from core.performance_transport import InternalTransport
+    from core.scene_profiles import SceneProfileRegistry
+    from effects.settings import EffectSettings
+
+    modifier = LayerPerformanceModifier(
+        modifier_id="save-pulse",
+        source_id="transport.beat_pulse",
+        target_id="generator.animation_amount",
+        depth=0.1,
+        curve="linear",
+        attack_ms=1.0,
+    )
+    layer = Layer(
+        id="save-geometry",
+        source_type="generator",
+        generator_type="geometry",
+        generator_settings={"animation_amount": 12.0},
+        performance_modifiers=[modifier.to_dict()],
+    )
+    engine = LayerPerformanceModifierEngine()
+    store, get_target, set_target = _memory_target_store({
+        layer.id: {"generator.animation_amount": 12.0}
+    })
+    engine.evaluate(
+        [layer],
+        {"transport.beat_pulse": 1.0},
+        get_target,
+        set_target,
+        now=10.0,
+    )
+    layer.generator_settings["animation_amount"] = store[layer.id]["generator.animation_amount"]
+    assert layer.generator_settings["animation_amount"] == 48.0
+
+    class ProjectManagerStub:
+        def save(self, path, composition, deck_states, app_state=None):
+            self.composition = composition
+            self.app_state = app_state or {}
+            return Path(path)
+
+    application = Application.__new__(Application)
+    application.decks = {}
+    application.effects = EffectSettings()
+    application.automation = AutomationDirector()
+    application.transport = InternalTransport()
+    application.audio_capture = SimpleNamespace(settings=AudioAnalysisSettings())
+    application.modulation = ModulationMatrix()
+    application.scene_profiles = SceneProfileRegistry()
+    application.composition = Composition(layers=[layer])
+    application.performance_modifier_engine = engine
+    application._modulation_base_values = {
+        "selected_layer.opacity": 0.6,
+        "automation.loop_probability": 0.4,
+    }
+    application._selected_layer_id = layer.id
+    application.project_manager = ProjectManagerStub()
+    application.current_project_path = None
+    application.events = EventBus()
+
+    destination = tmp_path / "performance.eliav"
+    assert application.save_project(destination) == destination
+
+    saved_layer = application.project_manager.composition.get_layer(layer.id)
+    assert saved_layer.generator_settings["animation_amount"] == 12.0
+    assert saved_layer.performance_modifiers[0]["modifier_id"] == "save-pulse"
+    assert saved_layer.opacity == 0.6
+    assert application.project_manager.app_state["automation_settings"][
+        "loop_probability"
+    ] == 0.4
+    # Saving is a snapshot operation: the live preview remains at its beat peak.
+    assert layer.generator_settings["animation_amount"] == 48.0
 
