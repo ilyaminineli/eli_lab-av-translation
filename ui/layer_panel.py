@@ -693,15 +693,16 @@ class LayerPanel(QWidget):
 
         # Keep the transform controls honest while a modifier is moving the layer.
         transform_values = (
-            (self.position_x[1], round(layer.position[0] * 100)),
-            (self.position_y[1], round(layer.position[1] * 100)),
-            (self.scale[1], round(layer.scale[0] * 100)),
-            (self.rotation[1], round(layer.rotation)),
+            (self.position_x, "X POSITION", round(layer.position[0] * 100)),
+            (self.position_y, "Y POSITION", round(layer.position[1] * 100)),
+            (self.scale, "UNIFORM SCALE", round(layer.scale[0] * 100)),
+            (self.rotation, "ROTATION", round(layer.rotation)),
         )
-        for slider, value in transform_values:
+        for (label, slider), title, value in transform_values:
             slider.blockSignals(True)
             slider.setValue(value)
             slider.blockSignals(False)
+            label.setText(f"{title}  {value}")
         live = self.application.layer_performance_modifier_values(layer.id)
         for modifier_id, (_enabled, _detail, meter) in self._modifier_widgets.items():
             value = live.get(modifier_id)
