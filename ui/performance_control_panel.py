@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from uuid import uuid4
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -106,7 +107,9 @@ class PerformanceControlPanel(QWidget):
         self.midi_curve_combo.addItem("Linear", "linear")
         self.midi_curve_combo.addItem("Smoothstep", "smoothstep")
         self.midi_curve_combo.addItem("Exponential", "exponential")
-        self.midi_pickup_check = QCheckBox("Pickup · wait until physical control reaches current value")
+        self.midi_pickup_check = QCheckBox(
+            "Pickup · wait until physical control reaches current value"
+        )
         self.midi_pickup_check.setChecked(True)
         midi_form.addRow("TARGET", self.midi_target_combo)
         midi_range_row = QHBoxLayout()
@@ -126,7 +129,9 @@ class PerformanceControlPanel(QWidget):
         midi_mapping_buttons.addWidget(self.midi_update_button)
         midi_mapping_buttons.addWidget(self.midi_remove_button)
         midi_form.addRow(midi_mapping_buttons)
-        self.midi_status_label = QLabel("MIDI optional · install the [midi] extra to enable hardware input.")
+        self.midi_status_label = QLabel(
+            "MIDI optional · install the [midi] extra to enable hardware input."
+        )
         self.midi_status_label.setWordWrap(True)
         midi_form.addRow("STATUS", self.midi_status_label)
         root.addWidget(self.midi_group)
@@ -376,6 +381,7 @@ class PerformanceControlPanel(QWidget):
         self.refresh_midi_devices()
         self._refresh_midi_target_choices()
         self.refresh_midi_mappings(force=True)
+        self._refresh_midi_target_choices()
         self._target_changed()
         self.sync_modulator_sources()
         self.refresh_audio_devices()
@@ -469,7 +475,8 @@ class PerformanceControlPanel(QWidget):
         )
         for layer in self.application.composition.layers:
             for label, target in layer_targets:
-                self.midi_target_combo.addItem(f"{layer.name} · {label}", f"layer.{layer.id}.{target}")
+                target_id = f"layer.{layer.id}.{target}"
+                self.midi_target_combo.addItem(f"{layer.name} · {label}", target_id)
         index = self.midi_target_combo.findData(previous)
         if index >= 0:
             self.midi_target_combo.setCurrentIndex(index)
@@ -492,6 +499,10 @@ class PerformanceControlPanel(QWidget):
 
     def _begin_midi_learn(self) -> None:
         target = self.midi_target_combo.currentData()
+        if getattr(self.application, "_midi_learn_request", None) is not None:
+            self.application.cancel_midi_learn()
+            self.midi_status_label.setText("MIDI learn cancelled.")
+            return
         if not target:
             self.midi_status_label.setText("Select a MIDI target first.")
             return
@@ -548,7 +559,9 @@ class PerformanceControlPanel(QWidget):
             self.midi_target_combo.setCurrentIndex(index)
         self.midi_min_spin.setValue(mapping.minimum)
         self.midi_max_spin.setValue(mapping.maximum)
-        self.midi_curve_combo.setCurrentIndex(max(0, self.midi_curve_combo.findData(mapping.curve)))
+        self.midi_curve_combo.setCurrentIndex(
+            max(0, self.midi_curve_combo.findData(mapping.curve))
+        )
         self.midi_pickup_check.setChecked(mapping.pickup)
 
     def _update_selected_midi_mapping(self) -> None:
@@ -828,13 +841,6 @@ class PerformanceControlPanel(QWidget):
         except Exception as exc:
             self.osc_status_label.setText(f"OSC unavailable · {exc}")
         self.refresh_osc_status()
-        self.refresh_midi_mappings()
-        learn = getattr(self.application, "_midi_learn_request", None)
-        learned = getattr(self.application, "_midi_learn_last_event", "")
-        if learn is not None:
-            self.midi_status_label.setText(f"LEARNING · move a controller for {learn['target']}")
-        elif learned:
-            self.midi_status_label.setText(f"LEARNED · {learned}")
 
     def _stop_osc(self) -> None:
         self.application.stop_osc_receiver()
@@ -1084,6 +1090,13 @@ class PerformanceControlPanel(QWidget):
             if bpm is not None else "Tempo estimate · listening for transients…"
         )
         self.refresh_osc_status()
+        self.refresh_midi_mappings()
+        learn = getattr(self.application, "_midi_learn_request", None)
+        learned = getattr(self.application, "_midi_learn_last_event", "")
+        if learn is not None:
+            self.midi_status_label.setText(f"LEARNING · move a controller for {learn['target']}")
+        elif learned:
+            self.midi_status_label.setText(f"LEARNED · {learned}")
         outputs = self.application.modulation.outputs()
         self.modulation_status.setText(
             " · ".join(
