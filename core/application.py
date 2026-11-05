@@ -645,12 +645,6 @@ class Application:
             settings = AutomationSettings(**{
                 key: value for key, value in settings_data.items() if key in allowed
             })
-            # Autonomous mode is phrase-aware by default. An explicit user choice
-            # in the settings is retained if it is one of the supported modes.
-            if settings.performance_style == "random":
-                settings.performance_style = "generative"
-            if settings.musical_sync == "time":
-                settings.musical_sync = "phrase"
             settings.normalize()
             self._performance_automation_settings = settings
             self._performance_automation_duration = plan.automation_duration_seconds
@@ -738,11 +732,17 @@ class Application:
         return max(0.0, min(1.0, energy)), max(0.0, min(1.0, cutoff))
 
     def _handle_performance_mode_event(self, event: ControlEvent) -> None:
-        if not self.performance_mode.enabled or event.source != "sonic_pi":
+        if event.source != "sonic_pi":
             return
+        mode_active = self.performance_mode.enabled
+        if not mode_active and not self.automation.running:
+            return
+
         snapshot = self.osc_receiver.snapshot()
         session_id = event.session_id or str(snapshot.get("active_session", ""))
-        self.performance_mode.note_event(event.kind, session_id)
+        if mode_active:
+            self.performance_mode.note_event(event.kind, session_id)
+
         sources = self._modulation_sources()
         energy, cutoff = self._automation_musical_context(sources)
         self.automation.set_performance_context(
@@ -752,48 +752,65 @@ class Application:
             bar_index=int(self.performance_control.bar_index),
         )
 
-        if event.kind in {"transport.start", "clock.bar"}:
+        if mode_active and event.kind in {"transport.start", "clock.bar"}:
             self.performance_mode.mark_live(event.kind, session_id)
             self._activate_armed_performance_automation()
-        if event.kind == "scene.select":
-            self.automation.on_musical_event(
-                "scene",
-                scene_id=str(event.payload.get("scene_id", "")),
-                intensity=float(event.payload.get("intensity", self.performance_control.intensity)),
-                energy=energy,
-                cutoff=cutoff,
-                bar_index=int(event.payload.get("bar_index", self.performance_control.bar_index)),
-            )
-            self.performance_mode.set_automation_armed(
-                self._performance_automation_armed,
-                self.automation.running,
-            )
-        elif event.kind == "clock.bar":
-            self.automation.on_musical_event(
-                "bar",
-                intensity=float(self.performance_control.intensity),
-                energy=energy,
-                cutoff=cutoff,
-                bar_index=int(self.performance_control.bar_index),
-            )
-        elif event.kind == "cue.trigger":
-            cue = str(event.payload.get("name", "")).lower()
-            if cue == "phrase" or cue.startswith("phrase_"):
+
+        # A manually started AUTO PERFORMANCE session can also subscribe to
+        # SONATA cues; only the one-button mode owns receiver/audio lifecycle.
+        if self.automation.running:
+            if event.kind == "scene.select":
                 self.automation.on_musical_event(
-                    "phrase",
+                    "scene",
+                    scene_id=str(event.payload.get("scene_id", "")),
+                    intensity=float(
+                        event.payload.get(
+                            "intensity",
+                            self.performance_control.intensity,
+                        )
+                    ),
+                    energy=energy,
+                    cutoff=cutoff,
+                    bar_index=int(
+                        event.payload.get(
+                            "bar_index",
+                            self.performance_control.bar_index,
+                        )
+                    ),
+                )
+            elif event.kind == "clock.bar":
+                self.automation.on_musical_event(
+                    "bar",
                     intensity=float(self.performance_control.intensity),
-                    energy=float(sources.get("macro.energy", 0.0)),
-                    cutoff=float(sources.get("macro.cutoff", 0.5)),
+                    energy=energy,
+                    cutoff=cutoff,
                     bar_index=int(self.performance_control.bar_index),
                 )
-        elif event.kind == "transport.stop":
-            if self.performance_mode.plan.stop_automation_on_patch_stop:
-                self.stop_automation()
-            self.performance_mode.set_automation_armed(
-                self._performance_automation_armed,
-                self.automation.running,
-            )
-            self.performance_mode.mark_waiting("Sonic Pi transport stopped")
+            elif event.kind == "cue.trigger":
+                cue = str(event.payload.get("name", "")).lower()
+                if cue == "phrase" or cue.startswith("phrase_"):
+                    self.automation.on_musical_event(
+                        "phrase",
+                        intensity=float(self.performance_control.intensity),
+                        energy=energy,
+                        cutoff=cutoff,
+                        bar_index=int(self.performance_control.bar_index),
+                    )
+
+        if mode_active:
+            if event.kind == "transport.stop":
+                if self.performance_mode.plan.stop_automation_on_patch_stop:
+                    self.stop_automation()
+                self.performance_mode.set_automation_armed(
+                    self._performance_automation_armed,
+                    self.automation.running,
+                )
+                self.performance_mode.mark_waiting("Sonic Pi transport stopped")
+            elif event.kind in {"scene.select", "clock.bar", "cue.trigger"}:
+                self.performance_mode.set_automation_armed(
+                    self._performance_automation_armed,
+                    self.automation.running,
+                )
 
     def stop_performance_mode(self) -> dict[str, Any]:
         """Stop only services owned by the mode and restore modulation baselines."""
