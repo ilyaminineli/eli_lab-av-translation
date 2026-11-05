@@ -159,6 +159,8 @@ class ModulationMatrix:
         route.normalize()
         if any(item.route_id == route.route_id for item in self.routes):
             raise ValueError(f"Duplicate modulation route ID: {route.route_id}")
+        if any(item.target_id == route.target_id for item in self.routes):
+            raise ValueError(f"Target already has a modulation route: {route.target_id}")
         self.routes.append(route)
         self._runtime[route.route_id] = _RouteRuntime()
 
