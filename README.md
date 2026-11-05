@@ -117,11 +117,11 @@ M3 persists transport configuration, analysis settings, modulation routes and sc
 
 ## M4 Sonic Pi integration
 
-The **AUDIO / CONTROL** dock includes a configurable OSC receiver for `/eli_lab/v1` (loopback `127.0.0.1:57121` by default). Start the receiver, then run the updated SONATA Expanded patch or the local sender:
+The **AUDIO / CONTROL** dock includes a configurable OSC receiver for `/eli_lab/v1` (loopback `127.0.0.1:57121` by default). For a live show, press **PERFORMANCE MODE** in the main toolbar; it starts or reuses the receiver, enables the shared reactive curves and arms AUTO PERFORMANCE. Then run SONATA Expanded in Sonic Pi. The receiver can still be started manually for protocol checks:
 
     python scripts/osc_test_sender.py --host 127.0.0.1 --port 57121
 
-Sonic Pi remains the audio and musical-clock authority. The receiver validates session IDs and monotonically increasing per-session sequence numbers, rate-limits input, and submits normalized events through the bounded M3 control queue. Transport, 1-based bar position, scene/intensity, `energy` and normalized `cutoff` macros, phrase cues and end events are applied on the application tick. The OSC worker never accesses Qt widgets, composition objects or OpenGL resources. See [SONATA integration notes](docs/SONIC_PI_SONATA_INTEGRATION.md) for the exact wire format and patch setup.
+Sonic Pi remains the audio and musical-clock authority. The receiver validates session IDs and monotonically increasing per-session sequence numbers, rate-limits input, and submits normalized events through the bounded M3 control queue. Transport, 1-based bar position, scene/intensity, `energy` and normalized `cutoff` macros, phrase cues and end events are applied on the application tick. The OSC worker never accesses Qt widgets, composition objects or OpenGL resources. Performance Mode combines these macros with optional system-loopback FFT analysis, Modulator Bank followers/envelopes/LFOs, generated layer curves and phrase-aware AUTO PERFORMANCE. See [SONATA integration notes](docs/SONIC_PI_SONATA_INTEGRATION.md) and [M5 Autonomous Performance](docs/M5_AUTONOMOUS_PERFORMANCE.md).
 
 ## Effects and overlays
 
