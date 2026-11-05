@@ -30,6 +30,7 @@ def main() -> None:
         )
 
     send("transport/start", 92.0, 4)
+    send("transport/tempo", 92.0)
     time.sleep(0.1)
     send("clock/bar", 1, 92.0, 4)
     send("scene/select", "in", 0.12, 1)
