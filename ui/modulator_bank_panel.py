@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 
 from core.application import Application
 from core.modulator_bank import (
+    FOLLOWER_SOURCES,
     TRIGGER_SOURCES,
     ModulatorDefinition,
     euclidean_pattern,
