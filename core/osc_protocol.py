@@ -6,7 +6,7 @@ import re
 import threading
 import time
 from collections import OrderedDict, deque
-from typing import Callable
+from collections.abc import Callable
 
 from core.performance_control import ControlEvent
 
@@ -14,7 +14,10 @@ _LOG = logging.getLogger(__name__)
 _NAMESPACE = "/eli_lab/v1"
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9_.:-]{1,64}$")
 _MACROS = frozenset({"energy", "cutoff"})
-_SCENES = frozenset({"in", "exp", "tm_a", "trns", "dev", "fr", "ssp", "rtrns", "rc", "rc_w", "peak", "intd", "s_s", "rls", "c", "end"})
+_SCENES = frozenset({
+    "in", "exp", "tm_a", "trns", "dev", "fr", "ssp", "rtrns",
+    "rc", "rc_w", "peak", "intd", "s_s", "rls", "c", "end",
+})
 
 
 def _identifier(value: object, field: str) -> str:
@@ -213,7 +216,9 @@ class OSCReceiver:
         except ImportError as exc:
             with self._lock:
                 self._last_error = str(exc)
-            raise RuntimeError("python-osc is not installed. Install the runtime requirements.") from exc
+            raise RuntimeError(
+                "python-osc is not installed. Install the runtime requirements."
+            ) from exc
         except (TypeError, ValueError) as exc:
             with self._lock:
                 self._last_error = str(exc)
