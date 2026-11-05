@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QFormLayout,
     QLabel,
     QPushButton,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -24,7 +25,14 @@ class AutomationPanel(QWidget):
     def __init__(self, library: MediaLibrary, parent=None) -> None:
         super().__init__(parent)
         self.library = library
-        layout = QVBoxLayout(self)
+        self._running = False
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        self.scroll = QScrollArea(self)
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        body = QWidget()
+        layout = QVBoxLayout(body)
         layout.setContentsMargins(8, 8, 8, 8)
         form = QFormLayout()
 
@@ -83,6 +91,14 @@ class AutomationPanel(QWidget):
         layout.addWidget(self.layer_fx_check)
         layout.addWidget(self.overlay_check)
         layout.addWidget(self.palette_check)
+        reactive_hint = QLabel(
+            "Audio and Sonic Pi can drive Auto Performance through AUDIO / CONTROL → "
+            "MODULATION MATRIX. Map audio bands, scene intensity or Sonic Pi energy/cutoff "
+            "to cut timing, clip switching, generator motion, text animation and overlays."
+        )
+        reactive_hint.setWordWrap(True)
+        reactive_hint.setObjectName("mutedLabel")
+        layout.addWidget(reactive_hint)
 
         self.start_button = QPushButton("START AUTOMATIC SESSION")
         self.stop_button = QPushButton("STOP AUTOMATION")
@@ -95,6 +111,8 @@ class AutomationPanel(QWidget):
         self.status_label.setObjectName("mutedLabel")
         layout.addWidget(self.status_label)
         layout.addStretch(1)
+        self.scroll.setWidget(body)
+        outer.addWidget(self.scroll, 1)
 
         self.start_button.clicked.connect(self._start)
         self.stop_button.clicked.connect(self.stop_requested)
@@ -104,19 +122,34 @@ class AutomationPanel(QWidget):
         selected = self.collection_combo.currentData()
         self.collection_combo.blockSignals(True)
         self.collection_combo.clear()
-        self.collection_combo.addItem("All imported footage", None)
+        assets = self.library.list_assets()
+        playable = [
+            asset for asset in assets
+            if asset.status not in {"error", "unsupported"} and Path(asset.path).is_file()
+        ]
+        self.collection_combo.addItem(
+            f"All playable footage · {len(playable)} clip(s)",
+            None,
+        )
         groups: dict[str, list[str]] = {}
-        for asset in self.library.list_assets():
+        for asset in playable:
             groups.setdefault(asset.collection_id, []).append(asset.path)
         for collection_id, paths in sorted(groups.items()):
             folder_name = Path(paths[0]).parent.name or "Video folder"
             self.collection_combo.addItem(
-                f"{folder_name} · {len(paths)} clips",
+                f"{folder_name} · {len(paths)} playable",
                 collection_id,
             )
         index = self.collection_combo.findData(selected)
         self.collection_combo.setCurrentIndex(index if index >= 0 else 0)
         self.collection_combo.blockSignals(False)
+        self.start_button.setEnabled(bool(playable) and not self._running)
+        if not playable and not self._running:
+            self.status_label.setText(
+                "No playable video files. Import a video folder or choose a pool with readable clips."
+            )
+        elif playable and self.status_label.text().startswith("No playable video files"):
+            self.status_label.setText(f"Ready · {len(playable)} playable video clip(s) available.")
 
     def _build_settings(self) -> AutomationSettings:
         cut_ranges = {
@@ -161,7 +194,14 @@ class AutomationPanel(QWidget):
         )
 
     def set_running(self, running: bool, message: str | None = None) -> None:
-        self.start_button.setEnabled(not running)
+        self._running = bool(running)
+        playable = any(
+            asset.status not in {"error", "unsupported"} and Path(asset.path).is_file()
+            for asset in self.library.list_assets(
+                collection_id=self.collection_combo.currentData()
+            )
+        )
+        self.start_button.setEnabled(not running and playable)
         self.stop_button.setEnabled(running)
         if message:
             self.status_label.setText(message)
