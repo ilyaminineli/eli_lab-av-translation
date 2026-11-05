@@ -116,10 +116,15 @@ class LayerPerformanceModifier:
     enabled: bool = True
 
     def normalize(self) -> None:
-        if self.source_id not in SOURCE_RANGES:
-            raise ValueError(f"Unknown performance modifier source: {self.source_id}")
-        if self.source_id not in PERFORMANCE_MODIFIER_SOURCES:
-            raise ValueError(f"Unsupported per-layer source: {self.source_id}")
+        is_modulator_source = self.source_id.startswith("modulator.")
+        if is_modulator_source:
+            if not self.source_id.removeprefix("modulator.").strip():
+                raise ValueError("A modulator source must include a modulator ID.")
+        else:
+            if self.source_id not in SOURCE_RANGES:
+                raise ValueError(f"Unknown performance modifier source: {self.source_id}")
+            if self.source_id not in PERFORMANCE_MODIFIER_SOURCES:
+                raise ValueError(f"Unsupported per-layer source: {self.source_id}")
         if self.target_id not in PERFORMANCE_MODIFIER_TARGETS:
             raise ValueError(f"Unknown performance modifier target: {self.target_id}")
         self.modifier_id = str(self.modifier_id).strip()[:40] or uuid4().hex[:10]
