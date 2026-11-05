@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
+import warnings
 from collections import deque
 from dataclasses import dataclass
 from enum import StrEnum
@@ -119,6 +120,15 @@ class SoundCardBackend:
             block_size: int,
     ) -> Any:
         import soundcard as sc
+
+        # Windows WASAPI can emit one warning per recorder block when a buffer
+        # discontinuity occurs. Keep the first diagnostic but avoid flooding the
+        # console with the same non-fatal warning on every block.
+        warnings.filterwarnings(
+            "once",
+            message=r"data discontinuity in recording",
+            module=r"soundcard\.mediafoundation",
+        )
 
         microphone = next(
             (
