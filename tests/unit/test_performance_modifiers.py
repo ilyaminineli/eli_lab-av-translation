@@ -204,3 +204,109 @@ def test_modifier_engine_exposes_pre_modulation_values_for_project_save() -> Non
     assert engine.base_values() == {
         ("text", "generator.text_animation_amount"): 0.02
     }
+
+def test_external_transport_exposes_beat_downbeat_phrase_and_bar_phase(monkeypatch) -> None:
+    from types import SimpleNamespace
+
+    from core.application import Application
+
+    application = Application.__new__(Application)
+    application._audio_sources = {}
+    application.performance_control = SimpleNamespace(
+        intensity=0.6,
+        source_id="sonic_pi",
+        transport_running=True,
+        beats_per_bar=4,
+        bpm=120.0,
+        bar_index=1,
+        macros={"energy": 0.7, "cutoff": 0.4},
+    )
+    application.transport = SimpleNamespace(
+        phrase_bars=4,
+        running=False,
+        paused=False,
+    )
+    application._external_clock_bar_at = 100.0
+    monkeypatch.setattr("core.application.time.monotonic", lambda: 100.025)
+
+    sources = application._modulation_sources()
+
+    assert sources["transport.beat_pulse"] > 0.7
+    assert sources["transport.downbeat_pulse"] == sources["transport.beat_pulse"]
+    assert sources["transport.phrase_pulse"] == sources["transport.beat_pulse"]
+    assert sources["transport.bar_phase"] == 0.0125
+    assert sources["macro.energy"] == 0.7
+    assert sources["macro.cutoff"] == 0.4
+
+    # Half a second later the sender is on beat two, not on the downbeat.
+    monkeypatch.setattr("core.application.time.monotonic", lambda: 100.525)
+    sources = application._modulation_sources()
+    assert sources["transport.beat_pulse"] > 0.7
+    assert sources["transport.downbeat_pulse"] == 0.0
+    assert sources["transport.phrase_pulse"] == 0.0
+
+
+def test_rhythm_sources_are_zero_when_transport_is_stopped(monkeypatch) -> None:
+    from types import SimpleNamespace
+
+    from core.application import Application
+
+    application = Application.__new__(Application)
+    application._audio_sources = {}
+    application.performance_control = SimpleNamespace(
+        intensity=0.0,
+        source_id="sonic_pi",
+        transport_running=False,
+        beats_per_bar=4,
+        bpm=92.0,
+        bar_index=0,
+        macros={},
+    )
+    application.transport = SimpleNamespace(
+        phrase_bars=4,
+        running=False,
+        paused=False,
+    )
+    application._external_clock_bar_at = None
+    monkeypatch.setattr("core.application.time.monotonic", lambda: 100.0)
+
+    sources = application._modulation_sources()
+
+    assert sources["transport.phase"] == 0.0
+    assert sources["transport.bar_phase"] == 0.0
+    assert sources["transport.beat_pulse"] == 0.0
+    assert sources["transport.downbeat_pulse"] == 0.0
+    assert sources["transport.phrase_pulse"] == 0.0
+
+
+def test_application_reads_and_writes_layer_scoped_generator_targets() -> None:
+    from core.application import Application
+    from core.composition import Composition
+
+    layer = Layer(
+        id="app-layer",
+        source_type="generator",
+        generator_type="text",
+        generator_settings={
+            "text_animation_amount": 0.025,
+            "text_animation_speed": 1.0,
+            "font_size": 148,
+        },
+    )
+    application = Application.__new__(Application)
+    application.composition = Composition(layers=[layer])
+    application._overlay_images = {}
+
+    assert application._get_layer_modifier_target(
+        "app-layer", "generator.text_animation_amount"
+    ) == 0.025
+    assert application._set_layer_modifier_target(
+        "app-layer", "generator.text_animation_amount", 0.12
+    )
+    assert layer.generator_settings["text_animation_amount"] == 0.12
+
+    assert application._set_layer_modifier_target(
+        "app-layer", "layer.rotation", 45.0
+    )
+    assert layer.rotation == 45.0
+
