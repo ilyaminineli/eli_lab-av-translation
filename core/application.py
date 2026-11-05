@@ -1203,7 +1203,6 @@ class Application:
     def apply_modulation(self) -> dict[str, float]:
         now = time.monotonic()
         sources = self._modulation_sources()
-        outputs, released = self.modulation.evaluate(sources, now=now)
         selected = self.composition.get_layer(self._selected_layer_id or "")
         claimed = {
             target_id
@@ -1221,6 +1220,27 @@ class Application:
         suppressed_global = {
             global_aliases.get(target, target) for target in claimed
         }
+
+        # If a global route was already moving a parameter before a layer-local
+        # modifier claimed it, return to the global route's baseline first. The
+        # per-layer engine then captures the clean baseline, not a transient value.
+        for target_id in suppressed_global:
+            base = self._modulation_base_values.get(target_id)
+            if base is not None:
+                self._set_modulation_target(target_id, base)
+
+        # Evaluate local modifiers first. When the last local modifier is disabled
+        # or its source disappears, its baseline is restored before a global route
+        # is allowed to take over on this same application tick.
+        self.performance_modifier_engine.evaluate(
+            self.composition.layers,
+            sources,
+            self._get_layer_modifier_target,
+            self._set_layer_modifier_target,
+            now=now,
+        )
+
+        outputs, released = self.modulation.evaluate(sources, now=now)
         for target_id in released:
             if target_id in suppressed_global:
                 continue
@@ -1236,13 +1256,6 @@ class Application:
                     continue
                 self._modulation_base_values[target_id] = base
             self._set_modulation_target(target_id, value)
-        self.performance_modifier_engine.evaluate(
-            self.composition.layers,
-            sources,
-            self._get_layer_modifier_target,
-            self._set_layer_modifier_target,
-            now=now,
-        )
         return outputs
 
     def add_modulation_route(self, route) -> None:
