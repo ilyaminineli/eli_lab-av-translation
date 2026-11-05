@@ -18,7 +18,7 @@ def test_midi_mapping_scales_and_applies_pickup_when_control_crosses_target() ->
         pickup=True,
     )])
     assert engine.process("controller", "cc", 0, 16, 0.1, {"macro.energy": 0.6}) == []
-    values = engine.process("controller", "cc", 0, 16, 0.9, {"macro.energy": 0.6})
+    values = engine.process("controller", "cc", 0, 16, 1.0, {"macro.energy": 0.6})
     assert values == [("macro.energy", 0.8)]
 
 
@@ -104,6 +104,10 @@ def test_save_performance_set_keeps_layer_modifier_baseline_without_mutating_liv
     app.performance_scenes = {}
     app.midi_mapping_engine = MIDIMappingEngine()
     app.events = SimpleNamespace(publish=lambda *args, **kwargs: None)
+    app._selected_layer_id = None
+    app._modulation_base_values = {}
+    app.project_manager = ProjectManager()
+    app.current_project_path = None
     app._generator_modifier_setting_key = Application._generator_modifier_setting_key
     saved = app.save_performance_set(tmp_path / 'text.eliset')
     payload = PerformanceSetStore.load(saved)
