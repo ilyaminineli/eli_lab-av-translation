@@ -654,9 +654,6 @@ class ModulatorBankEngine:
                 definition.modulator_id, _ModulatorRuntime(started_at=stamp)
             )
             if not definition.enabled:
-                outputs[f"modulator.{definition.modulator_id}"] = (
-                    0.0 if definition.kind == "envelope" else 0.5
-                )
                 continue
             if runtime.started_at is None:
                 runtime.started_at = stamp
