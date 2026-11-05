@@ -29,6 +29,7 @@ from core.performance_environment import (
     MIDIMappingEngine,
     PerformanceScene,
     PerformanceSetStore,
+    SceneMorph,
 )
 from core.performance_manager import PerformanceManager
 from core.performance_modifiers import (
@@ -87,6 +88,8 @@ class Application:
         self._midi_learn_request: dict[str, Any] | None = None
         self._midi_learn_last_event = ""
         self.performance_scenes: dict[str, PerformanceScene] = {}
+        self._pending_scene_morph_seconds: dict[str, float] = {}
+        self._active_scene_morph: SceneMorph | None = None
         self.midi_input = MIDIInputService(self._handle_midi_event)
         self.transport = InternalTransport()
         self._external_clock_bar_at: float | None = None
@@ -500,7 +503,12 @@ class Application:
                 if self.performance_control.apply(event):
                     processed += 1
                     if event.kind == "scene.select":
-                        self._activate_scene_profile(str(event.payload["scene_id"]))
+                        scene_id = str(event.payload["scene_id"])
+                        if scene_id in self.performance_scenes:
+                            duration = self._pending_scene_morph_seconds.pop(scene_id, 0.0)
+                            self.recall_performance_scene(scene_id, morph_seconds=duration)
+                        else:
+                            self._activate_scene_profile(scene_id)
             except (TypeError, ValueError, KeyError) as exc:
                 _LOG.warning(
                     "Rejected performance control event %s from %s: %s",
@@ -1502,6 +1510,7 @@ class Application:
             self.submit_control_event(event)
         processed_events = self.process_control_events()
         processed_audio = self.process_audio_frames()
+        self._tick_scene_morph()
         self.apply_modulation()
         return processed_events + processed_audio + len(clock_events) + midi_events
 
@@ -1657,7 +1666,12 @@ class Application:
             return self._set_modulation_target(target, value)
         return False
 
-    def capture_performance_scene(self, scene_id: str, label: str = "") -> PerformanceScene:
+    def capture_performance_scene(
+            self,
+            scene_id: str,
+            label: str = "",
+            quantization: Quantization = "bar",
+    ) -> PerformanceScene:
         scene_id = str(scene_id).strip()
         if not scene_id:
             raise ValueError("Scene ID cannot be empty.")
@@ -1665,20 +1679,72 @@ class Application:
             "composition": self.composition.to_dict(),
             "effects": self.effects.to_dict(),
             "automation_settings": self.automation.settings.to_dict(),
+            "transport": self.transport.to_dict(),
+            "performance_control": {
+                "intensity": self.performance_control.intensity,
+                "macros": dict(self.performance_control.macros),
+            },
         }
-        scene = PerformanceScene(scene_id, label or scene_id.replace("_", " ").title(), snapshot)
+        scene = PerformanceScene(
+            scene_id,
+            label or scene_id.replace("_", " ").title(),
+            snapshot,
+            quantization=quantization,
+        )
         scene.normalize()
         self.performance_scenes[scene.scene_id] = scene
         self.events.publish("performance.scene_bank.updated", scene_id=scene.scene_id)
         return scene
 
-    def recall_performance_scene(self, scene_id: str) -> bool:
+    def schedule_performance_scene(
+            self,
+            scene_id: str,
+            morph_seconds: float = 0.0,
+    ) -> bool:
+        scene = self.performance_scenes.get(str(scene_id))
+        if scene is None:
+            return False
+        duration = max(0.0, min(60.0, float(morph_seconds)))
+        if (
+            scene.quantization == "immediate"
+            or not self.transport.running
+            or self.transport.paused
+        ):
+            return self.recall_performance_scene(scene.scene_id, morph_seconds=duration)
+        self._pending_scene_morph_seconds[scene.scene_id] = duration
+        self.transport.schedule_scene(
+            scene.scene_id,
+            self.performance_control.intensity,
+            quantization=scene.quantization,
+        )
+        self.events.publish(
+            "performance.scene.scheduled",
+            scene_id=scene.scene_id,
+            quantization=scene.quantization,
+            morph_seconds=duration,
+        )
+        return True
+
+    def remove_performance_scene(self, scene_id: str) -> bool:
+        scene_id = str(scene_id)
+        removed = self.performance_scenes.pop(scene_id, None) is not None
+        self._pending_scene_morph_seconds.pop(scene_id, None)
+        if removed:
+            self.events.publish("performance.scene_bank.updated", scene_id=scene_id)
+        return removed
+
+    def recall_performance_scene(
+            self,
+            scene_id: str,
+            morph_seconds: float = 0.0,
+    ) -> bool:
         scene = self.performance_scenes.get(str(scene_id))
         if scene is None:
             return False
         composition_data = scene.snapshot.get("composition")
         if not isinstance(composition_data, dict):
             return False
+        start_values = self._midi_target_values() if morph_seconds > 0.0 else {}
         candidate = Composition.from_dict(composition_data)
         for current in self.composition.layers:
             if not current.locked:
@@ -1712,8 +1778,54 @@ class Application:
             settings = AutomationSettings(**values)
             settings.normalize()
             self.automation.settings = settings
-        self.events.publish("performance.scene.recalled", scene_id=scene.scene_id)
+        transport_settings = scene.snapshot.get("transport")
+        if isinstance(transport_settings, dict):
+            try:
+                self.transport.load_settings(transport_settings)
+            except (TypeError, ValueError):
+                _LOG.warning("Skipping invalid transport settings in scene %s", scene.scene_id)
+        control_state = scene.snapshot.get("performance_control")
+        if isinstance(control_state, dict):
+            self.performance_control.intensity = max(
+                0.0, min(1.0, float(control_state.get("intensity", self.performance_control.intensity)))
+            )
+            macros = control_state.get("macros")
+            if isinstance(macros, dict):
+                for name, value in macros.items():
+                    if name in self.performance_control.macros:
+                        self.performance_control.macros[name] = max(0.0, min(1.0, float(value)))
+        self._active_scene_morph = None
+        if morph_seconds > 0.0:
+            end_values = self._midi_target_values()
+            common = start_values.keys() & end_values.keys()
+            morph_start = {key: start_values[key] for key in common}
+            morph_end = {key: end_values[key] for key in common}
+            if morph_start:
+                self._active_scene_morph = SceneMorph(
+                    morph_start,
+                    morph_end,
+                    time.monotonic(),
+                    max(0.01, min(60.0, float(morph_seconds))),
+                )
+                for target, value in morph_start.items():
+                    self._apply_midi_target(target, value)
+        self.events.publish(
+            "performance.scene.recalled",
+            scene_id=scene.scene_id,
+            morph_seconds=max(0.0, float(morph_seconds)),
+        )
         return True
+
+    def _tick_scene_morph(self) -> None:
+        morph = self._active_scene_morph
+        if morph is None:
+            return
+        fraction, values = morph.value()
+        for target, value in values.items():
+            self._apply_midi_target(target, value)
+        if fraction >= 1.0:
+            self._active_scene_morph = None
+            self.events.publish("performance.scene.morph.completed")
 
     def save_performance_set(self, path: str | Path) -> Path:
         # Reuse project snapshot logic so per-layer/global modulation baselines
