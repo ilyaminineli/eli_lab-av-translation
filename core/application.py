@@ -417,6 +417,12 @@ class Application:
                 elif event.source == "sonic_pi" and event.kind == "transport.tempo":
                     self.transport.set_tempo(float(event.payload["bpm"]))
                 elif event.source == "sonic_pi" and event.kind == "clock.bar":
+                    # A start datagram can be lost while a later bar still arrives.
+                    # Treat the first bar as an authority hand-off too, so the
+                    # internal test clock can never run alongside Sonic Pi.
+                    self.transport.stop()
+                    self.transport.set_tempo(float(event.payload["bpm"]))
+                    self.transport.set_meter(int(event.payload["beats_per_bar"]))
                     self._external_clock_bar_at = event.received_at
                 elif event.source == "sonic_pi" and event.kind == "transport.stop":
                     self.transport.stop()

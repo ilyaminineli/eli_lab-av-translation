@@ -2,7 +2,7 @@
 
 A Windows-first live video collage and VJ performance environment. Drop in a footage folder, choose a session rhythm, start automation and send the same GPU composition to a separate fullscreen display or projector.
 
-M0–M2 establish the visual instrument. M3 software implementation is complete: internal transport, optional audio capture/analysis and a visual modulation matrix. M4 will add Sonic Pi as a timed OSC control source. Audio playback remains the responsibility of Sonic Pi or another external audio application.
+M0–M2 establish the visual instrument. M3 provides internal transport, optional audio capture/analysis and a visual modulation matrix. M4 adds Sonic Pi as a versioned, timed OSC control source to that shared performance-control layer. Audio playback remains the responsibility of Sonic Pi or another external audio application.
 
 ## Current implementation
 
