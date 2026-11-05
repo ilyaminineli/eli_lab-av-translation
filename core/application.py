@@ -1645,40 +1645,21 @@ class Application:
         return True
 
     def save_performance_set(self, path: str | Path) -> Path:
-        composition_snapshot = Composition.from_dict(self.composition.to_dict())
-        for (layer_id, target_id), baseline in self.performance_modifier_engine.base_values().items():
-            layer = composition_snapshot.get_layer(layer_id)
-            if layer is None:
-                continue
-            if target_id.startswith("layer."):
-                field = target_id.split(".", 1)[1]
-                if field in {"opacity", "rotation"}:
-                    setattr(layer, field, float(baseline))
-                elif field == "scale":
-                    layer.scale = (float(baseline), float(baseline))
-                elif field in {"position_x", "position_y"}:
-                    position = list(layer.position)
-                    position[0 if field == "position_x" else 1] = float(baseline)
-                    layer.position = tuple(position)
-            elif target_id.startswith("generator.") and layer.generator_type:
-                key = self._generator_modifier_setting_key(target_id.split(".", 1)[1])
-                if key:
-                    values = normalize_settings(layer.generator_type, layer.generator_settings)
-                    values[key] = int(round(baseline)) if isinstance(values.get(key), int) else float(baseline)
-                    layer.generator_settings = normalize_settings(layer.generator_type, values)
-        performance_settings = {
-            "transport": self.transport.to_dict(),
-            "audio_analysis": self.audio_capture.settings.to_dict(),
-            "modulation_routes": self.modulation.to_dict(),
-            "scene_profiles": self.scene_profiles.to_dict(),
-            "modulator_bank": self.modulator_bank.to_dict(),
-        }
+        # Reuse project snapshot logic so per-layer/global modulation baselines
+        # are restored in the package without changing the live performance.
+        import tempfile
+        with tempfile.TemporaryDirectory(prefix="eli-m5-set-") as temp_dir:
+            project_path = Path(temp_dir) / "snapshot.eliav"
+            self.save_project(project_path)
+            import json
+            project = json.loads(project_path.read_text(encoding="utf-8"))
+        app_state = project.get("app_state", {})
         payload = PerformanceSetStore.build_payload(
-            composition_snapshot.to_dict(),
-            [deck.to_dict() for deck in self.decks.values()],
-            self.effects.to_dict(),
-            self.automation.settings.to_dict(),
-            performance_settings,
+            project.get("composition", {}),
+            project.get("decks", []),
+            app_state.get("effects", self.effects.to_dict()),
+            app_state.get("automation_settings", self.automation.settings.to_dict()),
+            app_state.get("performance_settings", {}),
             list(self.performance_scenes.values()),
             self.midi_mapping_engine.mappings,
         )
@@ -1687,30 +1668,33 @@ class Application:
         return destination
 
     def load_performance_set(self, path: str | Path) -> None:
+        # Validate the complete package and all control definitions before mutation.
         payload = PerformanceSetStore.load(path)
-        temporary = Path(path).expanduser().resolve().with_name(
-            Path(path).name + ".restore.eliav"
-        )
-        composition = Composition.from_dict(payload["composition"])
-        ProjectManager().save(
-            temporary, composition, payload.get("decks", []),
-            app_state={
-                "effects": payload.get("effects", {}),
-                "automation_settings": payload.get("automation_settings", {}),
-                "performance_settings": payload.get("performance_settings", {}),
-            },
-        )
-        try:
-            self.load_project(temporary)
-        finally:
-            if temporary.exists():
-                temporary.unlink()
-        self.midi_mapping_engine.load_dict(payload.get("midi_mappings", []))
-        scenes: dict[str, PerformanceScene] = {}
+        scenes = {}
         for raw in payload.get("scenes", []):
             scene = PerformanceScene(**raw)
             scene.normalize()
             scenes[scene.scene_id] = scene
+        mappings = [MIDIMapping.from_dict(raw) for raw in payload.get("midi_mappings", [])]
+        from tempfile import TemporaryDirectory
+        import json
+        with TemporaryDirectory(prefix="eli-m5-restore-") as temp_dir:
+            staged_project = Path(temp_dir) / "restore.eliav"
+            project_payload = {
+                "format": "eli_lab_av_translator",
+                "schema_version": 2,
+                "project": {"name": payload.get("metadata", {}).get("name", "Performance Set")},
+                "composition": payload["composition"],
+                "decks": payload.get("decks", []),
+                "app_state": {
+                    "effects": payload.get("effects", {}),
+                    "automation_settings": payload.get("automation_settings", {}),
+                    "performance_settings": payload.get("performance_settings", {}),
+                },
+            }
+            staged_project.write_text(json.dumps(project_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            self.load_project(staged_project)
+        self.set_midi_mappings(mappings)
         self.performance_scenes = scenes
         self.events.publish("performance.set.loaded", path=Path(path).resolve())
 
