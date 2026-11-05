@@ -55,7 +55,9 @@ This supports patterns such as four-on-the-floor, clave-like accents, triplets, 
 5. Set assignment depth and response, then click **ASSIGN MODULATOR TO LAYER**.
 6. Assign the same bank source to further targets or layers. Its output is evaluated once and reused by every assignment.
 
-The Layer dock's existing per-layer modifier list displays bank sources by name alongside direct audio, transport and Sonic Pi sources. Removing a bank modulator also removes its layer assignments. Bypassing a modulator releases its targets to their saved baselines.
+The Layer dock's existing per-layer modifier list displays bank sources by name alongside direct audio, transport and Sonic Pi sources. The global **AUDIO / CONTROL → MODULATION MATRIX** source list also exposes each active bank modulator, so the same source can drive a global target such as master grain/brightness, or an **AUTO PERFORMANCE** parameter such as generator interval, as well as layer-local targets. One LFO or follower can therefore feed a waveform frequency locally and a master effect or automation interval globally.
+
+Removing a bank modulator removes its per-layer assignments and any global matrix routes that use it. Project loading drops global routes whose referenced bank source is missing. Bypassing a modulator releases its targets to their saved baselines.
 
 ## Presets
 
