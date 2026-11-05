@@ -146,7 +146,8 @@ class AutomationPanel(QWidget):
         self.start_button.setEnabled(bool(playable) and not self._running)
         if not playable and not self._running:
             self.status_label.setText(
-                "No playable video files. Import a video folder or choose a pool with readable clips."
+                "No playable video files. Import a video folder or choose a pool "
+                "with readable clips."
             )
         elif playable and self.status_label.text().startswith("No playable video files"):
             self.status_label.setText(f"Ready · {len(playable)} playable video clip(s) available.")
