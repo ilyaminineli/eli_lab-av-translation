@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import replace
 from uuid import uuid4
 
 from PySide6.QtCore import Qt
@@ -26,7 +25,6 @@ from core.audio_capture import AudioCaptureState
 from core.application import Application
 from core.modulation import (
     ModulationRoute,
-    SOURCE_RANGES,
     TARGET_SPECS,
 )
 from core.scene_profiles import SceneProfile
@@ -131,9 +129,16 @@ class PerformanceControlPanel(QWidget):
         audio_layout.addLayout(audio_buttons)
 
         analysis_form = QFormLayout()
-        self.sensitivity_spin = self._float_spin(0.1, 12.0, 0.1, 1.8)
-        self.attack_spin = self._float_spin(1.0, 1000.0, 1.0, 24.0)
-        self.release_spin = self._float_spin(5.0, 3000.0, 5.0, 180.0)
+        audio_settings = self.application.audio_capture.settings
+        self.sensitivity_spin = self._float_spin(
+            0.1, 12.0, 0.1, audio_settings.sensitivity
+        )
+        self.attack_spin = self._float_spin(
+            1.0, 1000.0, 1.0, audio_settings.attack_ms
+        )
+        self.release_spin = self._float_spin(
+            5.0, 3000.0, 5.0, audio_settings.release_ms
+        )
         analysis_form.addRow("SENSITIVITY", self.sensitivity_spin)
         analysis_form.addRow("ATTACK · ms", self.attack_spin)
         analysis_form.addRow("RELEASE · ms", self.release_spin)
