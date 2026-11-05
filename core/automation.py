@@ -575,7 +575,10 @@ class AutomationDirector:
             return True
 
         changed = False
+        run_time_events = self.settings.musical_sync in {"time", "hybrid"}
         for deck_id, deck in self._decks.items():
+            if not run_time_events:
+                break
             if getattr(deck, "locked", False):
                 continue
             due = self._deck_due.get(deck_id)
@@ -593,7 +596,8 @@ class AutomationDirector:
             changed = changed or loaded
 
         if (
-                self.settings.randomize_layout
+                run_time_events
+                and self.settings.randomize_layout
                 and self._layout_due is not None
                 and current >= self._layout_due
         ):
@@ -605,7 +609,8 @@ class AutomationDirector:
             changed = True
 
         if (
-                self.settings.randomize_effects
+                run_time_events
+                and self.settings.randomize_effects
                 and self._effects_due is not None
                 and current >= self._effects_due
         ):
@@ -617,7 +622,8 @@ class AutomationDirector:
             changed = True
 
         if (
-                (
+                run_time_events
+                and (
                         self.settings.randomize_generators
                         or self.settings.randomize_palette
                         or self.settings.randomize_layer_effects
