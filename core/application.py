@@ -757,8 +757,8 @@ class Application:
             self.automation.on_musical_event(
                 "bar",
                 intensity=float(self.performance_control.intensity),
-                energy=float(sources.get("macro.energy", 0.0)),
-                cutoff=float(sources.get("macro.cutoff", 0.5)),
+                energy=energy,
+                cutoff=cutoff,
                 bar_index=int(self.performance_control.bar_index),
             )
         elif event.kind == "cue.trigger":
