@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -88,6 +88,7 @@ class ModulatorBankPanel(QWidget):
         preset_group = QGroupBox("PRESET LIBRARY")
         preset_layout = QVBoxLayout(preset_group)
         self.preset_combo = QComboBox()
+        self.preset_combo.currentIndexChanged.connect(self._update_preset_actions)
         preset_layout.addWidget(self.preset_combo)
         preset_buttons = QHBoxLayout()
         self.load_preset_button = QPushButton("LOAD PRESET")
@@ -265,6 +266,7 @@ class ModulatorBankPanel(QWidget):
             lambda value: self.assignment_depth_label.setText(f"{value}%")
         )
         self.assign_button.clicked.connect(self._assign_selected)
+        self.sync_combo.currentIndexChanged.connect(self._sync_timebase_controls)
         self.refresh()
 
     @staticmethod
@@ -322,10 +324,21 @@ class ModulatorBankPanel(QWidget):
         if index >= 0:
             self.preset_combo.setCurrentIndex(index)
         self.preset_combo.blockSignals(False)
+        self._update_preset_actions()
+
+    def _update_preset_actions(self, *_args) -> None:
         preset = self.application.modulator_bank.presets.get(
             str(self.preset_combo.currentData() or "")
         )
         self.delete_preset_button.setEnabled(bool(preset and not preset.builtin))
+
+    def _sync_timebase_controls(self, *_args) -> None:
+        transport_sync = self.sync_combo.currentData() == "transport"
+        self.reset_combo.setEnabled(transport_sync)
+        self.lfo_rate_beats.setEnabled(transport_sync)
+        self.lfo_rate_hz.setEnabled(not transport_sync)
+        self.division_spin.setEnabled(transport_sync)
+        self.step_rate_spin.setEnabled(not transport_sync)
 
     def _load_selected_editor(self) -> None:
         definition = self._selected_definition()
@@ -408,7 +421,8 @@ class ModulatorBankPanel(QWidget):
         elif definition.kind == "lfo":
             self.editor_hint.setText(
                 "Transport-synced LFO period is measured in beats. Free-run uses Hz. "
-                "LFO output is centered at 0.5; use bipolar assignment for movement around baseline."
+                "LFO output is centered at 0.5; use bipolar assignment for movement "
+                "around baseline."
             )
         elif definition.kind == "rhythm":
             self.editor_hint.setText(
@@ -421,6 +435,7 @@ class ModulatorBankPanel(QWidget):
                 "sequence direction and swing. Seeded random direction repeats deterministically."
             )
         self._loading = False
+        self._sync_timebase_controls()
         self.refresh_assignment_targets()
 
     def _selection_changed(self, current, _previous) -> None:
@@ -707,12 +722,14 @@ class ModulatorBankPanel(QWidget):
             self.assignment_layer_label.setText(
                 f"{layer.name} · {'LOCKED' if layer.locked else 'READY'}"
             )
-        self.assign_button.setEnabled(
-            bool(layer and not layer.locked and definition and self.assignment_target_combo.count())
+        assignable = bool(
+            layer and not layer.locked and definition
+            and self.assignment_target_combo.count()
         )
-        self.assignment_target_combo.setEnabled(
-            bool(layer and not layer.locked and self.assignment_target_combo.count())
-        )
+        self.assign_button.setEnabled(assignable)
+        self.assignment_target_combo.setEnabled(assignable)
+        self.assignment_depth.setEnabled(assignable)
+        self.assignment_polarity_combo.setEnabled(assignable)
 
     def _assign_selected(self) -> None:
         definition = self._selected_definition()
@@ -747,9 +764,12 @@ class ModulatorBankPanel(QWidget):
             self.output_label.setText("OUTPUT · —")
             self.output_meter.setValue(0)
             return
-        value = self.application.modulator_bank_engine.live_values().get(
+        live_values = self.application.modulator_bank_engine.live_values()
+        is_bypassed = not definition.enabled
+        value = live_values.get(
             f"modulator.{definition.modulator_id}",
             0.5 if definition.kind != "envelope" else 0.0,
         )
-        self.output_label.setText(f"OUTPUT · {value:.3f}  ·  {definition.kind.upper()}")
+        status = "BYPASSED" if is_bypassed else definition.kind.upper()
+        self.output_label.setText(f"OUTPUT · {value:.3f}  ·  {status}")
         self.output_meter.setValue(round(max(0.0, min(1.0, value)) * 100))
