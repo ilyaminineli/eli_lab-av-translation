@@ -161,8 +161,14 @@ def test_layer_panel_adds_rhythmic_modifiers_to_selected_generator(qtbot) -> Non
         panel.modifier_phrase_button.click()
         text_modifier = text_layer.performance_modifiers[0]
         assert text_modifier["source_id"] == "transport.phrase_pulse"
-        assert text_modifier["target_id"] == "generator.text_animation_amount"
+        assert text_modifier["target_id"] == "generator.letter_spacing"
         assert text_modifier["depth"] == 0.34
+
+        # Text animation amount becomes available once a text motion mode is enabled.
+        text_layer.generator_settings["text_animation"] = "line_wave"
+        panel.refresh()
+        panel.select_layer(text_layer.id)
+        assert panel.modifier_target_combo.findData("generator.text_animation_amount") >= 0
 
         panel.refresh_performance_modifiers()
         assert panel.modifier_list.count() == 1
