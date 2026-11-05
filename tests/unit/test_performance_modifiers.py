@@ -430,3 +430,69 @@ def test_global_selected_layer_manual_override_yields_local_layer_modifier() -> 
         > 0.0
     )
 
+def test_local_modifier_takes_and_releases_target_from_global_route() -> None:
+    from core.application import Application
+    from core.audio_analysis import AudioAnalysisSettings
+    from core.automation import AutomationDirector
+    from core.event_bus import EventBus
+    from core.modulation import ModulationMatrix, ModulationRoute
+    from core.performance_control import PerformanceControlState
+    from core.performance_transport import InternalTransport
+    from core.scene_profiles import SceneProfileRegistry
+    from effects.settings import EffectSettings
+
+    layer = Layer(
+        id="shared-target",
+        source_type="generator",
+        generator_type="geometry",
+        generator_settings={"animation_amount": 12.0},
+    )
+    application = Application.__new__(Application)
+    application._audio_sources = {"audio.rms": 1.0}
+    application.performance_control = PerformanceControlState()
+    application.performance_control.macros["energy"] = 0.5
+    application.transport = InternalTransport()
+    application._external_clock_bar_at = None
+    application.composition = Composition(layers=[layer])
+    application._selected_layer_id = layer.id
+    application._overlay_images = {}
+    application.effects = EffectSettings()
+    application.automation = AutomationDirector()
+    application.modulation = ModulationMatrix()
+    application.performance_modifier_engine = LayerPerformanceModifierEngine()
+    application._modulation_base_values = {}
+    application.events = EventBus()
+    application.modulation.add_route(ModulationRoute(
+        "global-audio-motion",
+        "audio.rms",
+        "generator.animation_amount",
+        output_min=0.0,
+        output_max=100.0,
+    ))
+
+    application.apply_modulation()
+    assert layer.generator_settings["animation_amount"] == 100.0
+
+    local_modifier = LayerPerformanceModifier(
+        modifier_id="local-energy-motion",
+        source_id="macro.energy",
+        target_id="generator.animation_amount",
+        depth=0.1,
+        polarity="positive",
+        curve="linear",
+        attack_ms=1.0,
+    )
+    layer.performance_modifiers.append(local_modifier.to_dict())
+    application.apply_modulation()
+
+    # Local ownership starts from the original 12-degree baseline, not the
+    # global route's transient output of 100 degrees.
+    assert layer.generator_settings["animation_amount"] == 30.0
+    assert application.performance_modifier_engine.base_values()[
+        (layer.id, "generator.animation_amount")
+    ] == 12.0
+
+    layer.performance_modifiers.clear()
+    application.apply_modulation()
+    assert layer.generator_settings["animation_amount"] == 100.0
+
