@@ -251,6 +251,7 @@ class LayerPanel(QWidget):
             opacity.valueChanged.connect(
                 lambda value, layer_id=layer.id: self._opacity_changed(layer_id, value)
             )
+            opacity.setEnabled(not layer.locked)
             self.table.setCellWidget(row, 2, opacity)
 
             blend = QComboBox()
@@ -259,6 +260,7 @@ class LayerPanel(QWidget):
             blend.currentTextChanged.connect(
                 lambda value, layer_id=layer.id: self._blend_changed(layer_id, value)
             )
+            blend.setEnabled(not layer.locked)
             self.table.setCellWidget(row, 3, blend)
         self.table.blockSignals(False)
         if self.table.rowCount():
@@ -297,10 +299,12 @@ class LayerPanel(QWidget):
             opacity = self.table.cellWidget(row, 2)
             blend = self.table.cellWidget(row, 3)
             if isinstance(opacity, QSlider):
+                opacity.setEnabled(not layer.locked)
                 opacity.blockSignals(True)
                 opacity.setValue(round(layer.opacity * 100))
                 opacity.blockSignals(False)
             if isinstance(blend, QComboBox):
+                blend.setEnabled(not layer.locked)
                 blend.blockSignals(True)
                 blend.setCurrentText(layer.blend_mode)
                 blend.blockSignals(False)
@@ -633,11 +637,16 @@ class LayerPanel(QWidget):
         self.layer_properties_changed.emit(layer.id)
 
     def _opacity_changed(self, layer_id: str, value: int) -> None:
+        layer = self.application.composition.get_layer(layer_id)
+        if layer is None or layer.locked:
+            return
         self.application.layer_manager.update_layer(layer_id, opacity=value / 100.0)
         self.layer_properties_changed.emit(layer_id)
 
     def _blend_changed(self, layer_id: str, value: str) -> None:
         layer = self.application.composition.get_layer(layer_id)
+        if layer is None or layer.locked:
+            return
         changes = {"blend_mode": value}
         if layer is not None and layer.source_type == "overlay":
             changes["overlay_manual_override_until"] = time.time() + 30.0
