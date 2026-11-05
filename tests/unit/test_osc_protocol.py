@@ -142,6 +142,51 @@ def test_receiver_accepts_local_udp_without_touching_application_state() -> None
         receiver.stop()
 
 
+def test_local_test_sender_streams_a_complete_session_over_udp() -> None:
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    received = []
+    receiver = OSCReceiver(lambda event: received.append(event) or True)
+    port = receiver.start("127.0.0.1", 0)
+    repo_root = Path(__file__).resolve().parents[2]
+    sender = repo_root / "scripts" / "osc_test_sender.py"
+    try:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(sender),
+                "--host",
+                "127.0.0.1",
+                "--port",
+                str(port),
+            ],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=10,
+        )
+        assert "Sent 15 /eli_lab/v1 messages" in result.stdout
+
+        deadline = time.monotonic() + 2.0
+        while len(received) < 15 and time.monotonic() < deadline:
+            time.sleep(0.01)
+
+        assert len(received) == 15
+        assert received[0].kind == "transport.start"
+        assert received[1].kind == "transport.tempo"
+        assert received[-2].kind == "cue.trigger"
+        assert received[-2].payload == {"name": "end"}
+        assert received[-1].kind == "transport.stop"
+        assert [event.sequence for event in received] == list(range(1, 16))
+        assert len({event.session_id for event in received}) == 1
+        assert receiver.snapshot()["accepted"] == 15
+    finally:
+        receiver.stop()
+
+
 def test_receiver_recovers_after_invalid_datagram_and_counts_queue_drops() -> None:
     receiver = OSCReceiver(lambda _event: False)
     port = receiver.start("127.0.0.1", 0)
