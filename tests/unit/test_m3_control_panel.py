@@ -119,6 +119,7 @@ def test_performance_panel_surfaces_sonic_pi_and_reactive_route_presets(qtbot) -
 
 def test_layer_stack_exposes_resizable_table_and_effect_sections(qtbot) -> None:
     from PySide6.QtCore import Qt
+
     from ui.layer_panel import LayerPanel
 
     application = Application()
