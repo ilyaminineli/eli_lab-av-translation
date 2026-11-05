@@ -711,7 +711,11 @@ class PerformanceControlPanel(QWidget):
     def sync_modulator_sources(self) -> None:
         """Expose active reusable bank outputs as global matrix sources."""
         current = self.source_combo.currentData()
-        labels = dict(self.source_labels)
+        labels = {
+            source_id: label
+            for source_id, label in self.source_labels.items()
+            if not source_id.startswith("modulator.")
+        }
         for definition in self.application.modulator_bank.list_modulators():
             labels[f"modulator.{definition.modulator_id}"] = (
                 f"Bank · {definition.name}"
