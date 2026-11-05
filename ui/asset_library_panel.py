@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, Signal
 from PySide6.QtWidgets import (
     QComboBox,
@@ -120,10 +122,19 @@ class AssetLibraryPanel(QWidget):
         self._thread_pool.start(worker)
 
     def _on_scan_finished(self, assets: list[VisualAsset]) -> None:
-        self.application.visual_asset_index.assets = assets
+        worker = self._scan_worker
+        scanned_roots = set(worker.roots) if worker is not None else set()
+        current_roots = set(self.application.visual_asset_index.roots)
         self._scan_in_progress = False
-        self._index_loaded = True
         self._scan_worker = None
+        if scanned_roots != current_roots:
+            # A root was added while scanning. Discard the stale result and
+            # rescan the current root snapshot rather than losing that folder.
+            self._index_loaded = False
+            self._start_index_scan()
+            return
+        self.application.visual_asset_index.assets = assets
+        self._index_loaded = True
         self.refresh()
         self.detail_label.setText(
             f"Indexed {len(assets)} visual assets across "
