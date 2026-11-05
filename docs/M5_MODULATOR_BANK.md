@@ -49,7 +49,7 @@ This supports patterns such as four-on-the-floor, clave-like accents, triplets, 
 ## Using the bank
 
 1. Open **MODULATOR BANK** from the right-side dock tabs or **View** menu.
-2. Create an LFO, Envelope, Steps or Rhythm source, or load a preset.
+2. Create a Control Follower, LFO, Envelope, Steps or Rhythm source, or load a preset.
 3. Edit the name, timebase and type-specific settings, then click **APPLY MODULATOR CHANGES**.
 4. Select a layer in the LAYERS dock. The bank's **ASSIGN TO SELECTED LAYER** section offers only compatible targets for that layer.
 5. Set assignment depth and response, then click **ASSIGN MODULATOR TO LAYER**.
