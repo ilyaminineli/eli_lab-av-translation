@@ -36,7 +36,7 @@ def _bank_with(definition: ModulatorDefinition) -> ModulatorBank:
     return bank
 
 
-def test_builtin_modulator_presets_cover_all_four_kinds() -> None:
+def test_builtin_modulator_presets_cover_all_five_kinds() -> None:
     bank = ModulatorBank()
 
     kinds = {
@@ -44,7 +44,7 @@ def test_builtin_modulator_presets_cover_all_four_kinds() -> None:
         for preset in bank.list_presets()
     }
 
-    assert {"envelope", "lfo", "steps", "rhythm"}.issubset(kinds)
+    assert {"follower", "envelope", "lfo", "steps", "rhythm"}.issubset(kinds)
     assert len(bank.list_presets()) >= 8
 
 
