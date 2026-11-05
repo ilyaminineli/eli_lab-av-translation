@@ -663,6 +663,7 @@ class MainWindow(QMainWindow):
         self._ui_settings.setValue("ui/main_window_state_v5", self.saveState(4))
         self._runtime_timer.stop()
         self._status_timer.stop()
+        self._modifier_feedback_timer.stop()
         self.media_browser.shutdown_workers()
         self.output_manager.close()
         self.performance_view.shutdown_renderer()
