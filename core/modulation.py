@@ -18,6 +18,10 @@ SOURCE_RANGES: dict[str, tuple[float, float]] = {
     "audio.bpm_normalized": (0.0, 1.0),
     "transport.intensity": (0.0, 1.0),
     "transport.phase": (0.0, 1.0),
+    "transport.bar_phase": (0.0, 1.0),
+    "transport.beat_pulse": (0.0, 1.0),
+    "transport.downbeat_pulse": (0.0, 1.0),
+    "transport.phrase_pulse": (0.0, 1.0),
     "macro.energy": (0.0, 1.0),
     "macro.cutoff": (0.0, 1.0),
 }

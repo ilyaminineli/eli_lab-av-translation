@@ -17,6 +17,10 @@ from core.modulation import TARGET_SPECS, ModulationMatrix
 from core.osc_protocol import OSCReceiver
 from core.performance_control import ControlEvent, ControlEventQueue, PerformanceControlState
 from core.performance_manager import PerformanceManager
+from core.performance_modifiers import (
+    LayerPerformanceModifier,
+    LayerPerformanceModifierEngine,
+)
 from core.performance_transport import InternalTransport, Quantization
 from core.project_manager import ProjectManager
 from core.scene_profiles import SceneProfile, SceneProfileRegistry
@@ -69,6 +73,7 @@ class Application:
         self._external_clock_bar_at: float | None = None
         self.scene_profiles = SceneProfileRegistry()
         self.modulation = ModulationMatrix()
+        self.performance_modifier_engine = LayerPerformanceModifierEngine()
         self.audio_capture = AudioCaptureService()
         self._audio_sources: dict[str, float] = {}
         self._latest_audio_frame: AudioAnalysisFrame | None = None
@@ -257,6 +262,9 @@ class Application:
         layer = self.composition.get_layer(layer_id)
         if layer is not None and layer.source_type == "overlay":
             self._remove_overlay_runtime(layer_id)
+        modifier_engine = getattr(self, "performance_modifier_engine", None)
+        if modifier_engine is not None:
+            modifier_engine.clear_layer(layer_id)
         return self.layer_manager.remove_layer(layer_id)
 
     def reset_project(self) -> None:
@@ -280,6 +288,7 @@ class Application:
             "phrase_bars": 4,
         })
         self.modulation.load_dict([])
+        self.performance_modifier_engine.reset()
         self.scene_profiles = SceneProfileRegistry()
         self.audio_capture.stop()
         self.audio_capture.update_settings(AudioAnalysisSettings())
@@ -675,21 +684,245 @@ class Application:
                 and self.performance_control.transport_running
                 and self._external_clock_bar_at is not None
         )
+        beat_index = 0
+        beat_phase = 0.0
+        bar_phase = 0.0
+        clock_active = False
+        phrase_bars = max(1, int(getattr(self.transport, "phrase_bars", 4)))
+        beats_per_bar = max(1, int(self.performance_control.beats_per_bar))
+
         if external_clock_active:
             elapsed = max(0.0, time.monotonic() - self._external_clock_bar_at)
-            beat_duration = 60.0 / self.performance_control.bpm
-            if elapsed <= max(
-                    5.0,
-                    beat_duration * self.performance_control.beats_per_bar * 2,
-            ):
-                values["transport.phase"] = (elapsed / beat_duration) % 1.0
+            beat_duration = 60.0 / max(20.0, self.performance_control.bpm)
+            bar_duration = beat_duration * beats_per_bar
+            fresh_for = max(5.0, bar_duration * 2.0)
+            if elapsed <= fresh_for:
+                clock_active = True
+                beat_position = elapsed / beat_duration
+                beat_index = int(beat_position) % beats_per_bar
+                beat_phase = beat_position % 1.0
+                bar_phase = (beat_index + beat_phase) / beats_per_bar
             else:
-                values["transport.phase"] = 0.0
+                external_clock_active = False
+
+        if not external_clock_active:
+            internal_running = self.transport.running and not self.transport.paused
+            if internal_running:
+                clock_active = True
+                beat_phase = max(0.0, min(1.0, self.transport.phase))
+                beat_index = int(self.transport.beat_index)
+                beats_per_bar = max(1, int(self.transport.beats_per_bar))
+                bar_phase = (beat_index + beat_phase) / beats_per_bar
+                phrase_bars = max(1, int(self.transport.phrase_bars))
+            else:
+                beat_phase = 0.0
+                beat_index = 0
+                bar_phase = 0.0
+
+        beat_pulse = max(0.0, 1.0 - beat_phase / 0.22) if clock_active else 0.0
+        downbeat_pulse = beat_pulse if clock_active and beat_index == 0 else 0.0
+        if external_clock_active:
+            bar_index = max(1, int(self.performance_control.bar_index))
+        elif self.transport.running and not self.transport.paused:
+            bar_index = max(1, int(self.transport.bar_index))
         else:
-            values["transport.phase"] = self.transport.phase
+            bar_index = 0
+        phrase_start = (
+            bar_index > 0
+            and (bar_index - 1) % phrase_bars == 0
+            and beat_index == 0
+            and clock_active
+        )
+        phrase_pulse = beat_pulse if phrase_start else 0.0
+
+        values["transport.phase"] = beat_phase
+        values["transport.bar_phase"] = bar_phase
+        values["transport.beat_pulse"] = beat_pulse
+        values["transport.downbeat_pulse"] = downbeat_pulse
+        values["transport.phrase_pulse"] = phrase_pulse
         for name, value in self.performance_control.macros.items():
             values[f"macro.{name}"] = value
         return values
+
+    @staticmethod
+    def _generator_modifier_setting_key(field: str) -> str | None:
+        return {
+            "animation_speed": "animation_speed",
+            "animation_amount": "animation_amount",
+            "density": "density",
+            "rotation": "rotation",
+            "text_animation_speed": "text_animation_speed",
+            "text_animation_amount": "text_animation_amount",
+            "font_size": "font_size",
+            "letter_spacing": "letter_spacing",
+            "waveform_amplitude": "amplitude",
+            "waveform_frequency": "frequency",
+            "particle_speed": "speed",
+            "particle_size": "size",
+            "particle_spread": "spread",
+            "particle_trail": "trail",
+        }.get(field)
+
+    def _get_layer_modifier_target(
+            self,
+            layer_id: str,
+            target_id: str,
+    ) -> float | None:
+        layer = self.composition.get_layer(layer_id)
+        if layer is None:
+            return None
+        if target_id.startswith("layer."):
+            field = target_id.split(".", 1)[1]
+            if field in {"opacity", "rotation"}:
+                return float(getattr(layer, field))
+            if field == "scale":
+                return float(layer.scale[0])
+            if field == "position_x":
+                return float(layer.position[0])
+            if field == "position_y":
+                return float(layer.position[1])
+            return None
+        if target_id.startswith("generator."):
+            if layer.source_type != "generator" or not layer.generator_type:
+                return None
+            field = target_id.split(".", 1)[1]
+            setting_key = self._generator_modifier_setting_key(field)
+            if setting_key is None:
+                return None
+            settings = normalize_settings(layer.generator_type, layer.generator_settings)
+            value = settings.get(setting_key)
+            return float(value) if isinstance(value, (int, float)) else None
+        if target_id.startswith("overlay."):
+            player = self._overlay_images.get(layer.id)
+            if layer.source_type != "overlay" or player is None or not player.animated:
+                return None
+            field = target_id.split(".", 1)[1]
+            if field == "playback_speed":
+                return float(layer.overlay_speed)
+            if field == "frame_hold":
+                return float(layer.overlay_frame_hold)
+        return None
+
+    def _set_layer_modifier_target(
+            self,
+            layer_id: str,
+            target_id: str,
+            value: float,
+    ) -> bool:
+        layer = self.composition.get_layer(layer_id)
+        if layer is None:
+            return False
+        if target_id.startswith("layer."):
+            field = target_id.split(".", 1)[1]
+            if field == "opacity":
+                layer.opacity = max(0.0, min(1.0, float(value)))
+            elif field == "rotation":
+                layer.rotation = max(-180.0, min(180.0, float(value)))
+            elif field == "scale":
+                amount = max(0.05, min(2.0, float(value)))
+                layer.scale = (amount, amount)
+            elif field == "position_x":
+                layer.position = (max(0.0, min(1.0, float(value))), layer.position[1])
+            elif field == "position_y":
+                layer.position = (layer.position[0], max(0.0, min(1.0, float(value))))
+            else:
+                return False
+            return True
+        if target_id.startswith("generator."):
+            if layer.source_type != "generator" or not layer.generator_type:
+                return False
+            setting_key = self._generator_modifier_setting_key(target_id.split(".", 1)[1])
+            if setting_key is None:
+                return False
+            settings = normalize_settings(layer.generator_type, layer.generator_settings)
+            if setting_key not in settings:
+                return False
+            current = settings[setting_key]
+            settings[setting_key] = (
+                int(round(value))
+                if isinstance(current, int) and not isinstance(current, bool)
+                else float(value)
+            )
+            layer.generator_settings = normalize_settings(layer.generator_type, settings)
+            return True
+        if target_id.startswith("overlay."):
+            player = self._overlay_images.get(layer.id)
+            if layer.source_type != "overlay" or player is None or not player.animated:
+                return False
+            field = target_id.split(".", 1)[1]
+            if field == "playback_speed":
+                layer.overlay_speed = max(0.1, min(4.0, float(value)))
+            elif field == "frame_hold":
+                layer.overlay_frame_hold = max(1, min(24, int(round(value))))
+            else:
+                return False
+            player.configure_playback(
+                layer.overlay_speed,
+                layer.overlay_frame_hold,
+                layer.overlay_loop,
+            )
+            return True
+        return False
+
+    def add_layer_performance_modifier(
+            self,
+            layer_id: str,
+            modifier: LayerPerformanceModifier | dict[str, object],
+    ) -> str:
+        layer = self.composition.get_layer(layer_id)
+        if layer is None:
+            raise KeyError(f"Unknown layer: {layer_id}")
+        item = (
+            modifier
+            if isinstance(modifier, LayerPerformanceModifier)
+            else LayerPerformanceModifier.from_dict(modifier)
+        )
+        item.normalize()
+        if any(
+                raw.get("modifier_id") == item.modifier_id
+                for raw in layer.performance_modifiers
+        ):
+            raise ValueError(f"Duplicate modifier ID: {item.modifier_id}")
+        layer.performance_modifiers.append(item.to_dict())
+        self.events.publish(
+            "layer.performance_modifiers.updated",
+            layer_id=layer_id,
+            modifier_id=item.modifier_id,
+        )
+        return item.modifier_id
+
+    def remove_layer_performance_modifier(self, layer_id: str, modifier_id: str) -> bool:
+        layer = self.composition.get_layer(layer_id)
+        if layer is None:
+            return False
+        before = len(layer.performance_modifiers)
+        layer.performance_modifiers = [
+            raw for raw in layer.performance_modifiers
+            if str(raw.get("modifier_id", "")) != modifier_id
+        ]
+        removed = len(layer.performance_modifiers) != before
+        if removed:
+            self.events.publish(
+                "layer.performance_modifiers.updated",
+                layer_id=layer_id,
+                modifier_id=modifier_id,
+            )
+        return removed
+
+    def layer_performance_modifier_values(self, layer_id: str) -> dict[str, float]:
+        return self.performance_modifier_engine.live_values(layer_id)
+
+    def apply_layer_performance_modifiers(
+            self,
+            now: float | None = None,
+    ) -> dict[tuple[str, str], float]:
+        return self.performance_modifier_engine.evaluate(
+            self.composition.layers,
+            self._modulation_sources(),
+            self._get_layer_modifier_target,
+            self._set_layer_modifier_target,
+            now=now,
+        )
 
     def _get_modulation_target(self, target_id: str) -> float | None:
         if target_id.startswith("master."):
@@ -905,6 +1138,22 @@ class Application:
             layer_id: str,
             duration_seconds: float = 3.0,
     ) -> None:
+        layer = self.composition.get_layer(layer_id)
+        if layer is None:
+            return
+        local_targets = {
+            str(raw.get("target_id", ""))
+            for raw in layer.performance_modifiers
+            if isinstance(raw, dict)
+        }
+        modifier_engine = getattr(self, "performance_modifier_engine", None)
+        if modifier_engine is not None:
+            modifier_engine.notify_manual_override(
+                layer_id,
+                local_targets,
+                layer.performance_modifiers,
+                duration_seconds,
+            )
         if layer_id == self._selected_layer_id:
             self.notify_manual_override("selected_layer.*", duration_seconds)
 
@@ -925,14 +1174,87 @@ class Application:
             if current is not None:
                 self._modulation_base_values[key] = current
             self.modulation.manual_override(key, duration_seconds)
+        selected = self.composition.get_layer(self._selected_layer_id or "")
+        modifier_engine = getattr(self, "performance_modifier_engine", None)
+        if selected is not None and modifier_engine is not None:
+            local_targets = set()
+            for raw in selected.performance_modifiers:
+                if not isinstance(raw, dict):
+                    continue
+                local_target = str(raw.get("target_id", ""))
+                selected_layer_aliases = {
+                    "selected_layer.opacity": "layer.opacity",
+                    "selected_layer.rotation": "layer.rotation",
+                    "selected_layer.scale": "layer.scale",
+                    "selected_layer.position_x": "layer.position_x",
+                    "selected_layer.position_y": "layer.position_y",
+                }
+                local_alias = selected_layer_aliases.get(target_id)
+                if (
+                        target_id == "generator.*" and local_target.startswith("generator.")
+                        or target_id == "overlay.*" and local_target.startswith("overlay.")
+                        or target_id == "selected_layer.*" and local_target.startswith("layer.")
+                        or local_target == local_alias
+                        or target_id == local_target
+                ):
+                    local_targets.add(local_target)
+            modifier_engine.notify_manual_override(
+                selected.id,
+                local_targets,
+                selected.performance_modifiers,
+                duration_seconds,
+            )
 
     def apply_modulation(self) -> dict[str, float]:
-        outputs, released = self.modulation.evaluate(self._modulation_sources())
+        now = time.monotonic()
+        sources = self._modulation_sources()
+        selected = self.composition.get_layer(self._selected_layer_id or "")
+        claimed = {
+            target_id
+            for target_id in self.performance_modifier_engine.claimed_targets(selected, now=now)
+            if selected is not None
+            and self._get_layer_modifier_target(selected.id, target_id) is not None
+        }
+        global_aliases = {
+            "layer.opacity": "selected_layer.opacity",
+            "layer.rotation": "selected_layer.rotation",
+            "layer.scale": "selected_layer.scale",
+            "layer.position_x": "selected_layer.position_x",
+            "layer.position_y": "selected_layer.position_y",
+        }
+        suppressed_global = {
+            global_aliases.get(target, target) for target in claimed
+        }
+
+        # If a global route was already moving a parameter before a layer-local
+        # modifier claimed it, return to the global route's baseline first. The
+        # per-layer engine then captures the clean baseline, not a transient value.
+        for target_id in suppressed_global:
+            base = self._modulation_base_values.get(target_id)
+            if base is not None:
+                self._set_modulation_target(target_id, base)
+
+        # Evaluate local modifiers first. When the last local modifier is disabled
+        # or its source disappears, its baseline is restored before a global route
+        # is allowed to take over on this same application tick.
+        self.performance_modifier_engine.evaluate(
+            self.composition.layers,
+            sources,
+            self._get_layer_modifier_target,
+            self._set_layer_modifier_target,
+            now=now,
+        )
+
+        outputs, released = self.modulation.evaluate(sources, now=now)
         for target_id in released:
+            if target_id in suppressed_global:
+                continue
             base = self._modulation_base_values.pop(target_id, None)
             if base is not None:
                 self._set_modulation_target(target_id, base)
         for target_id, value in outputs.items():
+            if target_id in suppressed_global:
+                continue
             if target_id not in self._modulation_base_values:
                 base = self._get_modulation_target(target_id)
                 if base is None:
@@ -1011,9 +1333,113 @@ class Application:
                 "scene_profiles": self.scene_profiles.to_dict(),
             },
         }
+        composition_snapshot = Composition.from_dict(self.composition.to_dict())
+        for (layer_id, target_id), base_value in (
+                self.performance_modifier_engine.base_values().items()
+        ):
+            layer = composition_snapshot.get_layer(layer_id)
+            if layer is None:
+                continue
+            if target_id.startswith("layer."):
+                field = target_id.split(".", 1)[1]
+                if field in {"opacity", "rotation"}:
+                    setattr(layer, field, float(base_value))
+                elif field == "scale":
+                    layer.scale = (float(base_value), float(base_value))
+                elif field == "position_x":
+                    layer.position = (float(base_value), layer.position[1])
+                elif field == "position_y":
+                    layer.position = (layer.position[0], float(base_value))
+            elif target_id.startswith("generator.") and layer.generator_type:
+                setting_key = self._generator_modifier_setting_key(
+                    target_id.split(".", 1)[1]
+                )
+                if setting_key:
+                    settings = normalize_settings(
+                        layer.generator_type,
+                        layer.generator_settings,
+                    )
+                    current = settings.get(setting_key)
+                    settings[setting_key] = (
+                        int(round(base_value))
+                        if isinstance(current, int) and not isinstance(current, bool)
+                        else float(base_value)
+                    )
+                    layer.generator_settings = normalize_settings(
+                        layer.generator_type,
+                        settings,
+                    )
+            elif target_id == "overlay.playback_speed":
+                layer.overlay_speed = max(0.1, min(4.0, float(base_value)))
+            elif target_id == "overlay.frame_hold":
+                layer.overlay_frame_hold = max(1, min(24, int(round(base_value))))
+
+        # The global modulation matrix also writes into the live composition.
+        # Save its pre-modulation values so a project never opens on a random beat peak.
+        selected_layer = composition_snapshot.get_layer(self._selected_layer_id or "")
+        effect_state = app_state["effects"]
+        automation_state = app_state["automation_settings"]
+        for target_id, base_value in self._modulation_base_values.items():
+            if target_id.startswith("master."):
+                field = target_id.split(".", 1)[1]
+                if field in effect_state:
+                    effect_state[field] = base_value
+            elif selected_layer is not None and target_id.startswith("selected_layer."):
+                field = target_id.split(".", 1)[1]
+                if field in {"opacity", "rotation"}:
+                    setattr(selected_layer, field, float(base_value))
+                elif field == "scale":
+                    selected_layer.scale = (float(base_value), float(base_value))
+                elif field == "position_x":
+                    selected_layer.position = (
+                        float(base_value), selected_layer.position[1]
+                    )
+                elif field == "position_y":
+                    selected_layer.position = (
+                        selected_layer.position[0], float(base_value)
+                    )
+            elif selected_layer is not None and target_id.startswith("generator."):
+                setting_key = self._generator_modifier_setting_key(
+                    target_id.split(".", 1)[1]
+                )
+                if setting_key and selected_layer.generator_type:
+                    settings = normalize_settings(
+                        selected_layer.generator_type,
+                        selected_layer.generator_settings,
+                    )
+                    current = settings.get(setting_key)
+                    settings[setting_key] = (
+                        int(round(base_value))
+                        if isinstance(current, int) and not isinstance(current, bool)
+                        else float(base_value)
+                    )
+                    selected_layer.generator_settings = normalize_settings(
+                        selected_layer.generator_type,
+                        settings,
+                    )
+            elif selected_layer is not None and target_id == "overlay.playback_speed":
+                selected_layer.overlay_speed = max(0.1, min(4.0, float(base_value)))
+            elif selected_layer is not None and target_id == "overlay.frame_hold":
+                selected_layer.overlay_frame_hold = max(
+                    1, min(24, int(round(base_value)))
+                )
+            elif target_id.startswith("automation."):
+                field = {
+                    "automation.loop_probability": "loop_probability",
+                    "automation.clip_switch_probability": "clip_switch_probability",
+                    "automation.cut_interval": "min_cut_interval",
+                    "automation.min_segment_seconds": "min_segment_seconds",
+                    "automation.max_segment_seconds": "max_segment_seconds",
+                    "automation.layout_interval": "min_layout_interval",
+                    "automation.effect_interval": "min_effect_interval",
+                    "automation.generator_interval": "min_generator_interval",
+                }.get(target_id)
+                if field in automation_state:
+                    automation_state[field] = base_value
+
         saved_path = self.project_manager.save(
             path,
-            self.composition,
+            composition_snapshot,
             deck_states,
             app_state=app_state,
         )
@@ -1035,6 +1461,7 @@ class Application:
         self.audio_capture.update_settings(AudioAnalysisSettings())
         self.scene_profiles = SceneProfileRegistry()
         self.modulation.reset_runtime()
+        self.performance_modifier_engine.reset()
         self._modulation_base_values.clear()
         self.automation.stop()
         self._clear_overlays()
@@ -1077,6 +1504,7 @@ class Application:
         self._audio_sources.clear()
         self._latest_audio_frame = None
         self.modulation.reset_runtime()
+        self.performance_modifier_engine.reset()
         self._modulation_base_values.clear()
         performance_settings = app_state.get("performance_settings", {})
         if isinstance(performance_settings, dict):

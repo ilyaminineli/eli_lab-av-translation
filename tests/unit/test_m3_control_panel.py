@@ -75,6 +75,9 @@ def test_performance_panel_surfaces_sonic_pi_and_reactive_route_presets(qtbot) -
         assert panel.osc_port_spin.value() == 57121
         assert panel.source_combo.findData("macro.energy") >= 0
         assert panel.source_combo.findData("macro.cutoff") >= 0
+        assert panel.source_combo.findData("transport.beat_pulse") >= 0
+        assert panel.source_combo.findData("transport.downbeat_pulse") >= 0
+        assert panel.source_combo.findData("transport.phrase_pulse") >= 0
         assert panel.target_combo.findData("generator.text_animation_amount") >= 0
         assert panel.target_combo.findData("automation.clip_switch_probability") >= 0
         assert panel.audio_attack_spin is not panel.attack_spin
@@ -130,6 +133,80 @@ def test_layer_stack_exposes_resizable_table_and_effect_sections(qtbot) -> None:
         assert panel.panel_splitter.count() == 2
         assert panel.panel_splitter.widget(0) is panel.table
         assert panel.panel_splitter.widget(1) is panel.controls_scroll
+    finally:
+        application.shutdown()
+
+def test_layer_panel_adds_rhythmic_modifiers_to_selected_generator(qtbot) -> None:
+    from ui.layer_panel import LayerPanel
+
+    application = Application()
+    try:
+        geometry = application.add_generator_layer("geometry")
+        text_layer = application.add_generator_layer("text")
+        panel = LayerPanel(application)
+        qtbot.addWidget(panel)
+
+        panel.select_layer(geometry.id)
+        assert panel.performance_modifiers_group.isEnabled()
+        panel.modifier_beat_button.click()
+
+        assert len(geometry.performance_modifiers) == 1
+        geometry_modifier = geometry.performance_modifiers[0]
+        assert geometry_modifier["source_id"] == "transport.beat_pulse"
+        assert geometry_modifier["target_id"] == "generator.animation_amount"
+        assert geometry_modifier["depth"] == 0.1
+        assert panel.modifier_list.count() == 1
+
+        panel.select_layer(text_layer.id)
+        panel.modifier_phrase_button.click()
+        text_modifier = text_layer.performance_modifiers[0]
+        assert text_modifier["source_id"] == "transport.phrase_pulse"
+        assert text_modifier["target_id"] == "generator.letter_spacing"
+        assert text_modifier["depth"] == 0.34
+
+        # Text animation amount becomes available once a text motion mode is enabled.
+        text_layer.generator_settings["text_animation"] = "line_wave"
+        panel.refresh()
+        panel.select_layer(text_layer.id)
+        assert panel.modifier_target_combo.findData("generator.text_animation_amount") >= 0
+
+        panel.refresh_performance_modifiers()
+        assert panel.modifier_list.count() == 1
+        assert "BEAT" in panel.modifier_rhythm_status.text()
+    finally:
+        application.shutdown()
+
+def test_layer_modifier_targets_only_offer_animated_overlay_playback(qtbot) -> None:
+    from core.composition import Layer
+    from ui.layer_panel import LayerPanel
+
+    class AnimatedImageStub:
+        animated = True
+
+        def close(self) -> None:
+            pass
+
+    application = Application()
+    try:
+        overlay = Layer(
+            id="overlay-target-filter",
+            name="Still overlay",
+            source_type="overlay",
+            source_id="overlay:still",
+            overlay_kind="image",
+        )
+        application.composition.add_layer(overlay)
+        panel = LayerPanel(application)
+        qtbot.addWidget(panel)
+
+        still_targets = set(panel._modifier_targets_for_layer(overlay))
+        assert "layer.opacity" in still_targets
+        assert "overlay.playback_speed" not in still_targets
+
+        application._overlay_images[overlay.id] = AnimatedImageStub()
+        animated_targets = set(panel._modifier_targets_for_layer(overlay))
+        assert "overlay.playback_speed" in animated_targets
+        assert "overlay.frame_hold" in animated_targets
     finally:
         application.shutdown()
 
