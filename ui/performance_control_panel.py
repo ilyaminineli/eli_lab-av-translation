@@ -219,6 +219,10 @@ class PerformanceControlPanel(QWidget):
             "audio.bpm_normalized": "Audio · Tempo",
             "transport.intensity": "Transport · Scene intensity",
             "transport.phase": "Transport · Beat phase",
+            "transport.bar_phase": "Transport · Bar phase",
+            "transport.beat_pulse": "Rhythm · Beat pulse",
+            "transport.downbeat_pulse": "Rhythm · Downbeat pulse",
+            "transport.phrase_pulse": "Rhythm · Phrase pulse",
             "macro.energy": "Macro · Energy",
             "macro.cutoff": "Macro · Cutoff",
         }
