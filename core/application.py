@@ -467,6 +467,10 @@ class Application:
                     self.transport.set_tempo(float(event.payload["bpm"]))
                 elif event.source == "midi" and event.kind == "transport.tempo":
                     self.transport.set_tempo(float(event.payload["bpm"]))
+                elif event.source == "midi" and event.kind == "scene.intensity":
+                    intensity = max(0.0, min(1.0, float(event.payload["intensity"])))
+                    self.performance_control.intensity = intensity
+                    self.events.publish("performance.scene.intensity", intensity=intensity)
                 elif event.source == "sonic_pi" and event.kind == "clock.bar":
                     # A start datagram can be lost while a later bar still arrives.
                     # Treat the first bar as an authority hand-off too, so the
