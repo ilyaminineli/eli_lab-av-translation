@@ -210,3 +210,63 @@ def test_layer_modifier_targets_only_offer_animated_overlay_playback(qtbot) -> N
     finally:
         application.shutdown()
 
+def test_modulator_bank_panel_loads_preset_and_assigns_to_selected_layer(qtbot) -> None:
+    from ui.modulator_bank_panel import ModulatorBankPanel
+
+    application = Application()
+    try:
+        layer = application.add_generator_layer("geometry")
+        application.set_selected_layer_id(layer.id)
+        panel = ModulatorBankPanel(application)
+        qtbot.addWidget(panel)
+
+        preset_index = panel.preset_combo.findData("lfo-sine-swell")
+        assert preset_index >= 0
+        panel.preset_combo.setCurrentIndex(preset_index)
+        panel._load_preset()
+
+        definition = panel._selected_definition()
+        assert definition is not None
+        assert definition.kind == "lfo"
+        assert definition.waveform == "sine"
+        assert panel.assignment_target_combo.currentData() == (
+            "generator.animation_amount"
+        )
+
+        panel._assign_selected()
+
+        assert len(layer.performance_modifiers) == 1
+        assignment = layer.performance_modifiers[0]
+        assert assignment["source_id"] == f"modulator.{definition.modulator_id}"
+        assert assignment["target_id"] == "generator.animation_amount"
+        assert assignment["polarity"] == "bipolar"
+    finally:
+        application.shutdown()
+
+
+def test_layer_panel_lists_active_bank_modulators_as_sources(qtbot) -> None:
+    from core.modulator_bank import ModulatorDefinition
+    from ui.layer_panel import LayerPanel
+
+    application = Application()
+    try:
+        layer = application.add_generator_layer("geometry")
+        application.set_selected_layer_id(layer.id)
+        definition = ModulatorDefinition(
+            modulator_id="bank-ui-source",
+            name="My slow LFO",
+            kind="lfo",
+        )
+        application.add_modulator(definition)
+        panel = LayerPanel(application)
+        qtbot.addWidget(panel)
+
+        panel.sync_performance_modifier_sources()
+
+        assert panel.modifier_source_combo.findData(
+            "modulator.bank-ui-source"
+        ) >= 0
+        assert panel.modifier_source_combo.currentText() != ""
+    finally:
+        application.shutdown()
+
