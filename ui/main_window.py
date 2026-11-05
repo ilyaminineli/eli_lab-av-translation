@@ -135,7 +135,9 @@ class MainWindow(QMainWindow):
             "M3 control state · normalized transport, scene and macro events"
         )
         self.statusBar().addPermanentWidget(self.control_status_label)
-        self.status_label = QLabel("Initializing OpenGL…")
+        self.status_label = QLabel(
+            "LOCAL PREVIEW IDLE · open the preview tab to initialise OpenGL"
+        )
         self.statusBar().addPermanentWidget(self.status_label)
         self.performance_view.render_status_changed.connect(self.status_label.setText)
 
@@ -526,6 +528,9 @@ class MainWindow(QMainWindow):
                 self.output_manager.close()
             self._restore_local_preview_on_close = self.preview_dock.isVisible()
             window = self.output_manager.open_on_screen(screen)
+            window.performance_view.render_status_changed.connect(
+                self.status_label.setText
+            )
             window.closed.connect(self._projector_output_closed)
             if self._restore_local_preview_on_close:
                 self.preview_dock.hide()
@@ -545,6 +550,18 @@ class MainWindow(QMainWindow):
 
     def _projector_output_closed(self) -> None:
         self.workspace_output_label.setText("OUTPUT  ·  LOCAL WORKSPACE")
+        if self.performance_view.engine.initialized:
+            self.status_label.setText(
+                f"LOCAL PREVIEW READY · {self.performance_view.engine.renderer_name}"
+            )
+        elif self.performance_view._initialization_error:
+            self.status_label.setText(
+                f"LOCAL PREVIEW ERROR · {self.performance_view._initialization_error}"
+            )
+        else:
+            self.status_label.setText(
+                "LOCAL PREVIEW IDLE · open the preview tab to initialise OpenGL"
+            )
         if self._restore_local_preview_on_close:
             self.preview_dock.show()
             self.preview_dock.raise_()
