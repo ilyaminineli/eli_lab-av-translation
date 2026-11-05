@@ -61,3 +61,8 @@ A project file uses the .eliav extension and UTF-8 JSON. Schema version 2 stores
 
 - M4 versioned Sonic Pi OSC event bridge and visual action mapping.
 - MIDI mapping, performance banks, recording and advanced output routing.
+
+
+## Sonic Pi OSC bridge
+
+The `core.osc_protocol` adapter validates the versioned `/eli_lab/v1` namespace and converts only registered transport, bar, scene, macro, cue and heartbeat messages into `ControlEvent` objects. A single background UDP worker submits those events to the bounded application queue. The normal application tick is the only place that applies events to performance state, scene profiles or modulation. OSC configuration and live session/buffer state are not stored in .eliav projects.
