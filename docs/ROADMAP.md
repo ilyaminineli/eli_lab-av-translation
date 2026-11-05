@@ -336,34 +336,36 @@ See [SONATA Expanded integration notes](SONIC_PI_SONATA_INTEGRATION.md).
 
 ## Status
 
-**Performance-set, MIDI learn and quantized scene-bank groundwork implemented on `m5-performance-environment`. M5 exit remains open: master-output recording and a dedicated compact Performance Mode surface are not yet delivered.**
+**Autonomous Performance Mode and Sonic Pi orchestration implemented on `m5-autonomous-performance`. M5 exit remains open for master-output recording and target-machine rehearsal.**
 
 ## Implemented
 
-- Shared normalized mapping contract across composition transforms, procedural geometry, text, waveform, particles, animated overlays and AUTO PERFORMANCE targets. Audio bands/onset, transport rhythm/phase, Sonic Pi energy/cutoff and Modulator Bank sources retain shared ownership, baseline, lock and manual-override semantics.
-- Optional MIDI input with device discovery, bounded callback-to-application queue, CC/note/pitch capture, device/channel/number filtering, min/max scaling, linear/smoothstep/exponential curves and pickup.
-- MIDI Learn UI with target selection, mapping list, range/curve/pickup editor and update/remove actions. Target choices include geometry, typography, particles, overlays, master parameters and AUTO PERFORMANCE controls.
-- MIDI definitions and performance-scene snapshots persist with `.eliav` projects. Hardware state and pickup latches remain transient.
-- Versioned `.eliset` performance-set save/load with atomic file replacement, format/schema preflight validation, full composition/deck/effect/automation/performance settings, MIDI maps and scene bank. Existing project restore path is reused after validation.
-- Performance scene capture, removal and immediate/beat/bar/phrase recall using the existing transport scheduler. Numeric-compatible targets support smoothstep morphing; discrete composition/media state changes at the cue. Currently locked layers are retained.
-- File-menu Save/Load Performance Set actions and MIDI/scene-bank controls in AUDIO / CONTROL.
-- Unit coverage for MIDI scaling/pickup/learn/queue bounds, quantized scene scheduling, morph interpolation, set validation and clean baseline serialization.
+- One-button Performance Mode in the main toolbar. It starts/reuses the versioned Sonic Pi OSC receiver, optionally starts system-loopback capture, enables generated curves and arms AUTO PERFORMANCE.
+- SONATA transport/start or the first clock/bar event switches the mode LIVE and starts AUTO PERFORMANCE. Scene selections and phrase cues trigger musical visual decisions; transport/stop stops the automation session while the mode waits for a patch restart.
+- Shared Sonic Pi energy/cutoff and transport controls plus local audio RMS/peak/low/mid/high/onset features feed one automation energy/cutoff context. Stale audio and OSC inputs expire rather than holding the last value indefinitely.
+- Non-destructive default routes for master effects, AUTO cut/clip/segment/layout/effect/generator controls, and generated per-layer curves for video transforms, procedural geometry, Text Art, waveform, particles and animated overlays.
+- Built-in Modulator Bank followers, envelopes and phrase LFOs are created/reused and connected to compatible layer parameters.
+- AUTO PERFORMANCE supports random, structured and generative styles with time, bar, phrase and hybrid scheduling. Phrase mode gates off the independent wall-clock randomizer so musical cues own the variations.
+- Stop Performance Mode disables only generated AUTO defaults, restores their baselines and closes only the OSC/audio services it started. User-authored mappings and previously running services are preserved.
+- Project saves persist the selected Performance Mode plan but store generated default routes/modifiers disabled, so project opening does not unexpectedly start a live show.
+- Dictionary candidates in `generators/text_pools.py` are cached by language, theme and dictionary-file version to avoid rescanning multi-megabyte dictionaries on each regeneration.
+- Unified diagnostics for OSC counters/freshness, audio state/queue/drop count, control queue, active routes/modulators, automation section/energy/cutoff and video/render metrics.
 
 ## Remaining work and sign-off
 
-- Dedicated compact Performance Mode window/surface that puts transport, scene bank, macros, AUTO PERFORMANCE, MIDI status, output selection and recording status on one low-distraction surface.
-- Master-output video recording with bounded immutable frame handoff, dedicated encoder worker, configurable format/frame rate/destination and audio muxing.
-- Explicit preview/projector/additional-output recording routing and robust recording recovery.
+- Master-output recording with bounded frame handoff, encoder worker, configurable format/frame rate/destination and audio muxing.
+- Explicit output recording routing and target-machine preview/projector frame-pacing and A/V synchronisation validation.
 - Last-known-good set recovery and optional event/performance-session recording.
-- Target-machine validation: physical MIDI hot-plug and pickup, long-duration encoder stability, A/V synchronisation, and preview/projector output consistency.
+- Full 384-bar SONATA rehearsal, Windows system-loopback reconnect and long-duration autonomous session validation.
 
-## Verification status
+## Verification and repository cleanup
 
-The MIDI/controller checkpoint at `6cf38d24` passed the complete Windows CI workflow, including Python compile, unit tests and Ruff. Subsequent scene-bank commits exposed one compatibility failure in a minimal `Application` fixture; the latest fix is `6ce189b9` and its CI run is pending. Hardware and long-duration output validation have not been performed.
+- The `tests/` unit-test suite and pytest dependencies were removed at the user's request. CI has been replaced with Python compilation and Ruff checks; it no longer runs unit tests.
+- A static quality workflow must pass on the latest PR head. Hardware and musical rehearsal remain manual sign-off.
 
-**M5 exit condition is not yet met.** Performance sets, controller mapping and scene recall are in place, but output recording and the compact live surface remain outstanding.
+**M5 exit condition is not yet met** until master-output recording and target-machine output validation are complete.
 
-See [M5 Performance Environment](M5_PERFORMANCE_ENVIRONMENT.md), [M5 Unified Mapping Matrix](M5_MAPPING_MATRIX.md), [M5 Performance Modifiers](M5_PERFORMANCE_MODIFIERS.md) and [M5 Modulator Bank](M5_MODULATOR_BANK.md).
+See [M5 Autonomous Performance](M5_AUTONOMOUS_PERFORMANCE.md), [M5 Performance Environment](M5_PERFORMANCE_ENVIRONMENT.md), [M5 Unified Mapping Matrix](M5_MAPPING_MATRIX.md), [M5 Performance Modifiers](M5_PERFORMANCE_MODIFIERS.md) and [M5 Modulator Bank](M5_MODULATOR_BANK.md).
 
 ## Engineering principles across all milestones
 
