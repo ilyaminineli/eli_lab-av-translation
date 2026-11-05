@@ -785,32 +785,72 @@ class GeneratorsPanel(QWidget):
             return
 
         values = normalize_settings(layer.generator_type, layer.generator_settings)
-        updates = []
+        updates: list[tuple[QSlider, QLabel, int]] = []
         if layer.generator_type == "text":
             updates.extend((
-                (self.text_animation_speed_slider, round(values["text_animation_speed"] * 100)),
-                (self.text_animation_amount_slider, round(values["text_animation_amount"] * 1000)),
-                (self.text_size_slider, int(values["font_size"])),
-                (self.tracking_slider, round(values["letter_spacing"])),
+                (
+                    self.text_animation_speed_slider,
+                    self.text_animation_speed_value,
+                    round(values["text_animation_speed"] * 100),
+                ),
+                (
+                    self.text_animation_amount_slider,
+                    self.text_animation_amount_value,
+                    round(values["text_animation_amount"] * 1000),
+                ),
+                (self.text_size_slider, self.text_size_value, int(values["font_size"])),
+                (self.tracking_slider, self.tracking_value, round(values["letter_spacing"])),
             ))
         elif layer.generator_type == "geometry":
-            updates.append((self.geometry_density_slider, int(values["density"])))
+            updates.append((
+                self.geometry_density_slider,
+                self.geometry_density_value,
+                int(values["density"]),
+            ))
         elif layer.generator_type == "waveform":
             updates.extend((
-                (self.amplitude_slider, round(values["amplitude"] * 100)),
-                (self.frequency_slider, round(values["frequency"] * 10)),
-                (self.waveform_density_slider, int(values["density"])),
+                (self.amplitude_slider, self.amplitude_value, round(values["amplitude"] * 100)),
+                (self.frequency_slider, self.frequency_value, round(values["frequency"] * 10)),
+                (
+                    self.waveform_density_slider,
+                    self.waveform_density_value,
+                    int(values["density"]),
+                ),
             ))
         elif layer.generator_type == "particles":
             updates.extend((
-                (self.particle_density_slider, int(values["density"])),
-                (self.particle_speed_slider, round(values["speed"] * 100)),
-                (self.particle_size_slider, round(values["size"] * 100)),
-                (self.particle_spread_slider, round(values["spread"] * 100)),
-                (self.particle_trail_slider, round(values["trail"] * 100)),
+                (
+                    self.particle_density_slider,
+                    self.particle_density_value,
+                    int(values["density"]),
+                ),
+                (
+                    self.particle_speed_slider,
+                    self.particle_speed_value,
+                    round(values["speed"] * 100),
+                ),
+                (
+                    self.particle_size_slider,
+                    self.particle_size_value,
+                    round(values["size"] * 100),
+                ),
+                (
+                    self.particle_spread_slider,
+                    self.particle_spread_value,
+                    round(values["spread"] * 100),
+                ),
+                (
+                    self.particle_trail_slider,
+                    self.particle_trail_value,
+                    round(values["trail"] * 100),
+                ),
             ))
 
-        updates.append((self.speed_slider, round(values["animation_speed"] * 100)))
+        updates.append((
+            self.speed_slider,
+            self.speed_value,
+            round(values["animation_speed"] * 100),
+        ))
         amount_ranges = {
             "rotate": 180.0,
             "pulse": 0.25,
@@ -823,13 +863,14 @@ class GeneratorsPanel(QWidget):
         amount_value = round(
             max(0.0, min(100.0, float(values["animation_amount"]) / amount_range * 100.0))
         )
-        updates.append((self.amount_slider, amount_value))
+        updates.append((self.amount_slider, self.amount_value, amount_value))
 
         self._loading = True
-        for slider, value in updates:
+        for slider, label, value in updates:
             slider.blockSignals(True)
             slider.setValue(value)
             slider.blockSignals(False)
+            label.setText(str(value))
         self._loading = False
 
     def import_palette(self) -> None:
