@@ -118,7 +118,11 @@ M3 persists transport configuration, analysis settings, modulation routes and sc
 
 ## M4 Sonic Pi integration
 
-The SONATA Expanded patch has been inspected as the first target. It uses a 92 BPM bar clock, 16 scenes, and energy/cutoff macros, but currently has no OSC sender. M4 will add a versioned OSC bridge at those high-level musical control points. See [SONATA integration notes](docs/SONIC_PI_SONATA_INTEGRATION.md).
+The **AUDIO / CONTROL** dock includes a configurable OSC receiver for `/eli_lab/v1` (loopback `127.0.0.1:57121` by default). Start the receiver, then run the updated SONATA Expanded patch or the local sender:
+
+    python scripts/osc_test_sender.py --host 127.0.0.1 --port 57121
+
+Sonic Pi remains the audio and musical-clock authority. The receiver validates session IDs and monotonically increasing per-session sequence numbers, rate-limits input, and submits normalized events through the bounded M3 control queue. Transport, 1-based bar position, scene/intensity, `energy` and normalized `cutoff` macros, phrase cues and end events are applied on the application tick. The OSC worker never accesses Qt widgets, composition objects or OpenGL resources. See [SONATA integration notes](docs/SONIC_PI_SONATA_INTEGRATION.md) for the exact wire format and patch setup.
 
 ## Effects and overlays
 
@@ -146,7 +150,7 @@ The media index, thumbnails and logs are stored under %LOCALAPPDATA%\ELI LAB\AV 
 
 - Per-layer effects currently provide a compact shader stack, not an unlimited node graph.
 - The first projector implementation uses an independent renderer and CPU frame snapshots; each output uploads textures locally.
-- Audio-reactive analysis and visual modulation are implemented; audio playback remains external. Sonic Pi OSC and MIDI are not implemented yet.
+- Audio-reactive analysis, visual modulation and the versioned Sonic Pi OSC bridge are implemented; audio playback remains external. Live Sonic Pi rehearsal and Windows audio-device sign-off still require hardware validation.
 - No reverse playback, variable-speed playback, masks, keying, advanced crossfades or recording yet.
 - Four simultaneous high-bitrate 1080p/4K clips are not guaranteed on every computer; start with H.264 test clips and check the renderer / CPU load.
 - Projects store absolute media paths. Moving source footage requires re-importing the folder.
