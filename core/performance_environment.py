@@ -26,6 +26,7 @@ class MIDIMapping:
     curve: str = "linear"
     pickup: bool = True
     enabled: bool = True
+    last_physical: float | None = None
 
     def normalize(self) -> None:
         self.mapping_id = str(self.mapping_id).strip()[:40] or uuid4().hex[:12]
@@ -47,10 +48,15 @@ class MIDIMapping:
             self.curve = "linear"
         self.enabled = bool(self.enabled)
         self.pickup = bool(self.pickup)
+        if self.last_physical is not None:
+            physical = float(self.last_physical)
+            self.last_physical = max(0.0, min(1.0, physical)) if math.isfinite(physical) else None
 
     def to_dict(self) -> dict[str, Any]:
         self.normalize()
-        return asdict(self)
+        data = asdict(self)
+        data.pop("last_physical", None)  # transient hardware position is not a saved setting
+        return data
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "MIDIMapping":
@@ -117,6 +123,7 @@ class MIDIMappingEngine:
                     continue
                 self._pickup_armed[item.mapping_id] = True
             shaped = self._curve(physical, item.curve)
+            item.last_physical = physical
             results.append((item.target, item.minimum + shaped * (item.maximum - item.minimum)))
         return results
 
@@ -222,7 +229,8 @@ class MIDIInputService:
     def __init__(self, callback, queue_capacity: int = 256) -> None:
         self.callback = callback
         self.queue_capacity = max(1, int(queue_capacity))
-        self._events: list[tuple[str, str, int, int, float]] = []
+        from collections import deque
+        self._events: deque[tuple[str, str, int, int, float]] = deque()
         self._lock = threading.Lock()
         self._port = None
         self.state = "stopped"
@@ -275,8 +283,7 @@ class MIDIInputService:
     def drain(self, limit: int = 64) -> int:
         with self._lock:
             count = min(max(0, int(limit)), len(self._events))
-            batch = self._events[:count]
-            del self._events[:count]
+            batch = [self._events.popleft() for _ in range(count)]
         for item in batch:
             self.callback(*item)
         return len(batch)
