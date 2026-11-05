@@ -18,29 +18,36 @@ def test_protocol_decodes_transport_bar_scene_macro_and_cue() -> None:
     assert start.payload == {"bpm": 92.0, "beats_per_bar": 4}
     assert start.sequence == 1
 
+    tempo = adapter.decode(
+        "/eli_lab/v1/transport/tempo",
+        ("session-a", 2, 92.0),
+    )
+    assert tempo.kind == "transport.tempo"
+    assert tempo.payload == {"bpm": 92.0}
+
     bar = adapter.decode(
         "/eli_lab/v1/clock/bar",
-        ("session-a", 2, 1, 92.0, 4),
+        ("session-a", 3, 1, 92.0, 4),
     )
     assert bar.kind == "clock.bar"
     assert bar.payload["bar_index"] == 1
 
     scene = adapter.decode(
         "/eli_lab/v1/scene/select",
-        ("session-a", 3, "dev", 0.62, 80),
+        ("session-a", 4, "dev", 0.62, 80),
     )
     assert scene.payload == {"scene_id": "dev", "intensity": 0.62, "bar_index": 80}
 
     macro = adapter.decode(
         "/eli_lab/v1/macro/set",
-        ("session-a", 4, "cutoff", 0.5),
+        ("session-a", 5, "cutoff", 0.5),
     )
     assert macro.kind == "macro.set"
     assert macro.payload == {"name": "cutoff", "value": 0.5}
 
     cue = adapter.decode(
         "/eli_lab/v1/cue/trigger",
-        ("session-a", 5, "phrase_20"),
+        ("session-a", 6, "phrase_20"),
     )
     assert cue.payload == {"name": "phrase_20"}
 
