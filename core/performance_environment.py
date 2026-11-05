@@ -12,6 +12,7 @@ from uuid import uuid4
 PERFORMANCE_SET_FORMAT = "eli_lab_performance_set"
 PERFORMANCE_SET_VERSION = 1
 
+
 @dataclass
 class MIDIMapping:
     """Stable MIDI-to-performance binding with scaling and pickup semantics."""
@@ -59,11 +60,12 @@ class MIDIMapping:
         return data
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "MIDIMapping":
+    def from_dict(cls, data: dict[str, Any]) -> MIDIMapping:
         allowed = set(cls.__dataclass_fields__)
         item = cls(**{key: value for key, value in data.items() if key in allowed})
         item.normalize()
         return item
+
 
 class MIDIMappingEngine:
     """Applies learned mappings without owning devices or touching the renderer."""
@@ -131,7 +133,9 @@ class MIDIMappingEngine:
         return [item.to_dict() for item in self.mappings]
 
     def load_dict(self, values: object) -> None:
-        self.replace_mappings([v for v in values if isinstance(v, dict)] if isinstance(values, list) else [])
+        mappings = [v for v in values if isinstance(v, dict)] if isinstance(values, list) else []
+        self.replace_mappings(mappings)
+
 
 @dataclass
 class PerformanceScene:
@@ -144,7 +148,8 @@ class PerformanceScene:
     def normalize(self) -> None:
         self.scene_id = str(self.scene_id).strip()[:64]
         self.label = str(self.label).strip()[:80] or self.scene_id
-        self.quantization = self.quantization if self.quantization in {"immediate", "beat", "bar", "phrase"} else "bar"
+        if self.quantization not in {"immediate", "beat", "bar", "phrase"}:
+            self.quantization = "bar"
         self.cue = str(self.cue).strip()[:128]
         if not self.scene_id or not isinstance(self.snapshot, dict):
             raise ValueError("Performance scene requires an ID and snapshot object.")
@@ -152,6 +157,7 @@ class PerformanceScene:
     def to_dict(self) -> dict[str, Any]:
         self.normalize()
         return asdict(self)
+
 
 class PerformanceSetStore:
     """Versioned, atomic set persistence. Validation occurs before application mutation."""
@@ -200,7 +206,10 @@ class PerformanceSetStore:
             if key in data and not isinstance(data[key], expected):
                 raise ValueError(f"Invalid performance set field: {key}")
         # Validate every persisted control definition before returning the payload.
-        data['midi_mappings'] = [MIDIMapping.from_dict(x).to_dict() for x in data.get('midi_mappings', [])]
+        data['midi_mappings'] = [
+            MIDIMapping.from_dict(item).to_dict()
+            for item in data.get('midi_mappings', [])
+        ]
         scenes = []
         for raw in data.get('scenes', []):
             item = PerformanceScene(**raw)
@@ -208,6 +217,7 @@ class PerformanceSetStore:
             scenes.append(item.to_dict())
         data['scenes'] = scenes
         return data
+
 
 @dataclass
 class SceneMorph:
@@ -223,6 +233,7 @@ class SceneMorph:
         eased = fraction * fraction * (3.0 - 2.0 * fraction)
         return fraction, {key: self.start[key] + (self.end[key] - self.start[key]) * eased
                           for key in self.start.keys() & self.end.keys()}
+
 
 class MIDIInputService:
     """Optional mido input with bounded callback-to-UI event delivery."""
