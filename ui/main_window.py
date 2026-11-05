@@ -155,6 +155,12 @@ class MainWindow(QMainWindow):
         self.modulator_bank_panel.bank_changed.connect(
             self.layer_panel.refresh_performance_modifiers
         )
+        self.modulator_bank_panel.bank_changed.connect(
+            self.performance_control_panel.sync_modulator_sources
+        )
+        self.modulator_bank_panel.bank_changed.connect(
+            self.performance_control_panel.refresh_routes
+        )
         self.modulator_bank_panel.assignment_created.connect(
             self.layer_panel.refresh_performance_modifiers
         )
