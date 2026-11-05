@@ -89,7 +89,11 @@ class PerformanceModeService:
             phase="arming",
             started_at=time.monotonic(),
             automation_armed=plan.start_automation,
-            audio_status="starting" if plan.audio_device_id or plan.audio_test_signal else "disabled",
+            audio_status=(
+                "starting"
+                if plan.audio_device_id or plan.audio_test_signal
+                else "disabled"
+            ),
         )
 
     def mark_armed(self, *, osc_owned: bool, audio_owned: bool, audio_status: str) -> None:
@@ -243,7 +247,10 @@ def _modifier(
         release_ms: float = 300.0,
 ) -> LayerPerformanceModifier:
     return LayerPerformanceModifier(
-        modifier_id=f"auto-{source_id.removeprefix('modulator.').replace('.', '-')}-{target_id.replace('.', '-')}"[:40],
+        modifier_id=(
+            f"auto-{source_id.removeprefix('modulator.').replace('.', '-')}-"
+            f"{target_id.replace('.', '-')}"
+        )[:40],
         name=f"AUTO · {name}",
         source_id=source_id,
         target_id=target_id,
@@ -295,7 +302,10 @@ def install_default_layer_modifiers(
                 candidates.extend((
                     _modifier("energy deformation", energy, "generator.animation_amount", 0.10),
                     _modifier("cutoff motion", cutoff, "generator.animation_speed", 0.12),
-                    _modifier("beat rotation", beat, "generator.rotation", 0.055, "exponential", 8.0, 220.0),
+                    _modifier(
+                        "beat rotation", beat, "generator.rotation",
+                        0.055, "exponential", 8.0, 220.0,
+                    ),
                     _modifier("phrase density", swell, "generator.density", 0.035),
                 ))
             elif kind == "text":
@@ -303,19 +313,34 @@ def install_default_layer_modifiers(
                     _modifier("energy typography", energy, "generator.text_animation_amount", 0.24),
                     _modifier("cutoff type speed", cutoff, "generator.text_animation_speed", 0.16),
                     _modifier("phrase type scale", swell, "generator.font_size", 0.035),
-                    _modifier("onset tracking", onset, "generator.letter_spacing", 0.12, "exponential", 5.0, 240.0),
+                    _modifier(
+                        "onset tracking", onset, "generator.letter_spacing",
+                        0.12, "exponential", 5.0, 240.0,
+                    ),
                 ))
             elif kind == "waveform":
                 candidates.extend((
-                    _modifier("bass amplitude", "audio.low", "generator.waveform_amplitude", 0.30, "exponential", 8.0, 220.0),
+                    _modifier(
+                        "bass amplitude", "audio.low", "generator.waveform_amplitude",
+                        0.30, "exponential", 8.0, 220.0,
+                    ),
                     _modifier("cutoff frequency", cutoff, "generator.waveform_frequency", 0.18),
-                    _modifier("beat amplitude", beat, "generator.waveform_amplitude", 0.16, "exponential", 5.0, 180.0),
+                    _modifier(
+                        "beat amplitude", beat, "generator.waveform_amplitude",
+                        0.16, "exponential", 5.0, 180.0,
+                    ),
                 ))
             elif kind == "particles":
                 candidates.extend((
                     _modifier("energy particle speed", energy, "generator.particle_speed", 0.24),
-                    _modifier("onset particle size", onset, "generator.particle_size", 0.18, "exponential", 5.0, 160.0),
-                    _modifier("beat trails", beat, "generator.particle_trail", 0.22, "exponential", 5.0, 200.0),
+                    _modifier(
+                        "onset particle size", onset, "generator.particle_size",
+                        0.18, "exponential", 5.0, 160.0,
+                    ),
+                    _modifier(
+                        "beat trails", beat, "generator.particle_trail",
+                        0.22, "exponential", 5.0, 200.0,
+                    ),
                     _modifier("phrase spread", swell, "generator.particle_spread", 0.10),
                 ))
             else:
@@ -343,7 +368,10 @@ def install_default_layer_modifiers(
         elif layer.source_type == "overlay":
             candidates.extend((
                 _modifier("overlay rate", energy, "overlay.playback_speed", 0.18),
-                _modifier("overlay frame pulse", beat, "overlay.frame_hold", 0.22, "exponential", 5.0, 180.0),
+                _modifier(
+                    "overlay frame pulse", beat, "overlay.frame_hold",
+                    0.22, "exponential", 5.0, 180.0,
+                ),
             ))
 
         for item in candidates:
