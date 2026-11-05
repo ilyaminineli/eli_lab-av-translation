@@ -236,7 +236,7 @@ def test_external_transport_exposes_beat_downbeat_phrase_and_bar_phase(monkeypat
     assert sources["transport.beat_pulse"] > 0.7
     assert sources["transport.downbeat_pulse"] == sources["transport.beat_pulse"]
     assert sources["transport.phrase_pulse"] == sources["transport.beat_pulse"]
-    assert sources["transport.bar_phase"] == 0.0125
+    assert sources["transport.bar_phase"] == pytest.approx(0.0125)
     assert sources["macro.energy"] == 0.7
     assert sources["macro.cutoff"] == 0.4
 
