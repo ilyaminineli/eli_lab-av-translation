@@ -658,9 +658,13 @@ class Application:
         if external_clock_active:
             elapsed = max(0.0, time.monotonic() - self._external_clock_bar_at)
             beat_duration = 60.0 / self.performance_control.bpm
-            values["transport.phase"] = (
-                elapsed / beat_duration
-            ) % 1.0 if elapsed <= max(5.0, beat_duration * self.performance_control.beats_per_bar * 2) else 0.0
+            if elapsed <= max(
+                5.0,
+                beat_duration * self.performance_control.beats_per_bar * 2,
+            ):
+                values["transport.phase"] = (elapsed / beat_duration) % 1.0
+            else:
+                values["transport.phase"] = 0.0
         else:
             values["transport.phase"] = self.transport.phase
         for name, value in self.performance_control.macros.items():
@@ -870,6 +874,7 @@ class Application:
         composition, deck_states = self.project_manager.load(path)
         self.control_events.clear()
         self.performance_control.reset()
+        self._external_clock_bar_at = None
         self.transport.stop()
         self.transport.load_settings({
             "bpm": 120.0,
