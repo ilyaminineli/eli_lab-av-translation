@@ -15,8 +15,10 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QProgressBar,
+    QLineEdit,
     QPushButton,
     QScrollArea,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
@@ -238,6 +240,26 @@ class PerformanceControlPanel(QWidget):
         modulation_layout.addWidget(self.modulation_status)
         root.addWidget(self.modulation_group)
 
+        self.osc_group = QGroupBox("SONIC PI OSC · /eli_lab/v1")
+        osc_form = QFormLayout(self.osc_group)
+        self.osc_bind_edit = QLineEdit("127.0.0.1")
+        self.osc_port_spin = QSpinBox()
+        self.osc_port_spin.setRange(1024, 65535)
+        self.osc_port_spin.setValue(57121)
+        osc_form.addRow("BIND ADDRESS", self.osc_bind_edit)
+        osc_form.addRow("UDP PORT", self.osc_port_spin)
+        osc_buttons = QHBoxLayout()
+        self.osc_start_button = QPushButton("START OSC")
+        self.osc_stop_button = QPushButton("STOP OSC")
+        self.osc_stop_button.setEnabled(False)
+        osc_buttons.addWidget(self.osc_start_button)
+        osc_buttons.addWidget(self.osc_stop_button)
+        osc_form.addRow(osc_buttons)
+        self.osc_status_label = QLabel("STOPPED · loopback only · awaiting Sonic Pi")
+        self.osc_status_label.setWordWrap(True)
+        osc_form.addRow("RECEIVER", self.osc_status_label)
+        root.addWidget(self.osc_group)
+
         root.addStretch(1)
         self.scroll.setWidget(body)
         outer.addWidget(self.scroll, 1)
@@ -254,6 +276,8 @@ class PerformanceControlPanel(QWidget):
         self.audio_refresh_button.clicked.connect(self.refresh_audio_devices)
         self.audio_start_button.clicked.connect(self._start_audio)
         self.audio_stop_button.clicked.connect(self.application.stop_audio_capture)
+        self.osc_start_button.clicked.connect(self._start_osc)
+        self.osc_stop_button.clicked.connect(self._stop_osc)
         self.sensitivity_spin.valueChanged.connect(self._audio_settings_changed)
         self.attack_spin.valueChanged.connect(self._audio_settings_changed)
         self.release_spin.valueChanged.connect(self._audio_settings_changed)
@@ -425,6 +449,43 @@ class PerformanceControlPanel(QWidget):
             attack_ms=self.attack_spin.value(),
             release_ms=self.release_spin.value(),
         ))
+
+    def _start_osc(self) -> None:
+        try:
+            port = self.application.start_osc_receiver(
+                self.osc_bind_edit.text().strip() or "127.0.0.1",
+                self.osc_port_spin.value(),
+            )
+            self.osc_port_spin.setValue(port)
+        except Exception as exc:
+            self.osc_status_label.setText(f"OSC unavailable · {exc}")
+        self.refresh_osc_status()
+
+    def _stop_osc(self) -> None:
+        self.application.stop_osc_receiver()
+        self.refresh_osc_status()
+
+    def refresh_osc_status(self) -> None:
+        receiver = getattr(self.application, "osc_receiver", None)
+        if receiver is None:
+            self.osc_status_label.setText("OSC receiver unavailable.")
+            return
+        snapshot = receiver.snapshot()
+        age = snapshot["last_message_age"]
+        freshness = f"{float(age):.1f}s ago" if age is not None else "no packets received"
+        address = snapshot["last_address"] or "—"
+        session = snapshot["active_session"] or "—"
+        self.osc_status_label.setText(
+            f"{snapshot['status']} · {snapshot['bind_address']}:{snapshot['port']} · {freshness}\n"
+            f"RX {snapshot['received']} · OK {snapshot['accepted']} · "
+            f"REJECT {snapshot['rejected']} · DROP {snapshot['dropped']} · "
+            f"RATE {snapshot['rate_limited']}\n"
+            f"LAST {address} · SESSION {session}"
+            + (f"\n{snapshot['last_error']}" if snapshot["last_error"] else "")
+        )
+        running = bool(snapshot["running"])
+        self.osc_start_button.setEnabled(not running)
+        self.osc_stop_button.setEnabled(running)
 
     def _target_changed(self, *_args) -> None:
         target_id = self.target_combo.currentData()
@@ -601,6 +662,7 @@ class PerformanceControlPanel(QWidget):
             f"Tempo estimate · {bpm:g} BPM · confidence {confidence:.2f}"
             if bpm is not None else "Tempo estimate · listening for transients…"
         )
+        self.refresh_osc_status()
         outputs = self.application.modulation.outputs()
         self.modulation_status.setText(
             " · ".join(
