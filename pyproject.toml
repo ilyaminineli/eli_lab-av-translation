@@ -13,6 +13,7 @@ dependencies = [
     "moderngl>=5.10",
     "av>=12.0",
     "numpy>=1.26",
+    "soundcard>=0.4.6",
 ]
 
 [project.optional-dependencies]
