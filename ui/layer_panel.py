@@ -605,15 +605,31 @@ class LayerPanel(QWidget):
                 phrase=sources.get("transport.phrase_pulse", 0.0),
             )
         )
+        # The layer table shows live opacity for every layer, not only the selected one.
+        for row_index in range(self.table.rowCount()):
+            name_item = self.table.item(row_index, 1)
+            if name_item is None:
+                continue
+            row_layer = self.application.composition.get_layer(
+                str(name_item.data(Qt.ItemDataRole.UserRole) or "")
+            )
+            opacity_widget = self.table.cellWidget(row_index, 2)
+            if row_layer is not None and isinstance(opacity_widget, QSlider):
+                opacity_widget.blockSignals(True)
+                opacity_widget.setValue(round(row_layer.opacity * 100))
+                opacity_widget.blockSignals(False)
+
         if layer is None:
             self.modifier_list.clear()
             self._modifier_widgets.clear()
             self._modifier_signature = ()
+            self.modifier_remove_button.setEnabled(False)
             return
         records = [
             raw for raw in layer.performance_modifiers
             if isinstance(raw, dict)
         ]
+        self.modifier_remove_button.setEnabled(bool(records))
         signature = tuple(
             (
                 str(raw.get("modifier_id", "")),
@@ -682,19 +698,6 @@ class LayerPanel(QWidget):
             slider.blockSignals(True)
             slider.setValue(value)
             slider.blockSignals(False)
-        row = next(
-            (
-                index for index in range(self.table.rowCount())
-                if self.table.item(index, 1).data(Qt.ItemDataRole.UserRole) == layer.id
-            ),
-            -1,
-        )
-        opacity = self.table.cellWidget(row, 2) if row >= 0 else None
-        if isinstance(opacity, QSlider):
-            opacity.blockSignals(True)
-            opacity.setValue(round(layer.opacity * 100))
-            opacity.blockSignals(False)
-
         live = self.application.layer_performance_modifier_values(layer.id)
         for modifier_id, (_enabled, _detail, meter) in self._modifier_widgets.items():
             value = live.get(modifier_id)
