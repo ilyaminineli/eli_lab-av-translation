@@ -125,6 +125,7 @@ class PerformanceControlState:
     scene_id: str = "idle"
     intensity: float = 0.0
     macros: dict[str, float] = field(default_factory=dict)
+    macro_updated_at: dict[str, float] = field(default_factory=dict, repr=False)
     last_cue: str = ""
     last_event_at: float = 0.0
     last_event_kind: str = ""
@@ -267,6 +268,7 @@ class PerformanceControlState:
             if name == "macro":
                 macro_name, macro_value = value
                 self.macros[macro_name] = macro_value
+                self.macro_updated_at[macro_name] = event.received_at
             else:
                 setattr(self, name, value)
 
@@ -288,6 +290,7 @@ class PerformanceControlState:
         self.scene_id = "idle"
         self.intensity = 0.0
         self.macros.clear()
+        self.macro_updated_at.clear()
         self.last_cue = ""
         self.last_event_at = 0.0
         self.last_event_kind = ""
