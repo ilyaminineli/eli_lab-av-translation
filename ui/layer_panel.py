@@ -466,16 +466,14 @@ class LayerPanel(QWidget):
                     "generator.density", "generator.rotation",
                 },
                 "text": {
-                    "generator.animation_speed", "generator.animation_amount",
                     "generator.text_animation_speed", "generator.text_animation_amount",
                     "generator.font_size", "generator.letter_spacing",
                 },
                 "waveform": {
-                    "generator.animation_speed", "generator.animation_amount",
+                    "generator.animation_speed",
                     "generator.waveform_amplitude", "generator.waveform_frequency",
                 },
                 "particles": {
-                    "generator.animation_speed", "generator.animation_amount",
                     "generator.density", "generator.particle_speed",
                     "generator.particle_size", "generator.particle_spread",
                     "generator.particle_trail",
