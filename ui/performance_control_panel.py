@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QApplication,
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
@@ -81,6 +82,36 @@ class PerformanceControlPanel(QWidget):
         self.transport_status.setWordWrap(True)
         transport_form.addRow("CLOCK", self.transport_status)
         root.addWidget(self.transport_group)
+
+        self.osc_group = QGroupBox("SONIC PI CONNECTION · OSC /eli_lab/v1")
+        osc_form = QFormLayout(self.osc_group)
+        self.osc_bind_edit = QLineEdit("127.0.0.1")
+        self.osc_port_spin = QSpinBox()
+        self.osc_port_spin.setRange(1024, 65535)
+        self.osc_port_spin.setValue(57121)
+        osc_form.addRow("RECEIVER ADDRESS", self.osc_bind_edit)
+        osc_form.addRow("UDP PORT", self.osc_port_spin)
+        osc_buttons = QHBoxLayout()
+        self.osc_start_button = QPushButton("START OSC RECEIVER")
+        self.osc_stop_button = QPushButton("STOP RECEIVER")
+        self.osc_stop_button.setEnabled(False)
+        self.osc_copy_button = QPushButton("COPY SONATA SETTINGS")
+        osc_buttons.addWidget(self.osc_start_button)
+        osc_buttons.addWidget(self.osc_stop_button)
+        osc_form.addRow(osc_buttons)
+        osc_form.addRow(self.osc_copy_button)
+        self.osc_status_label = QLabel("STOPPED · start the receiver, then run SONATA in Sonic Pi.")
+        self.osc_status_label.setWordWrap(True)
+        osc_form.addRow("CONNECTION", self.osc_status_label)
+        self.osc_hint_label = QLabel(
+            "Sonic Pi is an OSC control source, not an item in the audio-device list. "
+            "For Sonic Pi on this computer, use 127.0.0.1 and the same UDP port in "
+            "SONATA_expanded.rb. Start this receiver before running the patch."
+        )
+        self.osc_hint_label.setWordWrap(True)
+        self.osc_hint_label.setObjectName("mutedLabel")
+        osc_form.addRow("HOW TO CONNECT", self.osc_hint_label)
+        root.addWidget(self.osc_group)
 
         self.scene_group = QGroupBox("SCENE PROFILES")
         scene_form = QFormLayout(self.scene_group)
@@ -235,30 +266,19 @@ class PerformanceControlPanel(QWidget):
         self.route_list = QListWidget()
         self.route_list.setMaximumHeight(140)
         modulation_layout.addWidget(self.route_list)
-        self.modulation_status = QLabel("No modulation routes enabled.")
+        preset_buttons = QHBoxLayout()
+        self.audio_reactive_button = QPushButton("ADD AUDIO-REACTIVE ROUTES")
+        self.sonic_pi_reactive_button = QPushButton("ADD SONIC PI ROUTES")
+        preset_buttons.addWidget(self.audio_reactive_button)
+        preset_buttons.addWidget(self.sonic_pi_reactive_button)
+        modulation_layout.addLayout(preset_buttons)
+        self.modulation_status = QLabel(
+            "Routes can control Auto Performance, selected layers, generators, text and animated overlays."
+        )
         self.modulation_status.setWordWrap(True)
         modulation_layout.addWidget(self.modulation_status)
         root.addWidget(self.modulation_group)
 
-        self.osc_group = QGroupBox("SONIC PI OSC · /eli_lab/v1")
-        osc_form = QFormLayout(self.osc_group)
-        self.osc_bind_edit = QLineEdit("127.0.0.1")
-        self.osc_port_spin = QSpinBox()
-        self.osc_port_spin.setRange(1024, 65535)
-        self.osc_port_spin.setValue(57121)
-        osc_form.addRow("BIND ADDRESS", self.osc_bind_edit)
-        osc_form.addRow("UDP PORT", self.osc_port_spin)
-        osc_buttons = QHBoxLayout()
-        self.osc_start_button = QPushButton("START OSC")
-        self.osc_stop_button = QPushButton("STOP OSC")
-        self.osc_stop_button.setEnabled(False)
-        osc_buttons.addWidget(self.osc_start_button)
-        osc_buttons.addWidget(self.osc_stop_button)
-        osc_form.addRow(osc_buttons)
-        self.osc_status_label = QLabel("STOPPED · loopback only · awaiting Sonic Pi")
-        self.osc_status_label.setWordWrap(True)
-        osc_form.addRow("RECEIVER", self.osc_status_label)
-        root.addWidget(self.osc_group)
 
         root.addStretch(1)
         self.scroll.setWidget(body)
@@ -278,6 +298,9 @@ class PerformanceControlPanel(QWidget):
         self.audio_stop_button.clicked.connect(self.application.stop_audio_capture)
         self.osc_start_button.clicked.connect(self._start_osc)
         self.osc_stop_button.clicked.connect(self._stop_osc)
+        self.osc_copy_button.clicked.connect(self._copy_sonata_settings)
+        self.audio_reactive_button.clicked.connect(self._install_audio_reactive_routes)
+        self.sonic_pi_reactive_button.clicked.connect(self._install_sonic_pi_routes)
         self.sensitivity_spin.valueChanged.connect(self._audio_settings_changed)
         self.attack_spin.valueChanged.connect(self._audio_settings_changed)
         self.release_spin.valueChanged.connect(self._audio_settings_changed)
@@ -449,6 +472,80 @@ class PerformanceControlPanel(QWidget):
             attack_ms=self.attack_spin.value(),
             release_ms=self.release_spin.value(),
         ))
+
+    def _copy_sonata_settings(self) -> None:
+        host = self.osc_bind_edit.text().strip() or "127.0.0.1"
+        port = self.osc_port_spin.value()
+        # Sonic Pi sends to the AV Translator host, so a same-computer setup uses loopback.
+        config = f'$sp_av_host = "{host}"\n$sp_av_port = {port}'
+        QApplication.clipboard().setText(config)
+        self.osc_status_label.setText(
+            "SONATA host/port copied. Paste into SONATA_expanded.rb and rerun the patch."
+        )
+
+    def _install_route_preset(self, definitions: tuple[tuple, ...], label: str) -> None:
+        added = 0
+        updated = 0
+        for source_id, target_id, output_min, output_max, inverted in definitions:
+            existing = next(
+                (route for route in self.application.modulation.routes
+                 if route.target_id == target_id),
+                None,
+            )
+            changes = {
+                "source_id": source_id,
+                "target_id": target_id,
+                "input_min": 0.0,
+                "input_max": 1.0,
+                "output_min": output_min,
+                "output_max": output_max,
+                "curve": "smoothstep",
+                "inverted": inverted,
+                "smoothing_ms": 110.0,
+                "attack_ms": 25.0,
+                "release_ms": 260.0,
+                "hold_ms": 120.0,
+                "intensity_ceiling": 1.0,
+                "enabled": True,
+            }
+            if existing is None:
+                self.application.add_modulation_route(
+                    ModulationRoute(
+                        route_id=uuid4().hex[:10],
+                        **changes,
+                    )
+                )
+                added += 1
+            else:
+                self.application.update_modulation_route(existing.route_id, changes)
+                updated += 1
+        self.refresh_routes()
+        self.application.apply_modulation()
+        self.modulation_status.setText(
+            f"{label}: {added} route(s) added, {updated} updated. "
+            "Generator targets affect the currently selected compatible generator; "
+            "Auto targets affect the running Auto Performance session."
+        )
+
+    def _install_audio_reactive_routes(self) -> None:
+        self._install_route_preset((
+            ("audio.rms", "generator.animation_speed", 0.35, 5.5, False),
+            ("audio.low", "generator.density", 8.0, 72.0, False),
+            ("audio.high", "generator.text_animation_amount", 0.005, 0.16, False),
+            ("audio.onset", "automation.cut_interval", 3.0, 20.0, True),
+            ("audio.beat_confidence", "automation.clip_switch_probability", 0.15, 0.9, False),
+            ("audio.peak", "selected_layer.opacity", 0.35, 1.0, False),
+        ), "Audio-reactive setup")
+
+    def _install_sonic_pi_routes(self) -> None:
+        self._install_route_preset((
+            ("macro.energy", "generator.animation_amount", 0.02, 0.45, False),
+            ("macro.cutoff", "generator.animation_speed", 0.25, 6.5, False),
+            ("macro.energy", "automation.loop_probability", 0.15, 0.9, False),
+            ("transport.intensity", "automation.layout_interval", 6.0, 30.0, True),
+            ("transport.phase", "selected_layer.opacity", 0.3, 1.0, False),
+            ("macro.cutoff", "generator.waveform_frequency", 1.0, 12.0, False),
+        ), "Sonic Pi setup")
 
     def _start_osc(self) -> None:
         try:
