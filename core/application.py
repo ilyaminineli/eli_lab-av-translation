@@ -1346,6 +1346,70 @@ class Application:
                 layer.overlay_speed = max(0.1, min(4.0, float(base_value)))
             elif target_id == "overlay.frame_hold":
                 layer.overlay_frame_hold = max(1, min(24, int(round(base_value))))
+
+        # The global modulation matrix also writes into the live composition.
+        # Save its pre-modulation values so a project never opens on a random beat peak.
+        selected_layer = composition_snapshot.get_layer(self._selected_layer_id or "")
+        effect_state = app_state["effects"]
+        automation_state = app_state["automation_settings"]
+        for target_id, base_value in self._modulation_base_values.items():
+            if target_id.startswith("master."):
+                field = target_id.split(".", 1)[1]
+                if field in effect_state:
+                    effect_state[field] = base_value
+            elif selected_layer is not None and target_id.startswith("selected_layer."):
+                field = target_id.split(".", 1)[1]
+                if field in {"opacity", "rotation"}:
+                    setattr(selected_layer, field, float(base_value))
+                elif field == "scale":
+                    selected_layer.scale = (float(base_value), float(base_value))
+                elif field == "position_x":
+                    selected_layer.position = (
+                        float(base_value), selected_layer.position[1]
+                    )
+                elif field == "position_y":
+                    selected_layer.position = (
+                        selected_layer.position[0], float(base_value)
+                    )
+            elif selected_layer is not None and target_id.startswith("generator."):
+                setting_key = self._generator_modifier_setting_key(
+                    target_id.split(".", 1)[1]
+                )
+                if setting_key and selected_layer.generator_type:
+                    settings = normalize_settings(
+                        selected_layer.generator_type,
+                        selected_layer.generator_settings,
+                    )
+                    current = settings.get(setting_key)
+                    settings[setting_key] = (
+                        int(round(base_value))
+                        if isinstance(current, int) and not isinstance(current, bool)
+                        else float(base_value)
+                    )
+                    selected_layer.generator_settings = normalize_settings(
+                        selected_layer.generator_type,
+                        settings,
+                    )
+            elif selected_layer is not None and target_id == "overlay.playback_speed":
+                selected_layer.overlay_speed = max(0.1, min(4.0, float(base_value)))
+            elif selected_layer is not None and target_id == "overlay.frame_hold":
+                selected_layer.overlay_frame_hold = max(
+                    1, min(24, int(round(base_value)))
+                )
+            elif target_id.startswith("automation."):
+                field = {
+                    "automation.loop_probability": "loop_probability",
+                    "automation.clip_switch_probability": "clip_switch_probability",
+                    "automation.cut_interval": "min_cut_interval",
+                    "automation.min_segment_seconds": "min_segment_seconds",
+                    "automation.max_segment_seconds": "max_segment_seconds",
+                    "automation.layout_interval": "min_layout_interval",
+                    "automation.effect_interval": "min_effect_interval",
+                    "automation.generator_interval": "min_generator_interval",
+                }.get(target_id)
+                if field in automation_state:
+                    automation_state[field] = base_value
+
         saved_path = self.project_manager.save(
             path,
             composition_snapshot,
@@ -1370,6 +1434,7 @@ class Application:
         self.audio_capture.update_settings(AudioAnalysisSettings())
         self.scene_profiles = SceneProfileRegistry()
         self.modulation.reset_runtime()
+        self.performance_modifier_engine.reset()
         self._modulation_base_values.clear()
         self.automation.stop()
         self._clear_overlays()
