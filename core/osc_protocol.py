@@ -14,6 +14,7 @@ _LOG = logging.getLogger(__name__)
 _NAMESPACE = "/eli_lab/v1"
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9_.:-]{1,64}$")
 _MACROS = frozenset({"energy", "cutoff"})
+_SCENES = frozenset({"in", "exp", "tm_a", "trns", "dev", "fr", "ssp", "rtrns", "rc", "rc_w", "peak", "intd", "s_s", "rls", "c", "end"})
 
 
 def _identifier(value: object, field: str) -> str:
@@ -98,8 +99,11 @@ class OSCProtocolAdapter:
         elif route == "scene/select":
             if len(payload_args) != 3:
                 raise ValueError("scene/select expects scene ID, intensity and bar index.")
+            scene_id = _identifier(payload_args[0], "scene_id")
+            if scene_id not in _SCENES:
+                raise ValueError(f"Unknown SONATA scene ID: {scene_id!r}.")
             payload = {
-                "scene_id": _identifier(payload_args[0], "scene_id"),
+                "scene_id": scene_id,
                 "intensity": _number(payload_args[1], "intensity", 0.0, 1.0),
                 "bar_index": _integer(payload_args[2], "bar_index", 0, 10_000_000),
             }
@@ -188,6 +192,7 @@ class OSCReceiver:
         self._bind_address = "127.0.0.1"
         self._port = 57121
         self._last_message_at = 0.0
+        self._last_valid_message_at = 0.0
         self._last_address = ""
         self._last_error = ""
         self._received = 0
@@ -303,6 +308,8 @@ class OSCReceiver:
             self._record_invalid()
             _LOG.debug("Rejected OSC message %s: %s", address, exc)
             return
+        with self._lock:
+            self._last_valid_message_at = now
         try:
             accepted = bool(self._submit_event(event))
         except Exception:
@@ -318,8 +325,8 @@ class OSCReceiver:
         now = time.monotonic()
         with self._lock:
             age = (
-                max(0.0, now - self._last_message_at)
-                if self._last_message_at else None
+                max(0.0, now - self._last_valid_message_at)
+                if self._last_valid_message_at else None
             )
             if not self._running:
                 status = "ERROR" if self._last_error else "STOPPED"
