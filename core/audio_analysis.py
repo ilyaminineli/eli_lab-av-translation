@@ -175,10 +175,14 @@ class AudioAnalyzer:
         ):
             mask = (frequencies >= low_hz) & (frequencies < high_hz)
             band_rms = (
-                float(np.sqrt(np.mean(spectral_power[mask])))
+                float(
+                    np.sqrt(
+                        2.0 * np.sum(spectral_power[mask])
+                    ) / mono.size
+                )
                 if np.any(mask) else 0.0
             )
-            bands[name] = min(1.0, band_rms * sensitivity / max(1.0, mono.size * 0.16))
+            bands[name] = min(1.0, band_rms * sensitivity * 2.0)
 
         raw_onset = max(0.0, (rms - self._previous_rms) / max(0.08, self._previous_rms + 0.02))
         onset = min(1.0, raw_onset)
