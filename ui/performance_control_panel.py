@@ -53,6 +53,24 @@ class PerformanceControlPanel(QWidget):
         root.setContentsMargins(8, 8, 8, 8)
         root.setSpacing(8)
 
+        self.autonomous_mode_group = QGroupBox("AUTONOMOUS PERFORMANCE MODE")
+        mode_layout = QVBoxLayout(self.autonomous_mode_group)
+        self.performance_mode_status_label = QLabel(
+            "OFF · arm the show from the main Performance toolbar."
+        )
+        self.performance_mode_status_label.setWordWrap(True)
+        self.performance_mode_status_label.setObjectName("sectionHeading")
+        self.performance_mode_hint_label = QLabel(
+            "Press PERFORMANCE MODE, then run SONATA Expanded in Sonic Pi. The first "
+            "transport packet starts AUTO PERFORMANCE; bars, phrases, energy, cutoff "
+            "and optional system-loopback audio drive the installed curves."
+        )
+        self.performance_mode_hint_label.setWordWrap(True)
+        self.performance_mode_hint_label.setObjectName("mutedLabel")
+        mode_layout.addWidget(self.performance_mode_status_label)
+        mode_layout.addWidget(self.performance_mode_hint_label)
+        root.addWidget(self.autonomous_mode_group)
+
         self.transport_group = QGroupBox("INTERNAL TRANSPORT / TEST CLOCK")
         transport_form = QFormLayout(self.transport_group)
         self.bpm_spin = QDoubleSpinBox()
@@ -842,11 +860,18 @@ class PerformanceControlPanel(QWidget):
         selected = self.audio_device_combo.currentData()
         self.audio_device_combo.blockSignals(True)
         self.audio_device_combo.clear()
+        self.audio_device_combo.addItem(
+            "Sonic Pi macros only · no local capture",
+            None,
+        )
         self.audio_device_combo.addItem("Deterministic test signal", "test")
+        loopback_index = -1
         try:
             devices = self.application.audio_capture.list_devices()
             for device in devices:
                 self.audio_device_combo.addItem(device.label, device.id)
+                if device.is_loopback and loopback_index < 0:
+                    loopback_index = self.audio_device_combo.count() - 1
             message = f"{len(devices)} audio input(s) available."
         except Exception as exc:
             message = f"Audio backend unavailable · {exc}"
@@ -854,7 +879,14 @@ class PerformanceControlPanel(QWidget):
         else:
             self._audio_discovery_error = ""
         index = self.audio_device_combo.findData(selected)
-        self.audio_device_combo.setCurrentIndex(index if index >= 0 else 0)
+        if index >= 0:
+            self.audio_device_combo.setCurrentIndex(index)
+        elif loopback_index >= 0:
+            # Prefer system output loopback for true audio reactivity. If no
+            # supported loopback exists, Sonic Pi control macros still work.
+            self.audio_device_combo.setCurrentIndex(loopback_index)
+        else:
+            self.audio_device_combo.setCurrentIndex(0)
         self.audio_device_combo.blockSignals(False)
         self.audio_state_label.setText(message)
 
@@ -1163,6 +1195,26 @@ class PerformanceControlPanel(QWidget):
         self.route_list.blockSignals(False)
 
     def refresh_monitor(self) -> None:
+        mode = self.application.performance_mode_snapshot()
+        if not mode["enabled"]:
+            self.performance_mode_status_label.setText(
+                "OFF · press PERFORMANCE MODE in the main toolbar to arm the show."
+            )
+        elif mode["phase"] == "live":
+            automation = "RUNNING" if mode["automation_running"] else "ARMED"
+            self.performance_mode_status_label.setText(
+                f"LIVE · SONIC PI · AUTO {automation} · {mode['audio_status']}"
+            )
+        elif mode["phase"] == "degraded":
+            self.performance_mode_status_label.setText(
+                f"DEGRADED · {mode['error'] or 'check receiver and audio status'}"
+            )
+        else:
+            automation = "ARMED" if mode["automation_armed"] else "READY"
+            self.performance_mode_status_label.setText(
+                f"ARMED · waiting for SONATA · AUTO {automation} · "
+                f"{mode['audio_status']}"
+            )
         transport = self.application.transport
         control = self.application.performance_control
         if control.source_id == "sonic_pi":
