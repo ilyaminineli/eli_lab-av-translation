@@ -528,18 +528,21 @@ class Application:
 
     def set_selected_layer_id(self, layer_id: str | None) -> None:
         next_id = layer_id or None
-        if next_id == self._selected_layer_id:
+        previous_id = self._selected_layer_id
+        if next_id == previous_id:
             return
-        for target_id in (
+        target_ids = (
             "selected_layer.opacity",
             "selected_layer.rotation",
             "generator.animation_amount",
             "generator.density",
-        ):
-            base = self._modulation_base_values.pop(target_id, None)
-            if base is not None:
-                self._set_modulation_target(target_id, base)
-            self.modulation.manual_override(target_id, 0.25)
+        )
+        if previous_id is not None:
+            for target_id in target_ids:
+                base = self._modulation_base_values.pop(target_id, None)
+                if base is not None:
+                    self._set_modulation_target(target_id, base)
+                self.modulation.manual_override(target_id, 0.25)
         self._selected_layer_id = next_id
 
     def start_audio_capture(self, device_id: str | None = None, test_signal: bool = False) -> None:
