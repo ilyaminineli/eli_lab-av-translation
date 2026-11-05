@@ -736,19 +736,21 @@ class ModulatorBankEngine:
                     cycle_index,
                 )
             else:
+                sequence_steps = max(1, len(definition.step_values))
+                if definition.direction == "pingpong" and sequence_steps > 1:
+                    sequence_steps = sequence_steps * 2 - 2
                 if definition.sync_mode == "transport":
                     sequence_position = position
-                    cycle_beats = definition.division_beats * len(definition.step_values)
+                    cycle_beats = definition.division_beats * sequence_steps
                     cycle_index = int(math.floor(sequence_position / max(1e-9, cycle_beats)))
                     local_position = sequence_position % max(1e-9, cycle_beats)
                 else:
                     step_position = position * definition.step_rate_hz
-                    cycle_steps = max(1, len(definition.step_values))
-                    cycle_index = int(step_position // cycle_steps)
+                    cycle_index = int(step_position // sequence_steps)
                     local_position = (
-                        step_position % cycle_steps
+                        step_position % sequence_steps
                     ) * definition.division_beats
-                    cycle_beats = definition.division_beats * cycle_steps
+                    cycle_beats = definition.division_beats * sequence_steps
                 value = self._sequence_value(
                     definition,
                     local_position,
