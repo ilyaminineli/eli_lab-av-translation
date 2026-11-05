@@ -1571,8 +1571,9 @@ class Application:
                 "macro.set", "midi", {"name": name, "value": max(0.0, min(1.0, value))}
             ))
         if target == "transport.tempo":
-            self.set_internal_tempo(max(20.0, min(300.0, value)))
-            return True
+            return self.submit_control_event(ControlEvent(
+                "transport.tempo", "midi", {"bpm": max(20.0, min(300.0, value))}
+            ))
         if target == "scene.intensity":
             return self.submit_control_event(ControlEvent(
                 "scene.intensity", "midi", {"intensity": max(0.0, min(1.0, value))}
