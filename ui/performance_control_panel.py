@@ -365,7 +365,7 @@ class PerformanceControlPanel(QWidget):
         self.midi_device_combo.blockSignals(False)
         self.midi_status_label.setText(
             f"{len(devices)} input(s) available." if devices else
-            "No inputs found · install with pip install -e ".[midi]""
+            "No inputs found · install the optional MIDI extra to enable hardware input."
         )
 
     def _start_midi(self) -> None:
