@@ -270,6 +270,42 @@ class PerformanceControlPanel(QWidget):
         self.refresh_routes()
         self.refresh_monitor()
 
+    def sync_from_application(self) -> None:
+        transport = self.application.transport
+        self.bpm_spin.blockSignals(True)
+        self.bpm_spin.setValue(transport.bpm)
+        self.bpm_spin.blockSignals(False)
+        self.meter_combo.blockSignals(True)
+        index = self.meter_combo.findData(transport.beats_per_bar)
+        self.meter_combo.setCurrentIndex(max(0, index))
+        self.meter_combo.blockSignals(False)
+
+        settings = self.application.audio_capture.settings
+        for control, value in (
+            (self.sensitivity_spin, settings.sensitivity),
+            (self.attack_spin, settings.attack_ms),
+            (self.release_spin, settings.release_ms),
+        ):
+            control.blockSignals(True)
+            control.setValue(value)
+            control.blockSignals(False)
+
+        self.scene_combo.blockSignals(True)
+        self.scene_combo.clear()
+        for profile in self.application.scene_profiles.all():
+            self.scene_combo.addItem(
+                f"{profile.label} · {profile.scene_id}",
+                profile.scene_id,
+            )
+        self.scene_combo.blockSignals(False)
+        scene_id = self.application.performance_control.scene_id
+        if scene_id not in {profile.scene_id for profile in self.application.scene_profiles.all()}:
+            scene_id = self.application.scene_profiles.all()[0].scene_id
+        self.sync_scene_selection(scene_id)
+        self.refresh_routes()
+        self.refresh_audio_devices()
+        self.refresh_monitor()
+
     @staticmethod
     def _float_spin(
             minimum: float,
