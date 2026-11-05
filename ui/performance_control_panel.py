@@ -21,12 +21,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from core.application import Application
 from core.audio_analysis import AudioAnalysisSettings
 from core.audio_capture import AudioCaptureState
-from core.application import Application
 from core.modulation import (
-    ModulationRoute,
     TARGET_SPECS,
+    ModulationRoute,
 )
 from core.scene_profiles import SceneProfile
 from generators.palettes import palette_names
