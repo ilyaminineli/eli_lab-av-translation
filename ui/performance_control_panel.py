@@ -136,6 +136,39 @@ class PerformanceControlPanel(QWidget):
         midi_form.addRow("STATUS", self.midi_status_label)
         root.addWidget(self.midi_group)
 
+        self.performance_scene_group = QGroupBox("PERFORMANCE SCENE BANK")
+        scene_form = QFormLayout(self.performance_scene_group)
+        self.performance_scene_name = QLineEdit("Scene 01")
+        self.performance_scene_quantization = QComboBox()
+        for label, value in (
+            ("Immediate", "immediate"),
+            ("Next beat", "beat"),
+            ("Next bar", "bar"),
+            ("Next phrase", "phrase"),
+        ):
+            self.performance_scene_quantization.addItem(label, value)
+        self.performance_scene_morph = QDoubleSpinBox()
+        self.performance_scene_morph.setRange(0.0, 60.0)
+        self.performance_scene_morph.setDecimals(1)
+        self.performance_scene_morph.setSingleStep(0.5)
+        self.performance_scene_morph.setSuffix(" s")
+        self.performance_scene_morph.setValue(0.0)
+        self.performance_scene_list = QListWidget()
+        self.performance_scene_list.setMaximumHeight(110)
+        scene_form.addRow("SCENE NAME", self.performance_scene_name)
+        scene_form.addRow("RECALL QUANTIZATION", self.performance_scene_quantization)
+        scene_form.addRow("NUMERIC MORPH", self.performance_scene_morph)
+        scene_form.addRow("SCENES", self.performance_scene_list)
+        scene_buttons = QHBoxLayout()
+        self.performance_scene_capture = QPushButton("CAPTURE")
+        self.performance_scene_recall = QPushButton("RECALL")
+        self.performance_scene_remove = QPushButton("REMOVE")
+        scene_buttons.addWidget(self.performance_scene_capture)
+        scene_buttons.addWidget(self.performance_scene_recall)
+        scene_buttons.addWidget(self.performance_scene_remove)
+        scene_form.addRow(scene_buttons)
+        root.addWidget(self.performance_scene_group)
+
         self.osc_group = QGroupBox("SONIC PI CONNECTION · OSC /eli_lab/v1")
         osc_form = QFormLayout(self.osc_group)
         self.osc_bind_edit = QLineEdit("127.0.0.1")
@@ -362,6 +395,10 @@ class PerformanceControlPanel(QWidget):
         self.midi_remove_button.clicked.connect(self._remove_selected_midi_mapping)
         self.midi_target_combo.currentIndexChanged.connect(self._midi_target_changed)
         self.midi_mapping_list.currentItemChanged.connect(self._load_selected_midi_mapping)
+        self.performance_scene_capture.clicked.connect(self._capture_performance_scene)
+        self.performance_scene_recall.clicked.connect(self._recall_performance_scene)
+        self.performance_scene_remove.clicked.connect(self._remove_performance_scene)
+        self.performance_scene_list.currentItemChanged.connect(self._load_performance_scene_editor)
         self.osc_start_button.clicked.connect(self._start_osc)
         self.osc_stop_button.clicked.connect(self._stop_osc)
         self.osc_copy_button.clicked.connect(self._copy_sonata_settings)
@@ -382,6 +419,7 @@ class PerformanceControlPanel(QWidget):
         self._refresh_midi_target_choices()
         self.refresh_midi_mappings(force=True)
         self._refresh_midi_target_choices()
+        self.refresh_performance_scenes(force=True)
         self._target_changed()
         self.sync_modulator_sources()
         self.refresh_audio_devices()
@@ -425,6 +463,88 @@ class PerformanceControlPanel(QWidget):
         self.midi_start_button.setEnabled(True)
         self.midi_stop_button.setEnabled(False)
         self.midi_status_label.setText("DISCONNECTED")
+
+    def refresh_performance_scenes(self, force: bool = False) -> None:
+        scenes = list(self.application.performance_scenes.values())
+        signature = tuple(
+            (scene.scene_id, scene.label, scene.quantization)
+            for scene in scenes
+        )
+        if not force and signature == getattr(self, "_performance_scene_signature", None):
+            return
+        selected = self.performance_scene_list.currentItem()
+        selected_id = selected.data(Qt.ItemDataRole.UserRole) if selected else None
+        self.performance_scene_list.clear()
+        for scene in scenes:
+            item = QListWidgetItem(
+                f"{scene.label} · {scene.quantization.upper()}"
+            )
+            item.setData(Qt.ItemDataRole.UserRole, scene.scene_id)
+            self.performance_scene_list.addItem(item)
+            if scene.scene_id == selected_id:
+                self.performance_scene_list.setCurrentItem(item)
+        self._performance_scene_signature = signature
+
+    def _capture_performance_scene(self) -> None:
+        label = self.performance_scene_name.text().strip() or (
+            f"Scene {len(self.application.performance_scenes) + 1:02d}"
+        )
+        scene_id = "".join(
+            character.lower() if character.isalnum() else "-"
+            for character in label
+        ).strip("-")
+        while "--" in scene_id:
+            scene_id = scene_id.replace("--", "-")
+        if not scene_id:
+            scene_id = f"scene-{len(self.application.performance_scenes) + 1:02d}"
+        try:
+            self.application.capture_performance_scene(
+                scene_id,
+                label,
+                quantization=str(self.performance_scene_quantization.currentData()),
+            )
+        except (TypeError, ValueError) as exc:
+            self.midi_status_label.setText(f"Scene not captured · {exc}")
+            return
+        self.refresh_performance_scenes(force=True)
+        self.midi_status_label.setText(f"Captured performance scene · {label}")
+
+    def _recall_performance_scene(self) -> None:
+        item = self.performance_scene_list.currentItem()
+        if item is None:
+            self.midi_status_label.setText("Select a performance scene to recall.")
+            return
+        scene_id = str(item.data(Qt.ItemDataRole.UserRole))
+        if self.application.schedule_performance_scene(
+            scene_id,
+            morph_seconds=self.performance_scene_morph.value(),
+        ):
+            self.midi_status_label.setText(
+                f"Scene scheduled · {item.text()} · morph "
+                f"{self.performance_scene_morph.value():g}s"
+            )
+        else:
+            self.midi_status_label.setText("Scene recall could not be scheduled.")
+
+    def _remove_performance_scene(self) -> None:
+        item = self.performance_scene_list.currentItem()
+        if item is None:
+            return
+        scene_id = str(item.data(Qt.ItemDataRole.UserRole))
+        self.application.remove_performance_scene(scene_id)
+        self.refresh_performance_scenes(force=True)
+        self.midi_status_label.setText("Performance scene removed.")
+
+    def _load_performance_scene_editor(self, current, previous=None) -> None:
+        if current is None:
+            return
+        scene_id = str(current.data(Qt.ItemDataRole.UserRole))
+        scene = self.application.performance_scenes.get(scene_id)
+        if scene is None:
+            return
+        self.performance_scene_name.setText(scene.label)
+        index = self.performance_scene_quantization.findData(scene.quantization)
+        self.performance_scene_quantization.setCurrentIndex(max(0, index))
 
     def _refresh_midi_target_choices(self) -> None:
         previous = self.midi_target_combo.currentData()
@@ -639,6 +759,9 @@ class PerformanceControlPanel(QWidget):
         self.sync_scene_selection(scene_id)
         self.refresh_routes()
         self.refresh_audio_devices()
+        self._refresh_midi_target_choices()
+        self.refresh_midi_mappings(force=True)
+        self.refresh_performance_scenes(force=True)
         self.refresh_monitor()
 
     @staticmethod
@@ -1092,6 +1215,7 @@ class PerformanceControlPanel(QWidget):
             if bpm is not None else "Tempo estimate · listening for transients…"
         )
         self.refresh_osc_status()
+        self.refresh_performance_scenes()
         self.refresh_midi_mappings()
         learn = getattr(self.application, "_midi_learn_request", None)
         learned = getattr(self.application, "_midi_learn_last_event", "")
