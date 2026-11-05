@@ -844,12 +844,13 @@ class Application:
             self._audio_sources.clear()
             self._latest_audio_frame = None
             self._audio_last_received_at = 0.0
-        set_default_routing_enabled(
-            self.modulation,
-            self.modulator_bank,
-            self.composition.layers,
-            False,
-        )
+        if self.performance_mode.plan.install_default_mappings:
+            set_default_routing_enabled(
+                self.modulation,
+                self.modulator_bank,
+                self.composition.layers,
+                False,
+            )
         # Disabled AUTO routes/modifiers release to their stored baselines on
         # this tick. User-authored routes and layer modifiers remain untouched.
         self.apply_modulation()
