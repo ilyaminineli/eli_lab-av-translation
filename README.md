@@ -2,7 +2,7 @@
 
 A Windows-first live video collage and VJ performance environment. Drop in a footage folder, choose a session rhythm, start automation and send the same GPU composition to a separate fullscreen display or projector.
 
-M0–M2 establish the visual instrument. M3 is now in development: it adds a source-independent performance-control foundation and optional audio analysis. M4 will add Sonic Pi as a timed OSC control source. Audio playback remains the responsibility of Sonic Pi or another external audio application.
+M0–M2 establish the visual instrument. M3 software implementation is complete: internal transport, optional audio capture/analysis and a visual modulation matrix. M4 will add Sonic Pi as a timed OSC control source. Audio playback remains the responsibility of Sonic Pi or another external audio application.
 
 ## Current implementation
 
@@ -108,9 +108,13 @@ Generators and media overlays are independent composition layers, so they can ap
 
 See [docs/M2_GENERATIVE_VISUALS.md](docs/M2_GENERATIVE_VISUALS.md) for details.
 
-## M3 performance control foundation
+## M3 audio-reactive engine and performance control
 
-M3 has started with a renderer-independent control contract: bounded control-event ingress, a normalized transport/scene/intensity/macro state and UI-thread event draining. Audio capture, analysis, modulation routing and mapping persistence are still planned. See [M3 Audio-Reactive Foundation](docs/M3_AUDIO_REACTIVE_FOUNDATION.md).
+Open the **AUDIO / CONTROL** dock for the internal BPM/meter clock, start/pause/resume/stop transport, quantized scene selection, scene-look and Japanese palette profiles, physical input/system-loopback selection, deterministic test signal, recorded fixture replay, audio meters and tempo confidence.
+
+The SoundCard capture worker publishes bounded analysis frames for RMS/peak, low/mid/high bands, onset and optional tempo estimation. The modulation matrix maps registered audio/transport/macro sources to registered master-effect, selected-layer, generator and Auto Performance targets. Each route has editable ranges, curve, inversion, smoothing, attack/release, hold, intensity ceiling and bypass. Layer locks and manual overrides take precedence.
+
+M3 persists transport configuration, analysis settings, modulation routes and scene profiles inside .eliav projects; it does not persist active device handles or live audio buffers. The software implementation is complete, with physical Windows input/loopback and reconnect testing remaining as hardware sign-off. See [M3 Audio-Reactive Foundation](docs/M3_AUDIO_REACTIVE_FOUNDATION.md).
 
 ## M4 Sonic Pi integration
 
@@ -142,7 +146,7 @@ The media index, thumbnails and logs are stored under %LOCALAPPDATA%\ELI LAB\AV 
 
 - Per-layer effects currently provide a compact shader stack, not an unlimited node graph.
 - The first projector implementation uses an independent renderer and CPU frame snapshots; each output uploads textures locally.
-- No audio playback, audio-reactive analysis, MIDI or Sonic Pi OSC in this video/automation-focused pass.
+- Audio-reactive analysis and visual modulation are implemented; audio playback remains external. Sonic Pi OSC and MIDI are not implemented yet.
 - No reverse playback, variable-speed playback, masks, keying, advanced crossfades or recording yet.
 - Four simultaneous high-bitrate 1080p/4K clips are not guaranteed on every computer; start with H.264 test clips and check the renderer / CPU load.
 - Projects store absolute media paths. Moving source footage requires re-importing the folder.
