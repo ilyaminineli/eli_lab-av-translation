@@ -428,3 +428,106 @@ def test_euclidean_pattern_clamps_pulses_and_grid_size() -> None:
     assert euclidean_pattern(-1, 4) == [0.0, 0.0, 0.0, 0.0]
     assert len(euclidean_pattern(3, 100, rotation=100)) == 64
 
+def test_sonic_pi_macro_follower_normalizes_smooths_and_releases_missing_input() -> None:
+    definition = ModulatorDefinition(
+        modulator_id="cutoff-follower",
+        kind="follower",
+        input_source="macro.cutoff",
+        input_min=0.2,
+        input_max=0.8,
+        input_attack_ms=100.0,
+        input_release_ms=100.0,
+    )
+    engine = ModulatorBankEngine()
+    bank = _bank_with(definition)
+
+    first = engine.evaluate(
+        bank, {"macro.cutoff": 0.2}, now=10.0
+    )
+    rising = engine.evaluate(
+        bank, {"macro.cutoff": 0.8}, now=10.1
+    )
+    assert first["modulator.cutoff-follower"] == pytest.approx(0.0)
+    assert rising["modulator.cutoff-follower"] == pytest.approx(
+        1.0 - __import__("math").exp(-1.0)
+    )
+
+    missing = engine.evaluate(bank, {}, now=10.2)
+    assert "modulator.cutoff-follower" not in missing
+    assert engine.live_values() == {}
+
+
+def test_sonic_pi_cutoff_can_trigger_an_envelope_at_configured_threshold() -> None:
+    definition = ModulatorDefinition(
+        modulator_id="cutoff-trigger",
+        kind="envelope",
+        sync_mode="free",
+        trigger_source="macro.cutoff",
+        trigger_threshold=0.65,
+        attack=0.0,
+        decay=0.0,
+        sustain=1.0,
+        gate=0.0,
+        release=1.0,
+    )
+    engine = ModulatorBankEngine()
+    bank = _bank_with(definition)
+
+    below = engine.evaluate(
+        bank, {"macro.cutoff": 0.4}, now=2.0
+    )
+    crossing = engine.evaluate(
+        bank, {"macro.cutoff": 0.8}, now=2.01
+    )
+
+    assert below["modulator.cutoff-trigger"] == pytest.approx(0.0)
+    assert crossing["modulator.cutoff-trigger"] == pytest.approx(1.0)
+
+
+def test_sonic_pi_cutoff_follower_drives_waveform_frequency_target() -> None:
+    from core.application import Application
+    from core.composition import Composition, Layer
+    from core.modulation import ModulationMatrix
+    from core.performance_modifiers import (
+        LayerPerformanceModifier,
+        LayerPerformanceModifierEngine,
+    )
+
+    definition = ModulatorDefinition(
+        modulator_id="sonata-cutoff",
+        name="SONATA cutoff",
+        kind="follower",
+        input_source="macro.cutoff",
+    )
+    layer = Layer(
+        id="waveform-layer",
+        source_type="generator",
+        generator_type="waveform",
+        generator_settings={"amplitude": 0.22, "frequency": 2.5},
+        performance_modifiers=[LayerPerformanceModifier(
+            modifier_id="cutoff-to-frequency",
+            source_id="modulator.sonata-cutoff",
+            target_id="generator.waveform_frequency",
+            depth=0.25,
+            polarity="positive",
+            curve="linear",
+            attack_ms=1.0,
+            release_ms=1.0,
+        ).to_dict()],
+    )
+    application = Application.__new__(Application)
+    application.composition = Composition(layers=[layer])
+    application._selected_layer_id = layer.id
+    application.modulator_bank = _bank_with(definition)
+    application.modulator_bank_engine = ModulatorBankEngine()
+    application.performance_modifier_engine = LayerPerformanceModifierEngine()
+    application.modulation = ModulationMatrix()
+    application._modulation_base_values = {}
+    application._modulation_sources = lambda: {"macro.cutoff": 0.8}
+
+    application.apply_modulation()
+
+    assert layer.generator_settings["frequency"] == pytest.approx(
+        2.5 + (24.0 - 0.1) * 0.25 * 0.8
+    )
+
