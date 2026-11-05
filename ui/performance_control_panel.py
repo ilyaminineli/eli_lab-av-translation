@@ -145,6 +145,8 @@ class PerformanceControlPanel(QWidget):
         analysis_form.addRow("RELEASE · ms", self.release_spin)
         audio_layout.addLayout(analysis_form)
 
+        self._audio_discovery_error = ""
+        self._last_device_poll = 0.0
         self.audio_state_label = QLabel("Audio disabled · video continues independently.")
         self.audio_state_label.setWordWrap(True)
         audio_layout.addWidget(self.audio_state_label)
@@ -259,8 +261,6 @@ class PerformanceControlPanel(QWidget):
         self.route_list.itemChanged.connect(self._route_enabled_changed)
         self.route_list.currentItemChanged.connect(self._load_route_editor)
 
-        self._last_device_poll = 0.0
-        self._audio_discovery_error = ""
         self._load_scene_profile()
         self._target_changed()
         self.refresh_audio_devices()
