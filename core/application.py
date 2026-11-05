@@ -704,6 +704,24 @@ class Application:
         self.events.publish("performance.mode.automation_started")
         return True
 
+    def _automation_musical_context(
+            self,
+            sources: dict[str, float] | None = None,
+    ) -> tuple[float, float]:
+        values = self._modulation_sources() if sources is None else sources
+        energy = max(
+            float(values.get("macro.energy", 0.0)),
+            float(values.get("audio.rms", 0.0)),
+            float(values.get("audio.peak", 0.0)) * 0.85,
+            float(values.get("audio.low", 0.0)) * 0.80,
+            float(values.get("audio.onset", 0.0)) * 0.70,
+        )
+        cutoff = max(
+            float(values.get("macro.cutoff", 0.0)),
+            float(values.get("audio.high", 0.0)),
+        )
+        return max(0.0, min(1.0, energy)), max(0.0, min(1.0, cutoff))
+
     def _handle_performance_mode_event(self, event: ControlEvent) -> None:
         if not self.performance_mode.enabled or event.source != "sonic_pi":
             return
@@ -711,12 +729,10 @@ class Application:
         session_id = event.session_id or str(snapshot.get("active_session", ""))
         self.performance_mode.note_event(event.kind, session_id)
         sources = self._modulation_sources()
+        energy, cutoff = self._automation_musical_context(sources)
         self.automation.set_performance_context(
-            energy=max(
-                float(sources.get("macro.energy", 0.0)),
-                float(sources.get("audio.rms", 0.0)),
-            ),
-            cutoff=float(sources.get("macro.cutoff", 0.5)),
+            energy=energy,
+            cutoff=cutoff,
             intensity=float(self.performance_control.intensity),
             bar_index=int(self.performance_control.bar_index),
         )
@@ -729,8 +745,8 @@ class Application:
                 "scene",
                 scene_id=str(event.payload.get("scene_id", "")),
                 intensity=float(event.payload.get("intensity", self.performance_control.intensity)),
-                energy=float(sources.get("macro.energy", 0.0)),
-                cutoff=float(sources.get("macro.cutoff", 0.5)),
+                energy=energy,
+                cutoff=cutoff,
                 bar_index=int(event.payload.get("bar_index", self.performance_control.bar_index)),
             )
             self.performance_mode.set_automation_armed(
@@ -1866,12 +1882,10 @@ class Application:
         processed_audio = self.process_audio_frames()
         self._tick_scene_morph()
         sources = self._modulation_sources()
+        energy, cutoff = self._automation_musical_context(sources)
         self.automation.set_performance_context(
-            energy=max(
-                float(sources.get("macro.energy", 0.0)),
-                float(sources.get("audio.rms", 0.0)),
-            ),
-            cutoff=float(sources.get("macro.cutoff", 0.5)),
+            energy=energy,
+            cutoff=cutoff,
             intensity=float(self.performance_control.intensity),
             bar_index=int(self.performance_control.bar_index),
         )
