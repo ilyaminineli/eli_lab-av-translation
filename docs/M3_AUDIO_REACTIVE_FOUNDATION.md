@@ -2,126 +2,119 @@
 
 ## Purpose
 
-M3 adds a source-independent control layer between incoming performance signals and the visual instrument. Audio analysis is the first live signal source. The same normalized event/state contract will later accept Sonic Pi OSC in M4, without letting audio or network code call Qt widgets or OpenGL.
+M3 adds a source-independent performance-control layer and optional audio-reactive analysis to the visual instrument. Audio is the first live analysis source. The same normalized control contract is ready for M4 Sonic Pi OSC without coupling the renderer to audio libraries, network protocols or Sonic Pi.
 
-The intended flow is:
+The pipeline is:
 
 ```text
-Audio input / loopback / internal test source
-                  │
-                  ▼
-         Source-specific adapter
-                  │
-                  ▼
-       Validated ControlEvent contract
-                  │
-                  ▼
-          Bounded event queue
-                  │
-                  ▼
-       Application/UI-thread drain
-                  │
-                  ▼
-       Performance transport + scene
-           + intensity + macros
-                  │
-                  ▼
-        M3 modulation / target map
-                  │
-                  ▼
-      Existing layer, effect, generator
-          and automation models
-                  │
-                  ▼
-            GPU renderers
+Physical input / supported system loopback / test signal / fixture replay
+                              │
+                              ▼
+                    Owned capture worker
+                              │
+                              ▼
+                    Audio analysis frames
+                     (bounded latest queue)
+                              │
+                              ▼
+                 Application/UI-thread tick
+                              │
+             ┌────────────────┴────────────────┐
+             ▼                                 ▼
+      Normalized control events          Analysis features
+      transport / scene / macros          RMS / bands / onset
+             │                                 │
+             └────────────────┬────────────────┘
+                              ▼
+                     Modulation matrix
+                  explicit sources and targets
+                              │
+                              ▼
+            Existing effects / layers / generators
+                     and Auto Performance
+                              │
+                              ▼
+                         GPU renderer
 ```
 
-M3 does not introduce a second renderer, audio playback engine or network protocol.
+M3 does not introduce a second renderer or audio playback engine. Audio playback remains external (for example, Sonic Pi).
 
-## Implemented foundation slice
+## Implemented
 
-The first M3 code slice now provides:
+### 1. Internal transport and scene system
 
-- A validated `ControlEvent` data contract with source, event kind, payload, sequence, session ID and receive timestamp.
-- A bounded, thread-safe `ControlEventQueue`; producers never block the render loop when the queue is full.
-- A `PerformanceControlState` for BPM, beats per bar, beat/bar position, transport running state, scene ID, normalized intensity, named normalized macros and the last cue.
-- Sequence de-duplication scoped to source and session ID.
-- Validation of tempo, clock, intensity and macro ranges.
-- UI-thread draining from the existing application tick.
-- A compact control-status readout in the application status bar.
+- Monotonic, drift-resistant internal test clock driven by the existing application timer; it does not sleep or block the UI.
+- BPM range 20–300, configurable meter, one-based bar and zero-based beat position.
+- Start, pause, resume, stop, tempo and meter controls.
+- Beat, bar and phrase quantization for scene changes, with a bounded catch-up limit after a delayed UI tick.
+- Named scene profiles with master-look, Japanese colour-palette and intensity defaults.
+- Sixteen initial profile IDs matching the SONATA form: `in`, `exp`, `tm_a`, `trns`, `dev`, `fr`, `ssp`, `rtrns`, `rc`, `rc_w`, `peak`, `intd`, `s_s`, `rls`, `c`, `end`.
+- Scene selection applies the configured master look and palette to generator layers.
 
-This is a data/control foundation only. It does not yet capture audio or apply control macros to visual parameters.
+### 2. Audio source and analysis
 
-## Remaining M3 work
+- SoundCard backend for physical input devices and supported system-output loopback devices.
+- Dedicated worker owns the recorder from open through close; source replacement cancels and joins the previous worker before starting another.
+- Clear stopped, starting, running, device-lost and error states, with visible source name/error text.
+- Device refresh and periodic presence checks; disconnect stops the capture loop without stopping video playback. Select/refresh a source and restart capture after reconnection.
+- Deterministic generated test signal and recorded NumPy fixture replay, both using the same analysis path as live sources.
+- Bounded latest-feature queue; old analysis frames are discarded rather than allowing an unbounded backlog.
+- RMS and peak envelope; low, mid and high FFT energy; transient/onset strength; optional tempo estimate and confidence.
+- Configurable sensitivity, attack, release, onset threshold and beat-estimator confidence/range.
+- Multi-channel downmixing, non-finite sample sanitization and bounded feature values.
 
-### 1. Audio source layer
+The optional runtime dependency is `soundcard>=0.4.6`. Audio backend/device errors remain local to the Audio / Control dock; they do not stop the video mixer.
 
-- Select an input device or supported system-loopback source.
-- Handle device loss, reconnect and device switching without stopping video playback.
-- Show source state, sample rate, channel count and capture errors.
-- Keep capture in a dedicated worker with explicit ownership and cancellation.
-- Make audio input optional; a missing device must never block the visual mixer.
+### 3. Modulation matrix and visual control
 
-### 2. Analysis bus
+- Explicit normalized source registry: audio RMS, peak, low/mid/high bands, onset, beat confidence, estimated tempo, transport phase/intensity and named macros.
+- Explicit target registry and per-target safe output range. No arbitrary Python attributes, paths or shader uniforms are exposed.
+- One active route per target to keep ownership deterministic.
+- Editable input and output ranges, linear/smoothstep/exponential curves, inversion, smoothing, attack/release, hold, intensity ceiling and independent enable/bypass.
+- Current outputs are shown in the Audio / Control dock.
+- Initial targets: master brightness/exposure/contrast/saturation/grain/glitch/vignette; selected-layer opacity/rotation; generator animation amount/density; Auto Performance loop probability and minimum cut interval.
+- Layer lock prevents modulation from changing a locked selected layer. The modulation baseline is restored before locking.
+- Manual changes to master effects, selected layer appearance and generator settings temporarily take precedence over a route. The prior baseline is restored when a route is bypassed or released.
+- Scene profiles and modulation routes can be created/edited in the control dock.
 
-- RMS / amplitude envelope.
-- Low, mid and high frequency-band energy.
-- Transient/onset strength.
-- Optional beat and tempo estimate with confidence.
-- Configurable smoothing, sensitivity, attack and release.
-- A synthetic signal source and recorded test fixtures so tests do not require a microphone or live audio device.
+### 4. Persistence and lifecycle
 
-### 3. Modulation matrix
+- Projects persist transport settings, audio analysis configuration, modulation routes and scene profiles.
+- Projects do not persist live input-device handles, running capture threads, replay buffers or live analysis frames.
+- Older projects without M3 performance settings load safe defaults.
+- Project load/reset and application shutdown stop capture, clear transient audio data and reset modulation runtime state.
 
-Route normalized sources to approved visual targets. Each route needs:
+### 5. UI and application integration
 
-- Source and target identifiers from explicit registries.
-- Minimum/maximum output range.
-- Curve (linear, exponential, stepped or custom preset).
-- Smoothing / attack / release.
-- Invert, hold and bypass.
-- Intensity ceiling.
-- Lock and manual-override respect.
-- Current input/output values for inspection.
+- New dock: **AUDIO / CONTROL**.
+- Internal transport controls, scene profile editor, input/loopback selector, test signal, audio meters, tempo confidence and editable modulation route list.
+- Compact transport/scene/source status in the main status bar.
+- Audio capture, analysis and modulation work remain off the Qt paint path. The audio worker only publishes bounded analysis frames; the application tick consumes them and applies the visual state.
 
-The first targets should be deliberately small: master-look parameters, generator motion/density, selected layer opacity/transform and Auto Performance intensity/timing. Do not expose arbitrary Python attribute names or direct shader uniforms as routes.
+## Verification
 
-### 4. Transport and scene controls
+The Windows CI suite covers:
 
-The state model already supports the core transport and scene fields. Finish this surface with:
+- Internal clock beat/bar timing, start/pause/resume/stop and quantized scene boundaries.
+- FFT band analysis, multichannel handling, sanitization, onset/tempo estimation and analysis setting ranges.
+- Fake physical-input and loopback backends, recorder ownership/close, source switching, disconnected-device handling, fixture replay and bounded queues.
+- Modulation target safety, curves, inversion, hold, bypass, manual override and unique target ownership.
+- Application project round-trip for scene profiles, transport, audio analysis settings and modulation routes.
+- Layer-lock precedence and the Audio / Control and selected-layer lock Qt panels.
 
-- Internal test clock and a selectable clock authority.
-- BPM, beats-per-bar, beat and bar status.
-- Scene selection and normalized intensity.
-- Named macros and cue/phrase events.
-- Quantized changes at the next beat, bar or phrase boundary.
-- Clear source ownership so a future external clock can become authoritative without two clocks fighting.
+CI cannot prove a specific Windows machine's physical microphone, WASAPI loopback, driver reconnect or a long unattended audio session. Those remain manual hardware sign-off items.
 
-For the SONATA patch, M4 will provide the external 92 BPM / 4-beat-bar clock. M3 should not assume the final external source is an audio beat detector.
+## M3 exit status
 
-### 5. Persistence and rehearsal
+<badge color="success">Software implementation complete</badge>
 
-- Persist user-authored mappings and scene profiles, not live device handles or transient analysis buffers.
-- Add a deterministic test/replay source for event sequences.
-- Add a small, visible monitor for source, BPM, bar, scene, intensity and macro values.
-- Keep an event history with timestamps and source labels, with a bounded history size.
+The internal transport/test clock, audio source and analysis bus, normalized control state, scene profiles, modulation matrix, UI, persistence and regression tests are implemented. Before declaring hardware validation complete, exercise the physical input and loopback devices on the performance PC, unplug/reconnect the active device, and run a sustained session while video is playing.
 
-## M3 exit criteria
+The transport/scene/macro contract is ready for M4. M3 does not include an OSC receiver or changes to the SONATA patch.
 
-M3 is complete when:
+## Explicitly out of scope
 
-1. An audio source can be selected, lost and restored without interrupting the video session.
-2. Analysis outputs are stable, bounded and visible.
-3. Test/replay mode produces the same normalized control events as a live source.
-4. Modulation routes are independently inspectable, bypassable and range-limited.
-5. Locks and manual overrides always take precedence.
-6. No audio worker, event source or analysis callback performs Qt widget work or OpenGL calls.
-7. Projects can save and restore mapping configuration.
-8. The transport/scene/macro contract is ready for M4 without changing the renderer.
-
-## Explicitly out of scope for M3
-
-- Sonic Pi OSC receiver and patch modifications (M4).
-- MIDI learn/controller mapping (later performance-environment milestone).
+- Sonic Pi OSC receiver, outbound patch sender and protocol diagnostics (M4).
+- MIDI learn/controller mapping (M5).
 - Audio playback or DAW functionality.
-- Direct arbitrary remote control of Python methods, paths or shader uniforms.
+- Arbitrary remote control of application internals or shader uniforms.
