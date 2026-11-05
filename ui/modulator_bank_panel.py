@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
+    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QInputDialog,
@@ -65,21 +66,21 @@ class ModulatorBankPanel(QWidget):
         self.modulator_list.setMaximumHeight(190)
         bank_layout.addWidget(self.modulator_list)
 
-        create_row = QHBoxLayout()
+        create_grid = QGridLayout()
         self.new_lfo_button = QPushButton("+ LFO")
         self.new_envelope_button = QPushButton("+ ENVELOPE")
         self.new_steps_button = QPushButton("+ STEPS")
         self.new_rhythm_button = QPushButton("+ RHYTHM")
         self.new_follower_button = QPushButton("+ FOLLOWER")
-        for button in (
+        for column, button in enumerate((
                 self.new_lfo_button,
                 self.new_envelope_button,
                 self.new_steps_button,
-                self.new_rhythm_button,
-                self.new_follower_button,
-        ):
-            create_row.addWidget(button)
-        bank_layout.addLayout(create_row)
+        )):
+            create_grid.addWidget(button, 0, column)
+        create_grid.addWidget(self.new_rhythm_button, 1, 0)
+        create_grid.addWidget(self.new_follower_button, 1, 1, 1, 2)
+        bank_layout.addLayout(create_grid)
 
         edit_row = QHBoxLayout()
         self.duplicate_button = QPushButton("DUPLICATE")
