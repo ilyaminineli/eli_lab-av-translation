@@ -186,3 +186,31 @@ def test_sonic_pi_clock_drives_m3_transport_phase_modulation_source() -> None:
 
     sources = application._modulation_sources()
     assert 0.35 <= sources["transport.phase"] <= 0.65
+
+
+def test_receiver_rate_limits_all_udp_datagrams() -> None:
+    received = []
+    receiver = OSCReceiver(
+        lambda event: received.append(event) or True,
+        max_messages_per_second=1,
+    )
+    port = receiver.start("127.0.0.1", 0)
+    client = SimpleUDPClient("127.0.0.1", port)
+    try:
+        client.send_message(
+            "/eli_lab/v1/transport/start",
+            ["rate-test", 1, 92.0, 4],
+        )
+        client.send_message(
+            "/eli_lab/v1/source/heartbeat",
+            ["rate-test", 2],
+        )
+        deadline = time.monotonic() + 2.0
+        while receiver.snapshot()["rate_limited"] < 1 and time.monotonic() < deadline:
+            time.sleep(0.01)
+        snapshot = receiver.snapshot()
+        assert snapshot["rate_limited"] >= 1
+        assert snapshot["accepted"] == 1
+        assert len(received) == 1
+    finally:
+        receiver.stop()
