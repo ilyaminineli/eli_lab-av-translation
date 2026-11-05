@@ -17,7 +17,6 @@ from core.modulation import TARGET_SPECS, ModulationMatrix
 from core.osc_protocol import OSCReceiver
 from core.performance_control import ControlEvent, ControlEventQueue, PerformanceControlState
 from core.performance_modifiers import (
-    PERFORMANCE_MODIFIER_TARGETS,
     LayerPerformanceModifier,
     LayerPerformanceModifierEngine,
 )
