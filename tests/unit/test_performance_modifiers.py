@@ -394,7 +394,9 @@ def test_save_project_stores_pre_modulation_values_and_layer_modifier_defs(tmp_p
 
 def test_global_selected_layer_manual_override_yields_local_layer_modifier() -> None:
     from core.application import Application
+    from core.composition import Composition
     from core.modulation import ModulationMatrix
+    from effects.settings import EffectSettings
 
     modifier = LayerPerformanceModifier(
         modifier_id="opacity-local",
@@ -413,7 +415,7 @@ def test_global_selected_layer_manual_override_yields_local_layer_modifier() -> 
     application._modulation_base_values = {}
     application.modulation = ModulationMatrix()
     application.performance_modifier_engine = LayerPerformanceModifierEngine()
-    application.effects = __import__("effects.settings", fromlist=["EffectSettings"]).EffectSettings()
+    application.effects = EffectSettings()
     application._overlay_images = {}
 
     application.notify_manual_override(
