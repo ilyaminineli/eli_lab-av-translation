@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import math
 import time
 from dataclasses import asdict, dataclass, field
+from pathlib import Path
 from typing import Literal
 from uuid import uuid4
 
@@ -409,6 +411,48 @@ class ModulatorBank:
                 item.to_dict() for item in self.presets.values() if not item.builtin
             ],
         }
+
+    def export_presets(self, path: str | Path) -> Path:
+        destination = Path(path)
+        payload = {
+            "format": "eli-lab-modulator-presets",
+            "version": self.VERSION,
+            "presets": [
+                preset.to_dict()
+                for preset in self.presets.values()
+                if not preset.builtin
+            ],
+        }
+        destination.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        return destination
+
+    def import_presets(self, path: str | Path) -> int:
+        source = Path(path)
+        payload = json.loads(source.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError("Modulator preset file must contain a JSON object.")
+        if payload.get("format") not in {
+                None, "eli-lab-modulator-presets"
+        }:
+            raise ValueError("This file is not an ELI LAB modulator preset bank.")
+        raw_presets = payload.get("presets")
+        if not isinstance(raw_presets, list):
+            raise ValueError("Modulator preset file has no preset list.")
+
+        imported = 0
+        for raw in raw_presets:
+            if not isinstance(raw, dict):
+                continue
+            preset = ModulatorPreset.from_dict(raw)
+            ModulatorDefinition.from_dict(preset.definition)
+            if preset.preset_id in self.presets:
+                preset.preset_id = f"user-{uuid4().hex[:10]}"
+            self.presets[preset.preset_id] = preset
+            imported += 1
+        return imported
 
     def load_dict(self, values: object) -> None:
         if not isinstance(values, dict):
