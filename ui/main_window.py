@@ -531,6 +531,16 @@ class MainWindow(QMainWindow):
             window.performance_view.render_status_changed.connect(
                 self.status_label.setText
             )
+            if window.performance_view.engine.initialized:
+                self.status_label.setText(
+                    f"PROJECTOR READY · {window.performance_view.engine.renderer_name}"
+                )
+            elif window.performance_view._initialization_error:
+                self.status_label.setText(
+                    f"PROJECTOR ERROR · {window.performance_view._initialization_error}"
+                )
+            else:
+                self.status_label.setText("PROJECTOR OPEN · waiting for its OpenGL context")
             window.closed.connect(self._projector_output_closed)
             if self._restore_local_preview_on_close:
                 self.preview_dock.hide()
