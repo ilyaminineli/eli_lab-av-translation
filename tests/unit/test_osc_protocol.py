@@ -214,3 +214,36 @@ def test_receiver_rate_limits_all_udp_datagrams() -> None:
         assert len(received) == 1
     finally:
         receiver.stop()
+
+
+def test_sonic_pi_macro_events_feed_existing_m3_modulation_sources() -> None:
+    from core.application import Application
+    from core.performance_control import PerformanceControlState
+    from core.performance_transport import InternalTransport
+
+    adapter = OSCProtocolAdapter()
+    adapter.decode("/eli_lab/v1/transport/start", ("macro-session", 1, 92.0, 4))
+    energy = adapter.decode(
+        "/eli_lab/v1/macro/set",
+        ("macro-session", 2, "energy", 0.74),
+    )
+    cutoff = adapter.decode(
+        "/eli_lab/v1/macro/set",
+        ("macro-session", 3, "cutoff", 0.38),
+    )
+    state = PerformanceControlState()
+    assert state.apply(adapter.decode(
+        "/eli_lab/v1/transport/start",
+        ("macro-session", 1, 92.0, 4),
+    ))
+    assert state.apply(energy)
+    assert state.apply(cutoff)
+
+    application = Application.__new__(Application)
+    application.performance_control = state
+    application.transport = InternalTransport()
+    application._audio_sources = {}
+    application._external_clock_bar_at = None
+    sources = application._modulation_sources()
+    assert sources["macro.energy"] == 0.74
+    assert sources["macro.cutoff"] == 0.38
