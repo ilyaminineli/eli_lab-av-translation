@@ -42,6 +42,7 @@ class Application:
         self.osc_receiver = OSCReceiver(self.submit_control_event)
         self.performance_control = PerformanceControlState()
         self.transport = InternalTransport()
+        self._external_clock_bar_at: float | None = None
         self.scene_profiles = SceneProfileRegistry()
         self.modulation = ModulationMatrix()
         self.audio_capture = AudioCaptureService()
@@ -260,6 +261,7 @@ class Application:
         self.audio_capture.update_settings(AudioAnalysisSettings())
         self._audio_sources.clear()
         self._latest_audio_frame = None
+        self._external_clock_bar_at = None
         self._modulation_base_values.clear()
         self._selected_layer_id = None
         self.current_project_path = None
@@ -411,10 +413,16 @@ class Application:
                     self.transport.stop()
                     self.transport.set_tempo(float(event.payload["bpm"]))
                     self.transport.set_meter(int(event.payload["beats_per_bar"]))
+                    self._external_clock_bar_at = None
                 elif event.source == "sonic_pi" and event.kind == "transport.tempo":
                     self.transport.set_tempo(float(event.payload["bpm"]))
+                elif event.source == "sonic_pi" and event.kind == "clock.bar":
+                    self._external_clock_bar_at = event.received_at
                 elif event.source == "sonic_pi" and event.kind == "transport.stop":
                     self.transport.stop()
+                    self._external_clock_bar_at = None
+                elif event.source != "sonic_pi" and event.kind == "transport.start":
+                    self._external_clock_bar_at = None
                 if self.performance_control.apply(event):
                     processed += 1
                     if event.kind == "scene.select":
@@ -642,7 +650,19 @@ class Application:
     def _modulation_sources(self) -> dict[str, float]:
         values = dict(self._audio_sources)
         values["transport.intensity"] = self.performance_control.intensity
-        values["transport.phase"] = self.transport.phase
+        external_clock_active = (
+            self.performance_control.source_id == "sonic_pi"
+            and self.performance_control.transport_running
+            and self._external_clock_bar_at is not None
+        )
+        if external_clock_active:
+            elapsed = max(0.0, time.monotonic() - self._external_clock_bar_at)
+            beat_duration = 60.0 / self.performance_control.bpm
+            values["transport.phase"] = (
+                elapsed / beat_duration
+            ) % 1.0 if elapsed <= max(5.0, beat_duration * self.performance_control.beats_per_bar * 2) else 0.0
+        else:
+            values["transport.phase"] = self.transport.phase
         for name, value in self.performance_control.macros.items():
             values[f"macro.{name}"] = value
         return values
