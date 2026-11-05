@@ -659,9 +659,11 @@ class Application:
                 self._performance_automation_armed,
                 self.automation.running,
             )
+            live_receiver = self.osc_receiver.snapshot()
             if (
                 self.performance_control.source_id == "sonic_pi"
                 and self.performance_control.transport_running
+                and live_receiver.get("status") == "LIVE"
             ):
                 self._activate_armed_performance_automation()
                 self.performance_mode.mark_live(
