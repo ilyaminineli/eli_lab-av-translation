@@ -361,3 +361,23 @@ def test_bank_lfo_can_drive_existing_per_layer_modifier_target() -> None:
 
     assert layer.generator_settings["animation_amount"] == pytest.approx(12.0)
 
+def test_user_presets_can_be_exported_and_imported_between_banks(tmp_path) -> None:
+    source_bank = ModulatorBank()
+    active = source_bank.instantiate_preset("seq-clave-3-2")
+    source_bank.save_preset(active.modulator_id, "My clave")
+    path = tmp_path / "modulators.json"
+
+    assert source_bank.export_presets(path) == path
+
+    target_bank = ModulatorBank()
+    imported = target_bank.import_presets(path)
+
+    assert imported == 1
+    imported_preset = next(
+        preset for preset in target_bank.list_presets()
+        if preset.name == "My clave"
+    )
+    clone = target_bank.instantiate_preset(imported_preset.preset_id)
+    assert clone.kind == "rhythm"
+    assert clone.step_values == active.step_values
+
