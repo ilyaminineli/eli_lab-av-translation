@@ -678,6 +678,7 @@ class MainWindow(QMainWindow):
 
     def _runtime_tick(self) -> None:
         self.application.refresh_frames()
+        was_running = self.application.automation.running
         previous_scene = self.application.performance_control.scene_id
         self.application.tick_performance_control()
         control_revision = self.application.performance_control.revision
@@ -692,27 +693,39 @@ class MainWindow(QMainWindow):
             self.performance_control_panel.sync_scene_selection(
                 self.application.performance_control.scene_id
             )
-        was_running = self.application.automation.running
+
         changed = self.application.tick_automation()
+        running = self.application.automation.running
+        if not was_running and running:
+            self.automation_panel.set_running(
+                True,
+                "Running · Sonic Pi has started the autonomous performance.",
+            )
+        elif was_running and not running:
+            self.automation_panel.set_running(
+                False,
+                self.application.automation.last_action,
+            )
         if changed:
             self.deck_panel.refresh()
             self.layer_panel.refresh()
             self.effects_panel.sync_from_settings()
             self.generators_panel.refresh()
-        if was_running and not self.application.automation.running:
-            self.automation_panel.set_running(
-                False,
-                self.application.automation.last_action,
-            )
+
         mode = self.application.performance_mode_snapshot()
         if mode["enabled"] != self.performance_mode_button.isChecked():
             self._sync_performance_mode_button()
         if mode["enabled"]:
             phase = mode["phase"].upper()
             self.performance_mode_button.setText(f"■ STOP PERFORMANCE MODE · {phase}")
+            automation_state = (
+                "running" if mode["automation_running"]
+                else "armed" if mode["automation_armed"]
+                else "idle"
+            )
             self.performance_mode_button.setToolTip(
                 f"Phase: {mode['phase']}\n"
-                f"Automation: {'running' if mode['automation_running'] else 'armed' if mode['automation_armed'] else 'idle'}\n"
+                f"Automation: {automation_state}\n"
                 f"Audio: {mode['audio_status']}\n"
                 f"Last event: {mode['last_event']}\n"
                 f"Error: {mode['error'] or 'none'}"
