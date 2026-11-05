@@ -504,8 +504,10 @@ class Application:
                     processed += 1
                     if event.kind == "scene.select":
                         scene_id = str(event.payload["scene_id"])
-                        if scene_id in self.performance_scenes:
-                            duration = self._pending_scene_morph_seconds.pop(scene_id, 0.0)
+                        if scene_id in getattr(self, "performance_scenes", {}):
+                            duration = getattr(self, "_pending_scene_morph_seconds", {}).pop(
+                                scene_id, 0.0
+                            )
                             self.recall_performance_scene(scene_id, morph_seconds=duration)
                         else:
                             self._activate_scene_profile(scene_id)
