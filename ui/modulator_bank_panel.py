@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSlider,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
@@ -187,6 +188,9 @@ class ModulatorBankPanel(QWidget):
         self.direction_combo.addItem("SEEDED RANDOM", "random")
         self.swing_spin = self._double_spin(0.5, 0.75, 0.5, 3)
         self.sequence_pulse_width = self._double_spin(0.02, 0.98, 0.4, 2)
+        self.seed_spin = QSpinBox()
+        self.seed_spin.setRange(0, 2_147_483_647)
+        self.seed_spin.setValue(211)
         sequence_form.addRow("STEP VALUES · 0–1", self.steps_edit)
         sequence_form.addRow("DIVISION · BEATS", self.division_spin)
         sequence_form.addRow("STEP RATE · HZ (FREE)", self.step_rate_spin)
@@ -194,6 +198,7 @@ class ModulatorBankPanel(QWidget):
         sequence_form.addRow("DIRECTION", self.direction_combo)
         sequence_form.addRow("SWING · 0.50 = STRAIGHT", self.swing_spin)
         sequence_form.addRow("GATE / PULSE WIDTH", self.sequence_pulse_width)
+        sequence_form.addRow("RANDOM SEED", self.seed_spin)
         editor.addWidget(self.sequence_group)
 
         self.editor_hint = QLabel(
@@ -410,6 +415,7 @@ class ModulatorBankPanel(QWidget):
         )
         self.swing_spin.setValue(definition.swing)
         self.sequence_pulse_width.setValue(definition.pulse_width)
+        self.seed_spin.setValue(definition.seed)
         self.lfo_group.setVisible(definition.kind == "lfo")
         self.envelope_group.setVisible(definition.kind == "envelope")
         self.sequence_group.setVisible(definition.kind in {"steps", "rhythm"})
@@ -535,6 +541,7 @@ class ModulatorBankPanel(QWidget):
                 "interpolation": self.interpolation_combo.currentData(),
                 "direction": self.direction_combo.currentData(),
                 "swing": self.swing_spin.value(),
+                "seed": self.seed_spin.value(),
             })
             updated = ModulatorDefinition.from_dict(values)
         except (TypeError, ValueError) as exc:
