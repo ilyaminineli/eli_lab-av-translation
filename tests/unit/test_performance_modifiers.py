@@ -321,6 +321,7 @@ def test_save_project_stores_pre_modulation_values_and_layer_modifier_defs(tmp_p
     from core.automation import AutomationDirector
     from core.event_bus import EventBus
     from core.modulation import ModulationMatrix
+    from core.modulator_bank import ModulatorBank
     from core.performance_transport import InternalTransport
     from core.scene_profiles import SceneProfileRegistry
     from effects.settings import EffectSettings
@@ -367,6 +368,7 @@ def test_save_project_stores_pre_modulation_values_and_layer_modifier_defs(tmp_p
     application.transport = InternalTransport()
     application.audio_capture = SimpleNamespace(settings=AudioAnalysisSettings())
     application.modulation = ModulationMatrix()
+    application.modulator_bank = ModulatorBank()
     application.scene_profiles = SceneProfileRegistry()
     application.composition = Composition(layers=[layer])
     application.performance_modifier_engine = engine
@@ -389,6 +391,9 @@ def test_save_project_stores_pre_modulation_values_and_layer_modifier_defs(tmp_p
     assert application.project_manager.app_state["automation_settings"][
         "loop_probability"
     ] == 0.4
+    assert "modulators" in application.project_manager.app_state[
+        "performance_settings"
+    ]["modulator_bank"]
     # Saving is a snapshot operation: the live preview remains at its beat peak.
     assert layer.generator_settings["animation_amount"] == 48.0
 
