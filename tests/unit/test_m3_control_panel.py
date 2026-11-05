@@ -340,8 +340,9 @@ def test_performance_matrix_exposes_modulator_bank_sources(qtbot) -> None:
             if route.source_id == source_id
         )
         assert route.target_id == "master.grain"
-        assert source_id in panel.route_list.item(0).text()
-        assert "Global motion LFO" in panel.route_list.item(0).text()
+        route_text = panel.route_list.item(0).text()
+        assert "Bank · Global motion LFO" in route_text
+        assert "Master grain" in route_text
     finally:
         application.shutdown()
 
