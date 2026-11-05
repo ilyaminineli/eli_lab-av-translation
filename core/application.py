@@ -806,6 +806,11 @@ class Application:
                     and self._performance_automation_owned
                 ):
                     self.stop_automation()
+                # Keep the show armed for a SONATA restart. The next
+                # transport/start or clock/bar event starts a fresh AUTO pass.
+                self._performance_automation_armed = bool(
+                    self.performance_mode.plan.start_automation
+                )
                 self.performance_mode.set_automation_armed(
                     self._performance_automation_armed,
                     self.automation.running,
