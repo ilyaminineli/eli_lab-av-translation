@@ -223,8 +223,10 @@ class PerformanceControlPanel(QWidget):
         route_form.addRow(self.invert_check)
         modulation_layout.addLayout(route_form)
         route_buttons = QHBoxLayout()
+        self.new_route_button = QPushButton("NEW ROUTE")
         self.add_route_button = QPushButton("ADD / UPDATE ROUTE")
         self.remove_route_button = QPushButton("REMOVE ROUTE")
+        route_buttons.addWidget(self.new_route_button)
         route_buttons.addWidget(self.add_route_button)
         route_buttons.addWidget(self.remove_route_button)
         modulation_layout.addLayout(route_buttons)
@@ -256,6 +258,7 @@ class PerformanceControlPanel(QWidget):
         self.attack_spin.valueChanged.connect(self._audio_settings_changed)
         self.release_spin.valueChanged.connect(self._audio_settings_changed)
         self.target_combo.currentIndexChanged.connect(self._target_changed)
+        self.new_route_button.clicked.connect(self._new_route)
         self.add_route_button.clicked.connect(self._add_route)
         self.remove_route_button.clicked.connect(self._remove_route)
         self.route_list.itemChanged.connect(self._route_enabled_changed)
@@ -400,12 +403,14 @@ class PerformanceControlPanel(QWidget):
     def _add_route(self) -> None:
         source_id = str(self.source_combo.currentData())
         target_id = str(self.target_combo.currentData())
-        if any(route.target_id == target_id for route in self.application.modulation.routes):
+        selected = self.route_list.currentItem()
+        if selected is None and any(
+            route.target_id == target_id for route in self.application.modulation.routes
+        ):
             self.modulation_status.setText(
-                "One route per target is supported. Remove or edit the existing route first."
+                "That target already has a route. Select it to edit, or choose another target."
             )
             return
-        selected = self.route_list.currentItem()
         try:
             changes = {
                 "source_id": source_id,
@@ -424,8 +429,7 @@ class PerformanceControlPanel(QWidget):
             }
             if selected is not None:
                 route_id = str(selected.data(Qt.ItemDataRole.UserRole))
-                self.application.modulation.update_route(route_id, changes)
-                self.application.events.publish("performance.modulation.updated")
+                self.application.update_modulation_route(route_id, changes)
             else:
                 route = ModulationRoute(
                     route_id=uuid4().hex[:10],
@@ -435,6 +439,23 @@ class PerformanceControlPanel(QWidget):
             self.refresh_routes()
         except (ValueError, TypeError, KeyError) as exc:
             self.modulation_status.setText(f"Route not saved · {exc}")
+
+    def _new_route(self) -> None:
+        self.route_list.blockSignals(True)
+        self.route_list.setCurrentRow(-1)
+        self.route_list.blockSignals(False)
+        self.source_combo.setCurrentIndex(0)
+        self.target_combo.setCurrentIndex(0)
+        self._target_changed()
+        self.curve_combo.setCurrentIndex(0)
+        self.input_min_spin.setValue(0.0)
+        self.input_max_spin.setValue(1.0)
+        self.ceiling_spin.setValue(1.0)
+        self.smoothing_spin.setValue(80.0)
+        self.attack_spin.setValue(25.0)
+        self.release_spin.setValue(220.0)
+        self.hold_spin.setValue(0.0)
+        self.invert_check.setChecked(False)
 
     def _load_route_editor(self, current: QListWidgetItem | None, _previous) -> None:
         if current is None:
@@ -455,6 +476,7 @@ class PerformanceControlPanel(QWidget):
             control.blockSignals(True)
             control.setCurrentIndex(max(0, control.findData(value)))
             control.blockSignals(False)
+        self._target_changed()
         for control, value in (
             (self.input_min_spin, route.input_min),
             (self.input_max_spin, route.input_max),
