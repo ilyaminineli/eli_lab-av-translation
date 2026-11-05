@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import time
-from uuid import uuid4
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -95,11 +94,38 @@ class PerformanceControlPanel(QWidget):
         self.midi_start_button = QPushButton("CONNECT")
         self.midi_stop_button = QPushButton("DISCONNECT")
         self.midi_stop_button.setEnabled(False)
-        self.midi_learn_button = QPushButton("ADD CC 1 → ENERGY")
+        self.midi_learn_button = QPushButton("LEARN NEXT CONTROLLER")
         midi_buttons.addWidget(self.midi_start_button)
         midi_buttons.addWidget(self.midi_stop_button)
         midi_form.addRow(midi_buttons)
         midi_form.addRow(self.midi_learn_button)
+        self.midi_target_combo = QComboBox()
+        self.midi_min_spin = self._float_spin(-100000.0, 100000.0, 0.1, 0.0)
+        self.midi_max_spin = self._float_spin(-100000.0, 100000.0, 0.1, 1.0)
+        self.midi_curve_combo = QComboBox()
+        self.midi_curve_combo.addItem("Linear", "linear")
+        self.midi_curve_combo.addItem("Smoothstep", "smoothstep")
+        self.midi_curve_combo.addItem("Exponential", "exponential")
+        self.midi_pickup_check = QCheckBox("Pickup · wait until physical control reaches current value")
+        self.midi_pickup_check.setChecked(True)
+        midi_form.addRow("TARGET", self.midi_target_combo)
+        midi_range_row = QHBoxLayout()
+        midi_range_row.addWidget(QLabel("MIN"))
+        midi_range_row.addWidget(self.midi_min_spin)
+        midi_range_row.addWidget(QLabel("MAX"))
+        midi_range_row.addWidget(self.midi_max_spin)
+        midi_form.addRow("OUTPUT RANGE", midi_range_row)
+        midi_form.addRow("CURVE", self.midi_curve_combo)
+        midi_form.addRow(self.midi_pickup_check)
+        self.midi_mapping_list = QListWidget()
+        self.midi_mapping_list.setMaximumHeight(130)
+        midi_form.addRow("MAPPINGS", self.midi_mapping_list)
+        midi_mapping_buttons = QHBoxLayout()
+        self.midi_update_button = QPushButton("UPDATE SELECTED")
+        self.midi_remove_button = QPushButton("REMOVE SELECTED")
+        midi_mapping_buttons.addWidget(self.midi_update_button)
+        midi_mapping_buttons.addWidget(self.midi_remove_button)
+        midi_form.addRow(midi_mapping_buttons)
         self.midi_status_label = QLabel("MIDI optional · install the [midi] extra to enable hardware input.")
         self.midi_status_label.setWordWrap(True)
         midi_form.addRow("STATUS", self.midi_status_label)
@@ -326,7 +352,11 @@ class PerformanceControlPanel(QWidget):
         self.midi_refresh_button.clicked.connect(self.refresh_midi_devices)
         self.midi_start_button.clicked.connect(self._start_midi)
         self.midi_stop_button.clicked.connect(self._stop_midi)
-        self.midi_learn_button.clicked.connect(self._add_default_midi_mapping)
+        self.midi_learn_button.clicked.connect(self._begin_midi_learn)
+        self.midi_update_button.clicked.connect(self._update_selected_midi_mapping)
+        self.midi_remove_button.clicked.connect(self._remove_selected_midi_mapping)
+        self.midi_target_combo.currentIndexChanged.connect(self._midi_target_changed)
+        self.midi_mapping_list.currentItemChanged.connect(self._load_selected_midi_mapping)
         self.osc_start_button.clicked.connect(self._start_osc)
         self.osc_stop_button.clicked.connect(self._stop_osc)
         self.osc_copy_button.clicked.connect(self._copy_sonata_settings)
@@ -344,6 +374,8 @@ class PerformanceControlPanel(QWidget):
 
         self._load_scene_profile()
         self.refresh_midi_devices()
+        self._refresh_midi_target_choices()
+        self.refresh_midi_mappings(force=True)
         self._target_changed()
         self.sync_modulator_sources()
         self.refresh_audio_devices()
@@ -388,17 +420,175 @@ class PerformanceControlPanel(QWidget):
         self.midi_stop_button.setEnabled(False)
         self.midi_status_label.setText("DISCONNECTED")
 
-    def _add_default_midi_mapping(self) -> None:
-        from uuid import uuid4
-        from core.performance_environment import MIDIMapping
+    def _refresh_midi_target_choices(self) -> None:
+        previous = self.midi_target_combo.currentData()
+        self.midi_target_combo.blockSignals(True)
+        self.midi_target_combo.clear()
+        fixed = [
+            ("Macro · Energy", "macro.energy"),
+            ("Macro · Cutoff", "macro.cutoff"),
+            ("Scene · Intensity", "scene.intensity"),
+            ("Transport · Tempo", "transport.tempo"),
+            ("Master · Brightness", "master.brightness"),
+            ("Master · Contrast", "master.contrast"),
+            ("Master · Saturation", "master.saturation"),
+            ("Master · Grain", "master.grain"),
+            ("Master · Glitch", "master.glitch"),
+            ("Master · Vignette", "master.vignette"),
+            ("AUTO PERFORMANCE · Loop probability", "automation.loop_probability"),
+            ("AUTO PERFORMANCE · Clip switch probability", "automation.clip_switch_probability"),
+            ("AUTO PERFORMANCE · Cut interval", "automation.cut_interval"),
+            ("AUTO PERFORMANCE · Segment minimum", "automation.min_segment_seconds"),
+            ("AUTO PERFORMANCE · Segment maximum", "automation.max_segment_seconds"),
+            ("AUTO PERFORMANCE · Layout interval", "automation.layout_interval"),
+            ("AUTO PERFORMANCE · Effect interval", "automation.effect_interval"),
+            ("AUTO PERFORMANCE · Generator interval", "automation.generator_interval"),
+        ]
+        for label, target in fixed:
+            self.midi_target_combo.addItem(label, target)
+        layer_targets = (
+            ("Opacity", "layer.opacity"), ("Rotation", "layer.rotation"),
+            ("Scale", "layer.scale"), ("Position X", "layer.position_x"),
+            ("Position Y", "layer.position_y"),
+            ("Geometry · Motion speed", "generator.animation_speed"),
+            ("Geometry · Motion amount", "generator.animation_amount"),
+            ("Geometry · Density", "generator.density"),
+            ("Geometry · Rotation", "generator.rotation"),
+            ("Text · Animation speed", "generator.text_animation_speed"),
+            ("Text · Animation amount", "generator.text_animation_amount"),
+            ("Text · Font size", "generator.font_size"),
+            ("Text · Letter spacing", "generator.letter_spacing"),
+            ("Waveform · Amplitude", "generator.waveform_amplitude"),
+            ("Waveform · Frequency", "generator.waveform_frequency"),
+            ("Particles · Speed", "generator.particle_speed"),
+            ("Particles · Size", "generator.particle_size"),
+            ("Particles · Spread", "generator.particle_spread"),
+            ("Particles · Trail", "generator.particle_trail"),
+            ("Overlay · Playback speed", "overlay.playback_speed"),
+            ("Overlay · Frame hold", "overlay.frame_hold"),
+        )
+        for layer in self.application.composition.layers:
+            for label, target in layer_targets:
+                self.midi_target_combo.addItem(f"{layer.name} · {label}", f"layer.{layer.id}.{target}")
+        index = self.midi_target_combo.findData(previous)
+        if index >= 0:
+            self.midi_target_combo.setCurrentIndex(index)
+        self.midi_target_combo.blockSignals(False)
+        self._midi_target_changed()
+
+    def _midi_target_changed(self) -> None:
+        target = str(self.midi_target_combo.currentData() or "")
+        defaults = (60.0, 180.0) if target == "transport.tempo" else (0.0, 1.0)
+        if target.endswith("rotation"):
+            defaults = (-180.0, 180.0)
+        elif target.endswith("position_x") or target.endswith("position_y"):
+            defaults = (-1.0, 1.0)
+        elif target.endswith("font_size"):
+            defaults = (8.0, 300.0)
+        elif target.endswith("letter_spacing"):
+            defaults = (-10.0, 50.0)
+        self.midi_min_spin.setValue(defaults[0])
+        self.midi_max_spin.setValue(defaults[1])
+
+    def _begin_midi_learn(self) -> None:
+        target = self.midi_target_combo.currentData()
+        if not target:
+            self.midi_status_label.setText("Select a MIDI target first.")
+            return
         device = str(self.midi_device_combo.currentData() or "*")
-        current = list(self.application.midi_mapping_engine.mappings)
-        current.append(MIDIMapping(
-            mapping_id=f"energy-{uuid4().hex[:8]}", device_id=device,
-            message="cc", number=1, target="macro.energy", pickup=False,
-        ))
-        self.application.set_midi_mappings(current)
-        self.midi_status_label.setText("Added CC 1 → macro.energy · edit ranges in the saved set.")
+        try:
+            self.application.begin_midi_learn(
+                str(target), device, self.midi_min_spin.value(),
+                self.midi_max_spin.value(), str(self.midi_curve_combo.currentData()),
+                self.midi_pickup_check.isChecked(),
+            )
+        except (TypeError, ValueError) as exc:
+            self.midi_status_label.setText(f"Invalid mapping · {exc}")
+            return
+        self.midi_status_label.setText(f"LEARNING · move a controller for {target}")
+
+    def refresh_midi_mappings(self, force: bool = False) -> None:
+        mappings = self.application.midi_mapping_engine.mappings
+        signature = tuple(
+            (m.mapping_id, m.device_id, m.channel, m.message, m.number, m.target,
+             m.minimum, m.maximum, m.curve, m.pickup, m.enabled)
+            for m in mappings
+        )
+        if not force and signature == getattr(self, "_midi_mapping_signature", None):
+            return
+        selected = self.midi_mapping_list.currentItem()
+        selected_id = selected.data(Qt.ItemDataRole.UserRole) if selected else None
+        self.midi_mapping_list.clear()
+        for mapping in mappings:
+            label = (
+                f"{mapping.device_id} · CH {mapping.channel + 1} · "
+                f"{mapping.message.upper()} {mapping.number} → {mapping.target} · "
+                f"{mapping.minimum:g}…{mapping.maximum:g} · {mapping.curve}"
+                + (" · PICKUP" if mapping.pickup else "")
+            )
+            item = QListWidgetItem(label)
+            item.setData(Qt.ItemDataRole.UserRole, mapping.mapping_id)
+            self.midi_mapping_list.addItem(item)
+            if mapping.mapping_id == selected_id:
+                self.midi_mapping_list.setCurrentItem(item)
+        self._midi_mapping_signature = signature
+
+    def _load_selected_midi_mapping(self, current, previous=None) -> None:
+        if current is None:
+            return
+        mapping_id = current.data(Qt.ItemDataRole.UserRole)
+        mapping = next(
+            (item for item in self.application.midi_mapping_engine.mappings
+             if item.mapping_id == mapping_id), None
+        )
+        if mapping is None:
+            return
+        index = self.midi_target_combo.findData(mapping.target)
+        if index >= 0:
+            self.midi_target_combo.setCurrentIndex(index)
+        self.midi_min_spin.setValue(mapping.minimum)
+        self.midi_max_spin.setValue(mapping.maximum)
+        self.midi_curve_combo.setCurrentIndex(max(0, self.midi_curve_combo.findData(mapping.curve)))
+        self.midi_pickup_check.setChecked(mapping.pickup)
+
+    def _update_selected_midi_mapping(self) -> None:
+        item = self.midi_mapping_list.currentItem()
+        if item is None:
+            self.midi_status_label.setText("Select a mapping to edit.")
+            return
+        mapping_id = item.data(Qt.ItemDataRole.UserRole)
+        mappings = list(self.application.midi_mapping_engine.mappings)
+        mapping = next((m for m in mappings if m.mapping_id == mapping_id), None)
+        if mapping is None:
+            self.refresh_midi_mappings(force=True)
+            return
+        target = self.midi_target_combo.currentData()
+        if not target:
+            return
+        mapping.target = str(target)
+        mapping.minimum = self.midi_min_spin.value()
+        mapping.maximum = self.midi_max_spin.value()
+        mapping.curve = str(self.midi_curve_combo.currentData())
+        mapping.pickup = self.midi_pickup_check.isChecked()
+        try:
+            mapping.normalize()
+            self.application.set_midi_mappings(mappings)
+        except (TypeError, ValueError) as exc:
+            self.midi_status_label.setText(f"Invalid mapping · {exc}")
+            return
+        self.refresh_midi_mappings(force=True)
+        self.midi_status_label.setText("MIDI mapping updated · save the performance set to persist it.")
+
+    def _remove_selected_midi_mapping(self) -> None:
+        item = self.midi_mapping_list.currentItem()
+        if item is None:
+            return
+        mapping_id = item.data(Qt.ItemDataRole.UserRole)
+        self.application.set_midi_mappings(
+            [m for m in self.application.midi_mapping_engine.mappings if m.mapping_id != mapping_id]
+        )
+        self.refresh_midi_mappings(force=True)
+        self.midi_status_label.setText("MIDI mapping removed.")
 
     def sync_from_application(self) -> None:
         transport = self.application.transport
@@ -638,6 +828,13 @@ class PerformanceControlPanel(QWidget):
         except Exception as exc:
             self.osc_status_label.setText(f"OSC unavailable · {exc}")
         self.refresh_osc_status()
+        self.refresh_midi_mappings()
+        learn = getattr(self.application, "_midi_learn_request", None)
+        learned = getattr(self.application, "_midi_learn_last_event", "")
+        if learn is not None:
+            self.midi_status_label.setText(f"LEARNING · move a controller for {learn['target']}")
+        elif learned:
+            self.midi_status_label.setText(f"LEARNED · {learned}")
 
     def _stop_osc(self) -> None:
         self.application.stop_osc_receiver()
