@@ -440,6 +440,7 @@ def test_local_modifier_takes_and_releases_target_from_global_route() -> None:
     from core.automation import AutomationDirector
     from core.event_bus import EventBus
     from core.modulation import ModulationMatrix, ModulationRoute
+    from core.modulator_bank import ModulatorBank, ModulatorBankEngine
     from core.performance_control import PerformanceControlState
     from core.performance_transport import InternalTransport
     from effects.settings import EffectSettings
@@ -462,6 +463,8 @@ def test_local_modifier_takes_and_releases_target_from_global_route() -> None:
     application.effects = EffectSettings()
     application.automation = AutomationDirector()
     application.modulation = ModulationMatrix()
+    application.modulator_bank = ModulatorBank()
+    application.modulator_bank_engine = ModulatorBankEngine()
     application.performance_modifier_engine = LayerPerformanceModifierEngine()
     application._modulation_base_values = {}
     application.events = EventBus()
