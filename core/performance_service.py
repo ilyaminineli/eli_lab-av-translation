@@ -18,6 +18,7 @@ class PerformanceModePlan:
     osc_port: int = 57121
     audio_device_id: str = ""
     audio_test_signal: bool = False
+    prefer_loopback: bool = True
     start_automation: bool = True
     automation_duration_seconds: float | None = None
     automation_settings: dict[str, Any] = field(default_factory=dict)
@@ -29,6 +30,7 @@ class PerformanceModePlan:
         self.osc_port = max(1024, min(65535, int(self.osc_port)))
         self.audio_device_id = str(self.audio_device_id).strip()
         self.audio_test_signal = bool(self.audio_test_signal)
+        self.prefer_loopback = bool(self.prefer_loopback)
         self.start_automation = bool(self.start_automation)
         self.stop_automation_on_patch_stop = bool(self.stop_automation_on_patch_stop)
         self.install_default_mappings = bool(self.install_default_mappings)
