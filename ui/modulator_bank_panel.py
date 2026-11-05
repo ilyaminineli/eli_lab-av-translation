@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
+    QFileDialog,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
@@ -96,6 +97,12 @@ class ModulatorBankPanel(QWidget):
         preset_buttons.addWidget(self.save_preset_button)
         preset_layout.addLayout(preset_buttons)
         preset_layout.addWidget(self.delete_preset_button)
+        preset_io_row = QHBoxLayout()
+        self.export_presets_button = QPushButton("EXPORT USER PRESETS…")
+        self.import_presets_button = QPushButton("IMPORT PRESETS…")
+        preset_io_row.addWidget(self.export_presets_button)
+        preset_io_row.addWidget(self.import_presets_button)
+        preset_layout.addLayout(preset_io_row)
         root.addWidget(preset_group)
 
         editor_group = QGroupBox("MODULATOR EDITOR")
@@ -252,6 +259,8 @@ class ModulatorBankPanel(QWidget):
         self.load_preset_button.clicked.connect(self._load_preset)
         self.save_preset_button.clicked.connect(self._save_preset)
         self.delete_preset_button.clicked.connect(self._delete_preset)
+        self.export_presets_button.clicked.connect(self._export_presets)
+        self.import_presets_button.clicked.connect(self._import_presets)
         self.assignment_depth.valueChanged.connect(
             lambda value: self.assignment_depth_label.setText(f"{value}%")
         )
@@ -571,6 +580,46 @@ class ModulatorBankPanel(QWidget):
             return
         self.application.delete_modulator_preset(preset.preset_id)
         self._refresh_presets()
+        self.bank_changed.emit()
+
+    def _export_presets(self) -> None:
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export modulator presets",
+            "modulator-presets.json",
+            "Modulator Presets (*.json)",
+        )
+        if not path:
+            return
+        if not path.lower().endswith(".json"):
+            path += ".json"
+        try:
+            destination = self.application.export_modulator_presets(path)
+        except OSError as exc:
+            QMessageBox.warning(self, "Export presets", str(exc))
+            return
+        self.setToolTip(f"Exported presets to {destination}")
+
+    def _import_presets(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Import modulator presets",
+            "",
+            "Modulator Presets (*.json)",
+        )
+        if not path:
+            return
+        try:
+            imported = self.application.import_modulator_presets(path)
+        except (OSError, TypeError, ValueError) as exc:
+            QMessageBox.warning(self, "Import presets", str(exc))
+            return
+        self.refresh()
+        QMessageBox.information(
+            self,
+            "Import presets",
+            f"Imported {imported} modulator preset(s).",
+        )
         self.bank_changed.emit()
 
     def _targets_for_layer(self, layer) -> list[str]:
