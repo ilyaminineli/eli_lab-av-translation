@@ -22,6 +22,7 @@ SOURCE_RANGES: dict[str, tuple[float, float]] = {
     "macro.cutoff": (0.0, 1.0),
 }
 
+
 @dataclass(frozen=True)
 class ModulationTargetSpec:
     target_id: str
@@ -111,8 +112,8 @@ class ModulationRoute:
             else float(self.output_max)
         )
         if not (
-            spec.minimum <= self.output_min <= spec.maximum
-            and spec.minimum <= self.output_max <= spec.maximum
+                spec.minimum <= self.output_min <= spec.maximum
+                and spec.minimum <= self.output_max <= spec.maximum
         ):
             raise ValueError(
                 f"Output range for {self.target_id} exceeds its registered safety range."
@@ -172,8 +173,8 @@ class ModulationMatrix:
         values.update(changes)
         updated = ModulationRoute.from_dict(values)
         if any(
-            item.route_id != route_id and item.target_id == updated.target_id
-            for item in self.routes
+                item.route_id != route_id and item.target_id == updated.target_id
+                for item in self.routes
         ):
             raise ValueError(f"Target already has a modulation route: {updated.target_id}")
         self.routes = [
@@ -239,9 +240,9 @@ class ModulationMatrix:
             runtime = self._runtime.setdefault(route.route_id, _RouteRuntime())
             if raw is None:
                 if (
-                    runtime.last_output is not None
-                    and route.hold_ms > 0
-                    and stamp - runtime.last_seen <= route.hold_ms / 1000.0
+                        runtime.last_output is not None
+                        and route.hold_ms > 0
+                        and stamp - runtime.last_seen <= route.hold_ms / 1000.0
                 ):
                     mapped = runtime.last_output
                 else:

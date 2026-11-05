@@ -152,11 +152,11 @@ class PerformanceControlPanel(QWidget):
         audio_layout.addWidget(self.audio_state_label)
         self.audio_meter_bars: dict[str, QProgressBar] = {}
         for key, label in (
-            ("rms", "RMS / ENERGY"),
-            ("low", "LOW"),
-            ("mid", "MID"),
-            ("high", "HIGH"),
-            ("onset", "ONSET"),
+                ("rms", "RMS / ENERGY"),
+                ("low", "LOW"),
+                ("mid", "MID"),
+                ("high", "HIGH"),
+                ("onset", "ONSET"),
         ):
             row = QHBoxLayout()
             row.addWidget(QLabel(label))
@@ -282,9 +282,9 @@ class PerformanceControlPanel(QWidget):
 
         settings = self.application.audio_capture.settings
         for control, value in (
-            (self.sensitivity_spin, settings.sensitivity),
-            (self.attack_spin, settings.attack_ms),
-            (self.release_spin, settings.release_ms),
+                (self.sensitivity_spin, settings.sensitivity),
+                (self.attack_spin, settings.attack_ms),
+                (self.release_spin, settings.release_ms),
         ):
             control.blockSignals(True)
             control.setValue(value)
@@ -441,7 +441,7 @@ class PerformanceControlPanel(QWidget):
         target_id = str(self.target_combo.currentData())
         selected = self.route_list.currentItem()
         if selected is None and any(
-            route.target_id == target_id for route in self.application.modulation.routes
+                route.target_id == target_id for route in self.application.modulation.routes
         ):
             self.modulation_status.setText(
                 "That target already has a route. Select it to edit, or choose another target."
@@ -514,15 +514,15 @@ class PerformanceControlPanel(QWidget):
             control.blockSignals(False)
         self._target_changed()
         for control, value in (
-            (self.input_min_spin, route.input_min),
-            (self.input_max_spin, route.input_max),
-            (self.output_min_spin, route.output_min),
-            (self.output_max_spin, route.output_max),
-            (self.ceiling_spin, route.intensity_ceiling),
-            (self.smoothing_spin, route.smoothing_ms),
-            (self.attack_spin, route.attack_ms),
-            (self.release_spin, route.release_ms),
-            (self.hold_spin, route.hold_ms),
+                (self.input_min_spin, route.input_min),
+                (self.input_max_spin, route.input_max),
+                (self.output_min_spin, route.output_min),
+                (self.output_max_spin, route.output_max),
+                (self.ceiling_spin, route.intensity_ceiling),
+                (self.smoothing_spin, route.smoothing_ms),
+                (self.attack_spin, route.attack_ms),
+                (self.release_spin, route.release_ms),
+                (self.hold_spin, route.hold_ms),
         ):
             control.setValue(value)
         self.invert_check.setChecked(route.inverted)
@@ -576,9 +576,9 @@ class PerformanceControlPanel(QWidget):
         )
         state = self.application.audio_capture.state
         if (
-            self.application.audio_capture.source_kind in {"input", "loopback"}
-            and state == AudioCaptureState.RUNNING
-            and time.monotonic() - self._last_device_poll >= 3.0
+                self.application.audio_capture.source_kind in {"input", "loopback"}
+                and state == AudioCaptureState.RUNNING
+                and time.monotonic() - self._last_device_poll >= 3.0
         ):
             self._last_device_poll = time.monotonic()
             self.application.audio_capture.refresh_device_state()

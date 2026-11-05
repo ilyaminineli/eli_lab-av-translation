@@ -11,9 +11,9 @@ def test_internal_transport_emits_one_based_bar_and_zero_based_beat_positions() 
     events = clock.tick(now=10.0)
     assert [(event.kind, event.payload.get("bar_index"), event.payload.get("beat_index"))
             for event in events] == [
-        ("clock.bar", 1, None),
-        ("clock.beat", 1, 0),
-    ]
+               ("clock.bar", 1, None),
+               ("clock.beat", 1, 0),
+           ]
 
     events = clock.tick(now=10.5)
     assert events[-1].payload["beat_index"] == 1
@@ -87,7 +87,6 @@ def test_tempo_and_meter_are_range_checked() -> None:
         pass
     else:
         raise AssertionError("Invalid meter was accepted")
-
 
 
 def test_performance_control_state_distinguishes_pause_from_stop() -> None:

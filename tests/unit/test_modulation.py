@@ -90,7 +90,6 @@ def test_target_registry_has_explicit_safe_ranges() -> None:
     assert "automation.loop_probability" in TARGET_SPECS
 
 
-
 def test_modulation_matrix_rejects_multiple_routes_for_same_target() -> None:
     matrix = ModulationMatrix()
     matrix.add_route(ModulationRoute(

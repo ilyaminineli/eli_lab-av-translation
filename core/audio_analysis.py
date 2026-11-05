@@ -169,9 +169,9 @@ class AudioAnalyzer:
         spectral_power = np.square(spectrum, dtype=np.float64)
         bands: dict[str, float] = {}
         for name, low_hz, high_hz in (
-            ("low", 20.0, 250.0),
-            ("mid", 250.0, 2000.0),
-            ("high", 2000.0, min(10000.0, rate / 2.0)),
+                ("low", 20.0, 250.0),
+                ("mid", 250.0, 2000.0),
+                ("high", 2000.0, min(10000.0, rate / 2.0)),
         ):
             mask = (frequencies >= low_hz) & (frequencies < high_hz)
             band_rms = (
@@ -189,8 +189,8 @@ class AudioAnalyzer:
         self._previous_rms = rms
 
         if (
-            onset >= self.settings.onset_threshold
-            and stamp - self._last_onset_at >= 0.22
+                onset >= self.settings.onset_threshold
+                and stamp - self._last_onset_at >= 0.22
         ):
             if self._last_beat_at is not None:
                 interval = stamp - self._last_beat_at

@@ -334,9 +334,9 @@ class AutomationDirector:
                     updated = True
 
                 if (
-                    self.settings.randomize_generators
-                    and kind == "text"
-                    and self.settings.randomize_text
+                        self.settings.randomize_generators
+                        and kind == "text"
+                        and self.settings.randomize_text
                 ):
                     if bool(values.get("text_auto_regenerate", True)):
                         values.update({

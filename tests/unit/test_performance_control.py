@@ -160,7 +160,6 @@ def test_transport_stop_and_reset_restore_safe_idle_state() -> None:
     assert state.macros == {}
 
 
-
 def test_invalid_event_does_not_partially_change_state_or_consume_sequence() -> None:
     state = PerformanceControlState()
     invalid_start = ControlEvent(
@@ -190,7 +189,6 @@ def test_invalid_event_does_not_partially_change_state_or_consume_sequence() -> 
     assert state.transport_running is True
 
 
-
 def test_scene_event_rejects_invalid_scene_identifier() -> None:
     state = PerformanceControlState()
     event = ControlEvent(
@@ -200,7 +198,6 @@ def test_scene_event_rejects_invalid_scene_identifier() -> None:
     )
     with pytest.raises(ValueError):
         state.apply(event)
-
 
 
 def test_transport_meter_event_updates_meter_without_starting_transport() -> None:

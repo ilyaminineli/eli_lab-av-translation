@@ -153,9 +153,9 @@ class SyntheticAudio:
         phase = np.mod(time_values, beat_period)
         transient = np.exp(-phase * 35.0) * (phase < 0.04)
         signal = (
-            0.16 * np.sin(2.0 * np.pi * 110.0 * time_values)
-            + 0.08 * np.sin(2.0 * np.pi * 880.0 * time_values)
-            + 0.60 * transient
+                0.16 * np.sin(2.0 * np.pi * 110.0 * time_values)
+                + 0.08 * np.sin(2.0 * np.pi * 880.0 * time_values)
+                + 0.60 * transient
         )
         self._sample_index += count
         return np.asarray(signal, dtype=np.float32).reshape(-1, 1)
