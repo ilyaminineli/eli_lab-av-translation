@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import importlib
+import json
 import logging
 import sys
 
@@ -23,7 +25,77 @@ def configure_opengl() -> None:
     QSurfaceFormat.setDefaultFormat(surface_format)
 
 
+def self_check() -> int:
+    """Verify packaged imports and read-only assets without opening a GUI or GL context."""
+    from config import DICTIONARY_DIR, ICON_PATH, RESOURCE_DIR
+
+    errors: list[str] = []
+    checks: dict[str, object] = {}
+
+    modules = (
+        "PySide6.QtCore",
+        "PySide6.QtGui",
+        "PySide6.QtWidgets",
+        "PySide6.QtOpenGLWidgets",
+        "moderngl",
+        "glcontext",
+        "av",
+        "numpy",
+        "soundcard",
+        "pythonosc",
+        "mido",
+        "rtmidi",
+    )
+    for module_name in modules:
+        try:
+            importlib.import_module(module_name)
+            checks[module_name] = "ok"
+        except Exception as exc:
+            checks[module_name] = f"ERROR: {type(exc).__name__}: {exc}"
+            errors.append(f"{module_name}: {exc}")
+
+    try:
+        import av
+
+        checks["ffmpeg_libraries"] = {
+            name: str(version) for name, version in av.library_versions.items()
+        }
+        checks["h264_decoder"] = "h264" in av.codecs_available
+        if not checks["h264_decoder"]:
+            errors.append("The bundled PyAV/FFmpeg runtime does not expose an H.264 decoder.")
+    except Exception as exc:
+        checks["ffmpeg_libraries"] = f"ERROR: {exc}"
+        errors.append(f"PyAV/FFmpeg: {exc}")
+
+    checks["icon"] = ICON_PATH.is_file()
+    checks["textures"] = (RESOURCE_DIR / "textures").is_dir()
+    checks["sketches"] = (RESOURCE_DIR / "sketches_and_strokes").is_dir()
+    dictionary_files = list(DICTIONARY_DIR.glob("*.txt"))
+    checks["dictionary_text_files"] = len(dictionary_files)
+    for name, passed in (
+        ("icon", bool(checks["icon"])),
+        ("textures", bool(checks["textures"])),
+        ("sketches", bool(checks["sketches"])),
+        ("dictionary", len(dictionary_files) > 0),
+    ):
+        if not passed:
+            errors.append(f"Bundled resource check failed: {name}")
+
+    checks["opengl"] = "requires a real display/GPU; not tested by --self-check"
+    report = {
+        "application": APP_NAME,
+        "version": APP_VERSION,
+        "runtime_root": str(RESOURCE_DIR.parent),
+        "checks": checks,
+        "errors": errors,
+    }
+    print(json.dumps(report, ensure_ascii=False, indent=2))
+    return 1 if errors else 0
+
+
 def main() -> int:
+    if "--self-check" in sys.argv:
+        return self_check()
     configure_logging()
     configure_opengl()
 
