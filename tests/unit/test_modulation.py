@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from core.modulation import ModulationMatrix, ModulationRoute, TARGET_SPECS
+from core.modulation import TARGET_SPECS, ModulationMatrix, ModulationRoute
 
 
 def test_modulation_maps_source_to_registered_target_range() -> None:
