@@ -140,7 +140,7 @@ class ModulatorPreset:
 
 def _preset(
         preset_id: str,
-        name: str,
+        preset_name: str,
         description: str,
         **definition: object,
 ) -> ModulatorPreset:
@@ -149,7 +149,7 @@ def _preset(
     payload = item.to_dict()
     payload.pop("modulator_id", None)
     payload.pop("name", None)
-    return ModulatorPreset(preset_id, name, description, payload, True)
+    return ModulatorPreset(preset_id, preset_name, description, payload, True)
 
 
 def builtin_modulator_presets() -> list[ModulatorPreset]:
