@@ -21,7 +21,7 @@ Audio bands, onset/beat confidence, normalized transport phases/pulses, scene in
 
 ## MIDI controls
 
-The optional MIDI adapter uses `mido`; it does not make MIDI hardware a startup dependency. Device discovery is explicit. Port callbacks enqueue compact normalized events into a bounded queue; the application tick drains them and applies mappings outside the callback. The AUDIO / CONTROL panel exposes discovery, connect/disconnect and a basic CC 1 → `macro.energy` mapping action. The full learn-target editor and mapping inspector remain future work.
+The optional MIDI adapter uses `mido`; it does not make MIDI hardware a startup dependency. Device discovery is explicit. Port callbacks enqueue compact normalized events into a bounded queue; the application tick drains them and applies mappings outside the callback. The AUDIO / CONTROL panel exposes discovery, connect/disconnect, Learn Next Controller, a target selector, per-mapping range/curve/pickup editing, and mapping update/removal.
 
 Mappings support CC, note and pitch wheel messages, device/channel/number filters, target IDs, min/max scaling, linear/smoothstep/exponential curves and pickup. Pickup holds until the incoming physical control crosses or approaches the current virtual value. Mapping definitions persist, but physical positions and pickup latch state do not. Device loss is local and does not stop the performance.
 
@@ -29,7 +29,7 @@ Stable mapping target IDs include `macro.<name>`, `transport.tempo`, `scene.inte
 
 ## Scenes, morphing and presets
 
-A performance scene is a named snapshot of a prepared state. Recall supports immediate, beat, bar and phrase scheduling via the existing transport. Numeric-compatible parameters can morph using smoothstep interpolation; discrete media, pattern, font, blend-mode and scene changes switch at the quantized boundary. Layer locks and manual overrides remain authoritative.
+A performance scene is a named snapshot of composition, effects, AUTO PERFORMANCE settings, transport and normalized control state. The scene-bank UI supports capture, removal, immediate/beat/bar/phrase recall and a configurable numeric morph duration. Recall uses the existing transport scheduler. Numeric-compatible targets interpolate using smoothstep; discrete composition/media state switches at the cue. Currently locked layers are retained.
 
 Scene banks are project-level definitions. A complete `.eliset` contains composition, deck states, master effects, AUTO PERFORMANCE settings, transport/audio settings, global modulation routes, Modulator Bank, MIDI mappings and scene snapshots. It is separate from `.eliav`, allowing one composition to be reused across live sets.
 
@@ -41,7 +41,7 @@ Codec/format selection, audio muxing, frame pacing and hardware acceleration are
 
 ## Compact performance surface
 
-The existing AUDIO / CONTROL panel now provides MIDI discovery/connect and a one-action starter mapping. A compact show surface with scene-bank navigation, macro controls, Auto Performance and recording/output status remains to implement. Detailed media editing, generator authoring and modulation graph editing stay in the existing docks.
+The AUDIO / CONTROL panel now includes the MIDI mapping editor and performance scene bank. A dedicated compact show surface with transport, scene navigation, macros, Auto Performance, output selection and recording status remains to implement. Detailed media editing, generator authoring and modulation graph editing stay in the existing docks.
 
 ## Verification
 
