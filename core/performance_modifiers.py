@@ -200,7 +200,12 @@ class LayerPerformanceModifierEngine:
                 self._runtime.pop(runtime_key, None)
                 self._live_values.pop(runtime_key, None)
 
-    def claimed_targets(self, layer, now: float | None = None) -> set[str]:
+    def claimed_targets(
+            self,
+            layer,
+            now: float | None = None,
+            available_sources: set[str] | None = None,
+    ) -> set[str]:
         if layer is None:
             return set()
         layer_id = str(layer.id)
@@ -213,8 +218,14 @@ class LayerPerformanceModifierEngine:
                 modifier = LayerPerformanceModifier.from_dict(raw)
             except (TypeError, ValueError, KeyError):
                 continue
+            source_available = (
+                available_sources is None
+                or not modifier.source_id.startswith("modulator.")
+                or modifier.source_id in available_sources
+            )
             if (
                     modifier.enabled
+                    and source_available
                     and stamp >= self._manual_until.get(
                         (layer_id, modifier.target_id), 0.0
                     )
