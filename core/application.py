@@ -512,12 +512,18 @@ class Application:
                 if capture_state in {"running", "starting"}:
                     audio_status = f"already active · {self.audio_capture.selected_device_name}"
                 else:
-                    self.start_audio_capture(
-                        device_id=plan.audio_device_id or None,
-                        test_signal=plan.audio_test_signal,
-                    )
-                    audio_owned = True
-                    audio_status = self.audio_capture.selected_device_name or "audio input"
+                    try:
+                        self.start_audio_capture(
+                            device_id=plan.audio_device_id or None,
+                            test_signal=plan.audio_test_signal,
+                        )
+                        audio_owned = True
+                        audio_status = self.audio_capture.selected_device_name or "audio input"
+                    except Exception as exc:
+                        # The visual show still operates from Sonic Pi energy/cutoff
+                        # and transport if local loopback is unavailable.
+                        audio_status = f"local capture unavailable · {exc} · Sonic Pi macros active"
+                        self.events.publish("performance.mode.audio_fallback", error=str(exc))
             else:
                 audio_status = "Sonic Pi macros only · no local audio capture"
 
@@ -686,7 +692,6 @@ class Application:
             return self.performance_mode.snapshot()
         previous = self.performance_mode.stop()
         self._performance_automation_armed = False
-        self._performance_automation_owned = False
         self._performance_automation_settings = None
         self._performance_automation_duration = None
         if self._performance_automation_owned and self.automation.running:
@@ -1796,6 +1801,13 @@ class Application:
 
     def tick_automation(self) -> bool:
         changed = self.automation.tick()
+        if self.performance_mode.enabled:
+            self.performance_mode.set_automation_armed(
+                self._performance_automation_armed,
+                self.automation.running,
+            )
+            if not self.automation.running:
+                self._performance_automation_owned = False
         if changed:
             for deck_id, deck in self.decks.items():
                 if deck.current_frame is None:
@@ -2174,6 +2186,10 @@ class Application:
     def stop_automation(self) -> None:
         self.automation.stop()
         self._automation_collection_id = None
+        if self.performance_mode.enabled:
+            self._performance_automation_armed = False
+            self._performance_automation_owned = False
+            self.performance_mode.set_automation_armed(False, False)
         self.events.publish("automation.stopped")
 
     def save_project(self, path: str | Path) -> Path:
