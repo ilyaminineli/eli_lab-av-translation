@@ -296,8 +296,6 @@ def install_default_layer_modifiers(
     count = 0
 
     for layer in layers:
-        if getattr(layer, "locked", False):
-            continue
         configured = getattr(layer, "performance_modifiers", None)
         if not isinstance(configured, list):
             continue
@@ -316,6 +314,10 @@ def install_default_layer_modifiers(
                     ) in legacy
                 )
             ]
+        # Migrate prior AUTO curves even on currently locked layers; do not
+        # install any new defaults until the layer is unlocked.
+        if getattr(layer, "locked", False):
+            continue
 
         existing_records = {
             (str(raw.get("source_id", "")), str(raw.get("target_id", ""))): raw
