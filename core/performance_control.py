@@ -119,6 +119,7 @@ class PerformanceControlState:
     beat_index: int = 0
     bar_index: int = 0
     transport_running: bool = False
+    transport_paused: bool = False
     source_id: str = "internal"
     scene_id: str = "idle"
     intensity: float = 0.0
@@ -200,8 +201,13 @@ class PerformanceControlState:
                 payload, "beats_per_bar", self.beats_per_bar, 1, 16
             )
             updates["transport_running"] = True
-        elif event.kind in {"transport.stop", "transport.pause"}:
+            updates["transport_paused"] = False
+        elif event.kind == "transport.pause":
             updates["transport_running"] = False
+            updates["transport_paused"] = True
+        elif event.kind == "transport.stop":
+            updates["transport_running"] = False
+            updates["transport_paused"] = False
         elif event.kind == "transport.tempo":
             updates["bpm"] = self._number(payload, "bpm", minimum=20.0, maximum=300.0)
         elif event.kind == "clock.beat":
@@ -227,6 +233,7 @@ class PerformanceControlState:
                     payload, "beats_per_bar", minimum=1, maximum=16
                 )
             updates["transport_running"] = True
+            updates["transport_paused"] = False
         elif event.kind == "scene.select":
             updates["scene_id"] = self._identifier(payload, "scene_id")
             updates["intensity"] = self._number(
@@ -269,6 +276,7 @@ class PerformanceControlState:
         self.beat_index = 0
         self.bar_index = 0
         self.transport_running = False
+        self.transport_paused = False
         self.source_id = "internal"
         self.scene_id = "idle"
         self.intensity = 0.0
@@ -286,6 +294,7 @@ class PerformanceControlState:
             "beat_index": self.beat_index,
             "bar_index": self.bar_index,
             "transport_running": self.transport_running,
+            "transport_paused": self.transport_paused,
             "source_id": self.source_id,
             "scene_id": self.scene_id,
             "intensity": self.intensity,
@@ -297,7 +306,11 @@ class PerformanceControlState:
         }
 
     def status_text(self) -> str:
-        state = "RUN" if self.transport_running else "STOP"
+        state = (
+            "PAUSE" if self.transport_paused
+            else "RUN" if self.transport_running
+            else "STOP"
+        )
         return (
             f"CONTROL · {self.source_id.upper()} · {state} · "
             f"{self.bpm:g} BPM · BAR {self.bar_index} · "
