@@ -4,13 +4,13 @@ import time
 
 import numpy as np
 
+from core.audio_analysis import AudioAnalysisFrame
 from core.audio_capture import (
     AudioCaptureService,
     AudioCaptureState,
     AudioFrameQueue,
     AudioInputDevice,
 )
-from core.audio_analysis import AudioAnalysisFrame
 
 
 class _FakeRecorder:
