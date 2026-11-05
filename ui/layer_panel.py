@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSlider,
+    QSplitter,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -61,7 +62,6 @@ class LayerPanel(QWidget):
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.itemChanged.connect(self._visibility_changed)
         self.table.currentCellChanged.connect(self._selection_changed)
-        layout.addWidget(self.table, 1)
 
         controls_body = QWidget()
         controls_layout = QVBoxLayout(controls_body)
@@ -152,7 +152,15 @@ class LayerPanel(QWidget):
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
         )
         self.controls_scroll.setWidget(controls_body)
-        layout.addWidget(self.controls_scroll, 1)
+        self.panel_splitter = QSplitter(Qt.Orientation.Vertical, self)
+        self.panel_splitter.setChildrenCollapsible(False)
+        self.panel_splitter.setHandleWidth(6)
+        self.panel_splitter.addWidget(self.table)
+        self.panel_splitter.addWidget(self.controls_scroll)
+        self.panel_splitter.setStretchFactor(0, 2)
+        self.panel_splitter.setStretchFactor(1, 3)
+        self.panel_splitter.setSizes([260, 360])
+        layout.addWidget(self.panel_splitter, 1)
 
         self.layer_lock_check.toggled.connect(self._selected_layer_lock_changed)
         self.position_x[1].valueChanged.connect(self._position_x_changed)
