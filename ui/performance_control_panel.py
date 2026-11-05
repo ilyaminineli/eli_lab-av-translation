@@ -83,6 +83,28 @@ class PerformanceControlPanel(QWidget):
         transport_form.addRow("CLOCK", self.transport_status)
         root.addWidget(self.transport_group)
 
+        self.midi_group = QGroupBox("MIDI CONTROLLERS · OPTIONAL")
+        midi_form = QFormLayout(self.midi_group)
+        self.midi_device_combo = QComboBox()
+        self.midi_refresh_button = QPushButton("DISCOVER DEVICES")
+        midi_device_row = QHBoxLayout()
+        midi_device_row.addWidget(self.midi_device_combo, 1)
+        midi_device_row.addWidget(self.midi_refresh_button)
+        midi_form.addRow("INPUT DEVICE", midi_device_row)
+        midi_buttons = QHBoxLayout()
+        self.midi_start_button = QPushButton("CONNECT")
+        self.midi_stop_button = QPushButton("DISCONNECT")
+        self.midi_stop_button.setEnabled(False)
+        self.midi_learn_button = QPushButton("ADD CC 1 → ENERGY")
+        midi_buttons.addWidget(self.midi_start_button)
+        midi_buttons.addWidget(self.midi_stop_button)
+        midi_form.addRow(midi_buttons)
+        midi_form.addRow(self.midi_learn_button)
+        self.midi_status_label = QLabel("MIDI optional · install the [midi] extra to enable hardware input.")
+        self.midi_status_label.setWordWrap(True)
+        midi_form.addRow("STATUS", self.midi_status_label)
+        root.addWidget(self.midi_group)
+
         self.osc_group = QGroupBox("SONIC PI CONNECTION · OSC /eli_lab/v1")
         osc_form = QFormLayout(self.osc_group)
         self.osc_bind_edit = QLineEdit("127.0.0.1")
@@ -301,6 +323,10 @@ class PerformanceControlPanel(QWidget):
         self.audio_refresh_button.clicked.connect(self.refresh_audio_devices)
         self.audio_start_button.clicked.connect(self._start_audio)
         self.audio_stop_button.clicked.connect(self.application.stop_audio_capture)
+        self.midi_refresh_button.clicked.connect(self.refresh_midi_devices)
+        self.midi_start_button.clicked.connect(self._start_midi)
+        self.midi_stop_button.clicked.connect(self._stop_midi)
+        self.midi_learn_button.clicked.connect(self._add_default_midi_mapping)
         self.osc_start_button.clicked.connect(self._start_osc)
         self.osc_stop_button.clicked.connect(self._stop_osc)
         self.osc_copy_button.clicked.connect(self._copy_sonata_settings)
@@ -317,11 +343,62 @@ class PerformanceControlPanel(QWidget):
         self.route_list.currentItemChanged.connect(self._load_route_editor)
 
         self._load_scene_profile()
+        self.refresh_midi_devices()
         self._target_changed()
         self.sync_modulator_sources()
         self.refresh_audio_devices()
         self.refresh_routes()
         self.refresh_monitor()
+
+    def refresh_midi_devices(self) -> None:
+        selected = self.midi_device_combo.currentData()
+        self.midi_device_combo.blockSignals(True)
+        self.midi_device_combo.clear()
+        devices = self.application.discover_midi_inputs()
+        for device in devices:
+            self.midi_device_combo.addItem(device, device)
+        if not devices:
+            self.midi_device_combo.addItem("No MIDI input devices found", None)
+        index = self.midi_device_combo.findData(selected)
+        if index >= 0:
+            self.midi_device_combo.setCurrentIndex(index)
+        self.midi_device_combo.blockSignals(False)
+        self.midi_status_label.setText(
+            f"{len(devices)} input(s) available." if devices else
+            "No inputs found · install with pip install -e ".[midi]""
+        )
+
+    def _start_midi(self) -> None:
+        device = self.midi_device_combo.currentData()
+        if not device:
+            self.midi_status_label.setText("Select a MIDI input first.")
+            return
+        if self.application.start_midi_input(str(device)):
+            self.midi_start_button.setEnabled(False)
+            self.midi_stop_button.setEnabled(True)
+            self.midi_status_label.setText(f"CONNECTED · {device}")
+        else:
+            self.midi_status_label.setText(
+                f"MIDI unavailable · {self.application.midi_input.error or 'backend error'}"
+            )
+
+    def _stop_midi(self) -> None:
+        self.application.stop_midi_input()
+        self.midi_start_button.setEnabled(True)
+        self.midi_stop_button.setEnabled(False)
+        self.midi_status_label.setText("DISCONNECTED")
+
+    def _add_default_midi_mapping(self) -> None:
+        from uuid import uuid4
+        from core.performance_environment import MIDIMapping
+        device = str(self.midi_device_combo.currentData() or "*")
+        current = list(self.application.midi_mapping_engine.mappings)
+        current.append(MIDIMapping(
+            mapping_id=f"energy-{uuid4().hex[:8]}", device_id=device,
+            message="cc", number=1, target="macro.energy", pickup=False,
+        ))
+        self.application.set_midi_mappings(current)
+        self.midi_status_label.setText("Added CC 1 → macro.energy · edit ranges in the saved set.")
 
     def sync_from_application(self) -> None:
         transport = self.application.transport
