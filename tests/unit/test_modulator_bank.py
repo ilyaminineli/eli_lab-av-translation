@@ -403,3 +403,28 @@ def test_pingpong_sequence_runs_forward_then_backward_before_looping() -> None:
 
     assert values == pytest.approx([0.0, 0.5, 1.0, 0.5, 0.0])
 
+def test_euclidean_pattern_distributes_pulses_and_rotates() -> None:
+    from core.modulator_bank import euclidean_pattern
+
+    pattern = euclidean_pattern(3, 8)
+    hit_positions = [index for index, value in enumerate(pattern) if value >= 0.5]
+    gaps = [
+        hit_positions[index + 1] - hit_positions[index]
+        for index in range(len(hit_positions) - 1)
+    ]
+    gaps.append(8 - hit_positions[-1] + hit_positions[0])
+
+    assert sum(pattern) == 3
+    assert max(gaps) - min(gaps) <= 1
+    assert euclidean_pattern(3, 8, rotation=2) == pytest.approx(
+        [1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0]
+    )
+
+
+def test_euclidean_pattern_clamps_pulses_and_grid_size() -> None:
+    from core.modulator_bank import euclidean_pattern
+
+    assert euclidean_pattern(10, 4) == [1.0, 1.0, 1.0, 1.0]
+    assert euclidean_pattern(-1, 4) == [0.0, 0.0, 0.0, 0.0]
+    assert len(euclidean_pattern(3, 100, rotation=100)) == 64
+
