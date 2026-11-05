@@ -496,3 +496,34 @@ def test_local_modifier_takes_and_releases_target_from_global_route() -> None:
     application.apply_modulation()
     assert layer.generator_settings["animation_amount"] == 100.0
 
+def test_modifier_engine_prunes_removed_runtime_records() -> None:
+    modifier = LayerPerformanceModifier(
+        modifier_id="temporary",
+        source_id="transport.beat_pulse",
+        target_id="layer.scale",
+        depth=0.1,
+    )
+    layer = Layer(
+        id="runtime-prune",
+        performance_modifiers=[modifier.to_dict()],
+    )
+    _store, get_target, set_target = _memory_target_store({
+        layer.id: {"layer.scale": 1.0}
+    })
+    engine = LayerPerformanceModifierEngine()
+
+    engine.evaluate(
+        [layer],
+        {"transport.beat_pulse": 1.0},
+        get_target,
+        set_target,
+        now=1.0,
+    )
+    assert (layer.id, "temporary") in engine._runtime
+
+    layer.performance_modifiers.clear()
+    engine.evaluate([layer], {}, get_target, set_target, now=2.0)
+
+    assert (layer.id, "temporary") not in engine._runtime
+    assert engine.live_values(layer.id) == {}
+
