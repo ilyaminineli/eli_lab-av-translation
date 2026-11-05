@@ -183,6 +183,9 @@ def test_layer_modifier_targets_only_offer_animated_overlay_playback(qtbot) -> N
     class AnimatedImageStub:
         animated = True
 
+        def close(self) -> None:
+            pass
+
     application = Application()
     try:
         overlay = Layer(
