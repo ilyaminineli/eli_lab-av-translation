@@ -47,7 +47,7 @@ Compatible unlocked layers receive generated AUTO modifiers:
 - Particles: energy speed, onset size, beat trails and phrase spread.
 - Animated overlays: energy playback rate and beat-driven frame hold.
 
-The shared LayerPerformanceModifierEngine evaluates these at the application tick. It respects locks and manual override precedence and restores saved baselines when a source expires or an AUTO modifier is disabled.
+The shared LayerPerformanceModifierEngine evaluates these at the application tick. It respects locks and manual override precedence and restores saved baselines when a source expires or an AUTO modifier is disabled. Generator defaults animate only shader uniforms (`animation_speed`, `animation_amount`, text animation uniforms), particle shader uniforms, and layer transforms such as rotation/scale. Geometry density/rotation, text font-size/letter-spacing and waveform shape parameters stay in the static CPU-raster cache; changing those on every tick would force a full 1600×900 QPainter rasterisation in every active output renderer. The installer automatically migrates the earlier generated AUTO curves off those CPU-rasterized properties.
 
 ### Modulator Bank
 
@@ -71,7 +71,7 @@ Saving a project or performance set while Performance Mode is live writes the ge
 
 ## Diagnostics and recovery
 
-The AUDIO / CONTROL mode status displays OFF, ARMED, LIVE or DEGRADED. Its tooltip and the application diagnostics expose OSC status/counters, last-message age, audio state/queue/drop counters, bounded control queue state, active route/modulator counts, AUTO section/energy/cutoff and video/decode/render metrics.
+The AUDIO / CONTROL mode status displays OFF, ARMED, LIVE or DEGRADED. Its tooltip and the application diagnostics expose OSC status/counters, last-message age, audio state/queue/drop counters, bounded control queue state, active route/modulator counts, AUTO section/energy/cutoff and video/decode/render metrics. The main status bar follows the active projector renderer when a projector window is open; when the local preview dock is hidden, it explicitly reports LOCAL PREVIEW IDLE rather than implying that the projector's OpenGL context failed to initialise.
 
 If Sonic Pi is not started, the mode remains ARMED. If its OSC stream becomes stale, the mode returns to a waiting state and stale musical macros expire. If local audio capture fails, the mode continues in Sonic Pi-macro mode. A receiver startup failure is shown as DEGRADED and can be corrected by stopping/rearming the mode.
 

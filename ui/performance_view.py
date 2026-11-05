@@ -58,6 +58,7 @@ class PerformanceView(QOpenGLWidget):
         except Exception as exc:
             self._initialization_error = str(exc)
             _LOG.exception("Could not initialize the OpenGL renderer")
+            self.render_status_changed.emit(f"OpenGL initialization failed · {exc}")
 
     def paintGL(self) -> None:
         if self._initialization_error:
