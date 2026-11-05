@@ -79,6 +79,8 @@ class Application:
         self.osc_receiver = OSCReceiver(self.submit_control_event)
         self.performance_control = PerformanceControlState()
         self.midi_mapping_engine = MIDIMappingEngine()
+        self._midi_learn_request: dict[str, Any] | None = None
+        self._midi_learn_last_event = ""
         self.performance_scenes: dict[str, PerformanceScene] = {}
         self.midi_input = MIDIInputService(self._handle_midi_event)
         self.transport = InternalTransport()
@@ -284,6 +286,8 @@ class Application:
     def reset_project(self) -> None:
         self.automation.stop()
         self.midi_mapping_engine.load_dict([])
+        self._midi_learn_request = None
+        self._midi_learn_last_event = ""
         self.performance_scenes.clear()
         self._clear_overlays()
         for deck in self.decks.values():
@@ -1523,6 +1527,26 @@ class Application:
         self.midi_input.stop()
         self.events.publish("performance.midi.status", state="stopped", device="", error="")
 
+    def begin_midi_learn(self, target: str, device_id: str = "*", minimum: float = 0.0,
+                         maximum: float = 1.0, curve: str = "linear",
+                         pickup: bool = True) -> None:
+        mapping = MIDIMapping(
+            device_id=device_id, message="cc", number=1, target=target,
+            minimum=minimum, maximum=maximum, curve=curve, pickup=pickup,
+        )
+        mapping.normalize()
+        self._midi_learn_request = {
+            "device_id": mapping.device_id, "target": mapping.target,
+            "minimum": mapping.minimum, "maximum": mapping.maximum,
+            "curve": mapping.curve, "pickup": mapping.pickup,
+        }
+        self._midi_learn_last_event = ""
+        self.events.publish("performance.midi.learn.started", target=target, device=device_id)
+
+    def cancel_midi_learn(self) -> None:
+        self._midi_learn_request = None
+        self.events.publish("performance.midi.learn.cancelled")
+
     def set_midi_mappings(self, mappings: list[MIDIMapping | dict[str, Any]]) -> None:
         self.midi_mapping_engine.replace_mappings(mappings)
         self.events.publish("performance.midi.mappings.updated", count=len(self.midi_mapping_engine.mappings))
@@ -1567,6 +1591,27 @@ class Application:
 
     def _handle_midi_event(self, device_id: str, message: str, channel: int,
                            number: int, value: float) -> None:
+        request = self._midi_learn_request
+        if request is not None and request["device_id"] in {"*", device_id}:
+            learned = MIDIMapping(
+                device_id=device_id, message=message, channel=channel, number=number,
+                target=request["target"], minimum=request["minimum"],
+                maximum=request["maximum"], curve=request["curve"],
+                pickup=request["pickup"],
+            )
+            learned.normalize()
+            self.midi_mapping_engine.replace_mappings(
+                [*self.midi_mapping_engine.mappings, learned]
+            )
+            self._midi_learn_request = None
+            self._midi_learn_last_event = (
+                f"{device_id} · ch {channel + 1} · {message.upper()} {number} → {learned.target}"
+            )
+            self.events.publish(
+                "performance.midi.learned", mapping=learned.to_dict(),
+                description=self._midi_learn_last_event,
+            )
+            return
         for target, mapped in self.midi_mapping_engine.process(
             device_id, message, channel, number, value, self._midi_target_values()
         ):
