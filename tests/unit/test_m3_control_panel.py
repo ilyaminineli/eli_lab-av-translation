@@ -133,3 +133,37 @@ def test_layer_stack_exposes_resizable_table_and_effect_sections(qtbot) -> None:
     finally:
         application.shutdown()
 
+def test_layer_panel_adds_rhythmic_modifiers_to_selected_generator(qtbot) -> None:
+    from ui.layer_panel import LayerPanel
+
+    application = Application()
+    try:
+        geometry = application.add_generator_layer("geometry")
+        text_layer = application.add_generator_layer("text")
+        panel = LayerPanel(application)
+        qtbot.addWidget(panel)
+
+        panel.select_layer(geometry.id)
+        assert panel.performance_modifiers_group.isEnabled()
+        panel.modifier_beat_button.click()
+
+        assert len(geometry.performance_modifiers) == 1
+        geometry_modifier = geometry.performance_modifiers[0]
+        assert geometry_modifier["source_id"] == "transport.beat_pulse"
+        assert geometry_modifier["target_id"] == "generator.animation_amount"
+        assert geometry_modifier["depth"] == 0.1
+        assert panel.modifier_list.count() == 1
+
+        panel.select_layer(text_layer.id)
+        panel.modifier_phrase_button.click()
+        text_modifier = text_layer.performance_modifiers[0]
+        assert text_modifier["source_id"] == "transport.phrase_pulse"
+        assert text_modifier["target_id"] == "generator.text_animation_amount"
+        assert text_modifier["depth"] == 0.34
+
+        panel.refresh_performance_modifiers()
+        assert panel.modifier_list.count() == 1
+        assert "BEAT" in panel.modifier_rhythm_status.text()
+    finally:
+        application.shutdown()
+
