@@ -7,7 +7,7 @@ from typing import Any
 
 from core.composition import Composition
 
-PROJECT_FORMAT = "eli_lab_av_translation"
+PROJECT_FORMAT = "eli_lab_av_translator"
 PROJECT_SCHEMA_VERSION = 2
 
 
@@ -50,7 +50,7 @@ class ProjectManager:
         source = Path(path).expanduser().resolve()
         payload = json.loads(source.read_text(encoding="utf-8"))
         if payload.get("format") != PROJECT_FORMAT:
-            raise ValueError("This file is not an eli_lab AV Translation project.")
+            raise ValueError("This file is not an eli_lab AV Translator project.")
         version = int(payload.get("schema_version", 0))
         if version > PROJECT_SCHEMA_VERSION:
             raise ValueError(

@@ -1,4 +1,4 @@
-# ELI LAB AV Translation
+# ELI LAB AV Translator
 
 A Windows-first live video collage and VJ performance environment. Drop in a footage folder, choose a session rhythm, start automation and send the same GPU composition to a separate fullscreen display or projector.
 
@@ -53,8 +53,8 @@ See docs/SETUP_WINDOWS.md for installation and troubleshooting.
 
 Clone the current main branch:
 
-    git clone https://github.com/ilyaminineli/eli_lab-av-translation.git
-    cd eli_lab-av-translation
+    git clone https://github.com/ilyaminineli/eli_lab-av-translator.git
+    cd eli_lab-av-translator
     git checkout main
     git pull
 
@@ -140,7 +140,7 @@ Windows GitHub Actions runs compilation, unit tests and Ruff.
 
 ## Project data
 
-The media index, thumbnails and logs are stored under %LOCALAPPDATA%\ELI LAB\AV Translation\. Source videos are never copied into a project. .eliav projects store media paths, composition, deck segment settings, effect settings and automation settings.
+The media index, thumbnails and logs are stored under %LOCALAPPDATA%\ELI LAB\AV Translator\. Source videos are never copied into a project. .eliav projects store media paths, composition, deck segment settings, effect settings and automation settings.
 
 ## Current limitations
 

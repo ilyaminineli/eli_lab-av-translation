@@ -4,7 +4,7 @@ Project files use the .eliav extension and contain UTF-8 JSON.
 
 Top-level fields:
 
-- format: must equal eli_lab_av_translation.
+- format: must equal eli_lab_av_translator.
 - schema_version: current version is 2.
 - project: project metadata such as name.
 - composition: canvas dimensions, frame rate, background and ordered layers.

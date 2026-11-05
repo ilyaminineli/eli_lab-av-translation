@@ -1,6 +1,6 @@
 # Windows setup guide
 
-This guide covers a clean installation of eli_lab AV Translation on Windows 10/11.
+This guide covers a clean installation of eli_lab AV Translator on Windows 10/11.
 
 ## 1. System requirements
 
@@ -23,8 +23,8 @@ Check in PowerShell:
 
 ## 3. Get the repository
 
-    git clone https://github.com/ilyaminineli/eli_lab-av-translation.git
-    cd eli_lab-av-translation
+    git clone https://github.com/ilyaminineli/eli_lab-av-translator.git
+    cd eli_lab-av-translator
     git checkout main
     git pull
 
@@ -63,7 +63,7 @@ Dependency metadata is also declared in pyproject.toml. Keep all three files ali
 
 On first launch the application creates local data folders under:
 
-    %LOCALAPPDATA%\eli_lab\AV Translation\
+    %LOCALAPPDATA%\eli_lab\AV Translator\
 
 The media database, thumbnails and logs are kept outside the repository.
 
@@ -104,7 +104,7 @@ Looks are applied to the master composition and shared by the preview and projec
 
 1. Connect and enable the second display or projector in Windows Display Settings.
 2. Set the displays to Extend rather than Duplicate.
-3. In AV Translation, select View → PROJECTOR OUTPUT → Display N.
+3. In AV Translator, select View → PROJECTOR OUTPUT → Display N.
 4. The selected display opens a fullscreen live output.
 5. Press Escape on that output display to close it. The main application remains open.
 
@@ -123,7 +123,7 @@ Run:
 - Update the Intel, AMD or NVIDIA graphics driver.
 - Confirm OpenGL 3.3 Core Profile support.
 - On laptops, set Python to use the high-performance GPU in Windows Graphics settings.
-- Check %LOCALAPPDATA%\eli_lab\AV Translation\logs.
+- Check %LOCALAPPDATA%\eli_lab\AV Translator\logs.
 
 ### A video appears in the library but does not play
 
@@ -149,6 +149,6 @@ Thumbnail generation runs in a background worker. Check PyAV and PySide6 install
 
 The application stores media indexing, thumbnails and logs under:
 
-    %LOCALAPPDATA%\eli_lab\AV Translation\
+    %LOCALAPPDATA%\eli_lab\AV Translator\
 
 A .eliav project stores composition, source paths, segment settings, master effect settings and automation settings. It does not copy source video files.

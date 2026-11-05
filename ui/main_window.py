@@ -40,7 +40,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.application = application
         self.output_manager = OutputWindowManager(application, self)
-        self.setWindowTitle(f"eli_lab AV Translation {APP_VERSION}")
+        self.setWindowTitle(f"eli_lab AV Translator {APP_VERSION}")
         self.resize(1600, 980)
         self.setMinimumSize(980, 640)
         self.setDockOptions(
@@ -528,7 +528,7 @@ class MainWindow(QMainWindow):
     def open_project(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
             self,
-            "Open AV Translation project",
+            "Open AV Translator project",
             "",
             "ELI AV Project (*.eliav);;JSON files (*.json)",
         )
@@ -559,7 +559,7 @@ class MainWindow(QMainWindow):
     def save_project_as(self) -> None:
         path, _ = QFileDialog.getSaveFileName(
             self,
-            "Save AV Translation project",
+            "Save AV Translator project",
             "Untitled.eliav",
             "ELI AV Project (*.eliav)",
         )
@@ -576,8 +576,8 @@ class MainWindow(QMainWindow):
     def show_about(self) -> None:
         QMessageBox.about(
             self,
-            "About eli_lab AV Translation",
-            f"eli_lab AV Translation {APP_VERSION}\n"
+            "About eli_lab AV Translator",
+            f"eli_lab AV Translator {APP_VERSION}\n"
             "Video collage, generative visuals, text art and projector output.\n"
             "M3: internal transport, audio analysis and visual modulation.\n"
             "M4: external Sonic Pi OSC integration.",

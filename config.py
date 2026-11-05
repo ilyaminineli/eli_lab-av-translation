@@ -4,7 +4,7 @@ import logging
 import os
 from pathlib import Path
 
-APP_NAME = "eli_lab AV Translation"
+APP_NAME = "eli_lab AV Translator"
 APP_VERSION = "0.5.0"
 DEFAULT_CANVAS_WIDTH = 1920
 DEFAULT_CANVAS_HEIGHT = 1080
@@ -25,7 +25,7 @@ if os.name == "nt":
 else:
     _app_data_root = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
 
-DATA_DIR = _app_data_root / "eli_lab" / "AV Translation"
+DATA_DIR = _app_data_root / "eli_lab" / "AV Translator"
 CACHE_DIR = DATA_DIR / "cache"
 THUMBNAIL_DIR = CACHE_DIR / "thumbnails"
 MEDIA_DB_PATH = DATA_DIR / "media-library.sqlite3"
@@ -39,7 +39,7 @@ def ensure_data_directories() -> None:
 
 def configure_logging(level: int = logging.INFO) -> None:
     ensure_data_directories()
-    log_file = LOG_DIR / "av-translation.log"
+    log_file = LOG_DIR / "av-translator.log"
     logging.basicConfig(
         level=level,
         format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",

@@ -1,4 +1,4 @@
-# SONATA Expanded — Sonic Pi / AV Translation Integration Notes
+# SONATA Expanded — Sonic Pi / AV Translator Integration Notes
 
 ## Source inspected
 
@@ -18,7 +18,7 @@ This document records the requirements exposed by the actual live patch. It is a
 - The bar clock increments `sp_b_count`, cues `sp_b`, then sleeps for four beats.
 - Scene changes update `sp_sc` and `sp_int`, then cue `sp_sc_change`.
 - A synchronized macro loop updates `sx_m_e` (energy), `sx_m_c` (filter cutoff) and `sx_macro_phr` (phrase index).
-- The patch references a local sample root on drive `F:`; those samples belong to Sonic Pi and do not need to be indexed by AV Translation.
+- The patch references a local sample root on drive `F:`; those samples belong to Sonic Pi and do not need to be indexed by AV Translator.
 
 **Important:** the inspected file contains no `osc`, `osc_send` or `use_osc` calls. Its cues are internal to Sonic Pi. M4 therefore needs a small outbound OSC sender added at the musical control points.
 
@@ -43,7 +43,7 @@ This document records the requirements exposed by the actual live patch. It is a
 | `c` | 12 bars | 0.14 |
 | `end` | — | 0.00 |
 
-The form totals 384 bars before the final end marker. `sp_b_count` increments before `sp_b` is cued, so OSC `bar_index` should preserve the patch's **1-based** bar count. The scene IDs should be treated as stable symbolic names; their visual meaning should be configured in AV Translation rather than inferred from the abbreviations.
+The form totals 384 bars before the final end marker. `sp_b_count` increments before `sp_b` is cued, so OSC `bar_index` should preserve the patch's **1-based** bar count. The scene IDs should be treated as stable symbolic names; their visual meaning should be configured in AV Translator rather than inferred from the abbreviations.
 
 ## Control values worth transmitting
 
@@ -96,7 +96,7 @@ The proposed namespace is `/eli_lab/v1`. The exact argument order is to be froze
 
 Every message should include a monotonically increasing sequence scoped to a unique session ID. A patch restart must use a new session ID so the receiver can distinguish a new run from a delayed/repeated packet in an old run.
 
-Default to loopback (`127.0.0.1`) and a configurable dedicated AV Translation port. Remote-network listening should require deliberate configuration. OSC messages must validate against the registry and must never call arbitrary Python methods.
+Default to loopback (`127.0.0.1`) and a configurable dedicated AV Translator port. Remote-network listening should require deliberate configuration. OSC messages must validate against the registry and must never call arbitrary Python methods.
 
 ## Proposed visual interpretation
 
@@ -116,7 +116,7 @@ The app must retain lock, hold, safety-range and manual-override precedence. Son
 - Add a single small OSC helper and call it from the existing scene, clock, macro and end points.
 - Use an explicit host/port; avoid relying on an implicit default receiver.
 - Confirm the installed Sonic Pi version supports the chosen sender API.
-- Keep OSC output optional so the patch still runs when AV Translation is closed.
+- Keep OSC output optional so the patch still runs when AV Translator is closed.
 - Provide a toggle or safe no-op path for rehearsal without the visual application.
 - Test that OSC messages remain aligned with the patch's own scheduled clock.
 

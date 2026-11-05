@@ -1,4 +1,4 @@
-# eli_lab AV Translation — Product Roadmap
+# eli_lab AV Translator — Product Roadmap
 
 **Roadmap snapshot:** 5 November 2026  
 **Current priority:** M3 software implementation is complete; perform physical Windows audio/loopback sign-off, then begin M4 Sonic Pi OSC integration. The Video Mixer hardware release gate remains a separate open track.
@@ -309,7 +309,7 @@ See [M3 Audio-Reactive Foundation](M3_AUDIO_REACTIVE_FOUNDATION.md).
 
 ## Objective
 
-Make Sonic Pi a first-class, time-aware control source for the visual instrument using a documented, versioned OSC protocol. Sonic Pi remains responsible for audio synthesis and musical structure; AV Translation receives only high-level transport, scene and macro intent.
+Make Sonic Pi a first-class, time-aware control source for the visual instrument using a documented, versioned OSC protocol. Sonic Pi remains responsible for audio synthesis and musical structure; AV Translator receives only high-level transport, scene and macro intent.
 
 ## SONATA patch requirements
 
@@ -327,7 +327,7 @@ M4 should add a small sender at the existing musical control points—not a pack
 
 - OSC receiver on a configurable local bind address and dedicated port (loopback by default).
 - Versioned namespace, initially `/eli_lab/v1`.
-- Translation into the M3 `ControlEvent` contract.
+- Translator into the M3 `ControlEvent` contract.
 - Transport start/stop/tempo, bar position, scene select/intensity, named macro and cue events.
 - Session IDs and per-session sequence numbers for restart-safe de-duplication.
 - Connection freshness / heartbeat indicator, last-message diagnostics and bounded event ingress.
