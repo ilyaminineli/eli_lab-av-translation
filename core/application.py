@@ -1013,6 +1013,18 @@ class Application:
             self.events.publish("performance.modulator_bank.updated")
         return removed
 
+    def export_modulator_presets(self, path: str | Path) -> Path:
+        return self.modulator_bank.export_presets(path)
+
+    def import_modulator_presets(self, path: str | Path) -> int:
+        imported = self.modulator_bank.import_presets(path)
+        if imported:
+            self.events.publish(
+                "performance.modulator_bank.updated",
+                imported=imported,
+            )
+        return imported
+
     def apply_layer_performance_modifiers(
             self,
             now: float | None = None,
