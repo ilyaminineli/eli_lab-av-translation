@@ -432,13 +432,11 @@ def test_global_selected_layer_manual_override_yields_local_layer_modifier() -> 
 
 def test_local_modifier_takes_and_releases_target_from_global_route() -> None:
     from core.application import Application
-    from core.audio_analysis import AudioAnalysisSettings
     from core.automation import AutomationDirector
     from core.event_bus import EventBus
     from core.modulation import ModulationMatrix, ModulationRoute
     from core.performance_control import PerformanceControlState
     from core.performance_transport import InternalTransport
-    from core.scene_profiles import SceneProfileRegistry
     from effects.settings import EffectSettings
 
     layer = Layer(
