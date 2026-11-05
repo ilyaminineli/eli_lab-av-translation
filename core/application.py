@@ -1716,6 +1716,8 @@ class Application:
                 "modulator_bank": self.modulator_bank.to_dict(),
 "midi_mappings": self.midi_mapping_engine.to_dict(),
 "performance_scenes": [scene.to_dict() for scene in self.performance_scenes.values()],
+"midi_mappings": self.midi_mapping_engine.to_dict(),
+"performance_scenes": [scene.to_dict() for scene in self.performance_scenes.values()],
                 "midi_mappings": self.midi_mapping_engine.to_dict(),
                 "performance_scenes": [scene.to_dict() for scene in self.performance_scenes.values()],
             },
