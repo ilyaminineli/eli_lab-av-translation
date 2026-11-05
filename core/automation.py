@@ -495,7 +495,7 @@ class AutomationDirector:
                 self.running = False
                 self.last_action = "SONATA end scene · automation stopped"
                 return True
-            if self.settings.musical_sync in {"time", "bar"}:
+            if self.settings.musical_sync == "time":
                 return False
         elif event == "bar":
             if self.settings.musical_sync not in {"bar", "hybrid"}:
@@ -507,6 +507,7 @@ class AutomationDirector:
             return False
 
         energy = self._performance_energy
+        cutoff = self._performance_cutoff
         intensity = self._performance_intensity
         if self.settings.performance_style == "random":
             strength = 0.22 + 0.24 * energy + 0.20 * intensity
@@ -522,36 +523,73 @@ class AutomationDirector:
         else:
             strength = 0.12 + 0.68 * max(energy, intensity)
         strength = max(0.05, min(0.94, strength))
+        cutoff_drive = 0.65 + 0.7 * cutoff
 
         changed = False
-        if event in {"scene", "phrase"}:
-            if self.settings.randomize_layout and self.rng.random() < strength:
+        if event in {"scene", "phrase"} or (
+            event == "bar" and self.settings.performance_style == "generative"
+        ):
+            if (
+                self.settings.randomize_layout
+                and (self._layout_due is None or stamp >= self._layout_due)
+                and self.rng.random() < min(0.98, strength * cutoff_drive)
+            ):
                 self._randomize_layout()
-                changed = True
-            if self.settings.randomize_effects and self.rng.random() < strength * 0.8:
-                self._randomize_effects()
+                self._layout_due = stamp + self._interval(
+                    self.rng,
+                    self.settings.min_layout_interval,
+                    self.settings.max_layout_interval,
+                )
                 changed = True
             if (
-                self.settings.randomize_generators
-                or self.settings.randomize_palette
-                or self.settings.randomize_layer_effects
-                or self.settings.randomize_overlays
-            ) and self.rng.random() < min(0.96, strength * 1.08):
+                self.settings.randomize_effects
+                and (self._effects_due is None or stamp >= self._effects_due)
+                and self.rng.random() < min(0.96, strength * (0.8 + 0.2 * energy))
+            ):
+                self._randomize_effects()
+                self._effects_due = stamp + self._interval(
+                    self.rng,
+                    self.settings.min_effect_interval,
+                    self.settings.max_effect_interval,
+                )
+                changed = True
+            if (
+                (
+                    self.settings.randomize_generators
+                    or self.settings.randomize_palette
+                    or self.settings.randomize_layer_effects
+                    or self.settings.randomize_overlays
+                )
+                and (self._generators_due is None or stamp >= self._generators_due)
+                and self.rng.random() < min(0.98, strength * (0.75 + 0.25 * cutoff))
+            ):
                 changed = bool(self._randomize_generators()) or changed
-            if event == "phrase":
-                self._trigger_phrase_cuts(stamp, min(0.88, strength * 0.42))
+                self._generators_due = stamp + self._interval(
+                    self.rng,
+                    self.settings.min_generator_interval,
+                    self.settings.max_generator_interval,
+                )
 
+        if event == "phrase":
+            self._trigger_phrase_cuts(
+                stamp,
+                min(0.95, strength * self.settings.clip_switch_probability),
+            )
         elif event == "bar" and self.settings.performance_style == "generative":
-            # Bar-level changes remain subtle; the phrase/scene remains the larger
-            # compositional unit. High energy only increases the chance of a cut.
-            self._trigger_phrase_cuts(stamp, min(0.35, strength * 0.18))
+            self._trigger_phrase_cuts(
+                stamp,
+                min(0.35, strength * self.settings.clip_switch_probability * 0.22),
+            )
 
         self._last_musical_event_at = stamp
-        section = f"{self._performance_section} · " if self._performance_section != "idle" else ""
+        section = (
+            f"{self._performance_section} · "
+            if self._performance_section != "idle" else ""
+        )
         action = "musical variation" if changed else "musical cue evaluated"
         self.last_action = (
             f"{section}{action} · {event} · energy {energy:.2f} · "
-            f"intensity {intensity:.2f}"
+            f"cutoff {cutoff:.2f} · intensity {intensity:.2f}"
         )
         return changed
 
@@ -559,7 +597,10 @@ class AutomationDirector:
         if not self._assets:
             return
         for deck_id, deck in self._decks.items():
-            if getattr(deck, "locked", False) or self.rng.random() >= probability:
+            if getattr(deck, "locked", False):
+                continue
+            due = self._deck_due.get(deck_id, 0.0)
+            if now < due or self.rng.random() >= probability:
                 continue
             self._load_random_segment(deck, getattr(deck, "asset_id", None), now)
 
