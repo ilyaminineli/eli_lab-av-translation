@@ -13,7 +13,7 @@ from core.automation import AutomationDirector, AutomationSettings
 from core.composition import Composition, Layer
 from core.event_bus import EventBus
 from core.layer_manager import LayerManager
-from core.modulation import ModulationMatrix, TARGET_SPECS
+from core.modulation import TARGET_SPECS, ModulationMatrix
 from core.performance_control import ControlEvent, ControlEventQueue, PerformanceControlState
 from core.performance_manager import PerformanceManager
 from core.performance_transport import InternalTransport, Quantization
