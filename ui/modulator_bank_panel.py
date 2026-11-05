@@ -28,6 +28,7 @@ from core.application import Application
 from core.modulator_bank import (
     TRIGGER_SOURCES,
     ModulatorDefinition,
+    euclidean_pattern,
 )
 from core.performance_modifiers import (
     PERFORMANCE_MODIFIER_TARGETS,
@@ -191,6 +192,23 @@ class ModulatorBankPanel(QWidget):
         self.seed_spin = QSpinBox()
         self.seed_spin.setRange(0, 2_147_483_647)
         self.seed_spin.setValue(211)
+        self.euclidean_group = QGroupBox("EUCLIDEAN RHYTHM GENERATOR")
+        euclidean_form = QFormLayout(self.euclidean_group)
+        self.euclidean_pulses = QSpinBox()
+        self.euclidean_pulses.setRange(0, 64)
+        self.euclidean_pulses.setValue(3)
+        self.euclidean_steps = QSpinBox()
+        self.euclidean_steps.setRange(1, 64)
+        self.euclidean_steps.setValue(8)
+        self.euclidean_rotation = QSpinBox()
+        self.euclidean_rotation.setRange(0, 63)
+        self.euclidean_rotation.setValue(0)
+        self.euclidean_generate_button = QPushButton("GENERATE EUCLIDEAN PATTERN")
+        euclidean_form.addRow("PULSES", self.euclidean_pulses)
+        euclidean_form.addRow("GRID STEPS", self.euclidean_steps)
+        euclidean_form.addRow("ROTATION", self.euclidean_rotation)
+        euclidean_form.addRow(self.euclidean_generate_button)
+        sequence_form.addRow(self.euclidean_group)
         sequence_form.addRow("STEP VALUES · 0–1", self.steps_edit)
         sequence_form.addRow("DIVISION · BEATS", self.division_spin)
         sequence_form.addRow("STEP RATE · HZ (FREE)", self.step_rate_spin)
@@ -272,6 +290,12 @@ class ModulatorBankPanel(QWidget):
         )
         self.assign_button.clicked.connect(self._assign_selected)
         self.sync_combo.currentIndexChanged.connect(self._sync_timebase_controls)
+        self.euclidean_steps.valueChanged.connect(
+            lambda value: self.euclidean_pulses.setMaximum(value)
+        )
+        self.euclidean_generate_button.clicked.connect(
+            self._generate_euclidean_pattern
+        )
         self.refresh()
 
     @staticmethod
@@ -416,6 +440,14 @@ class ModulatorBankPanel(QWidget):
         self.swing_spin.setValue(definition.swing)
         self.sequence_pulse_width.setValue(definition.pulse_width)
         self.seed_spin.setValue(definition.seed)
+        self.euclidean_steps.setValue(len(definition.step_values))
+        self.euclidean_pulses.setValue(
+            min(
+                self.euclidean_steps.value(),
+                sum(1 for value in definition.step_values if value >= 0.5),
+            )
+        )
+        self.euclidean_group.setVisible(definition.kind == "rhythm")
         self.lfo_group.setVisible(definition.kind == "lfo")
         self.envelope_group.setVisible(definition.kind == "envelope")
         self.sequence_group.setVisible(definition.kind in {"steps", "rhythm"})
@@ -443,6 +475,18 @@ class ModulatorBankPanel(QWidget):
         self._loading = False
         self._sync_timebase_controls()
         self.refresh_assignment_targets()
+
+    def _generate_euclidean_pattern(self) -> None:
+        pulses = min(
+            self.euclidean_pulses.value(),
+            self.euclidean_steps.value(),
+        )
+        pattern = euclidean_pattern(
+            pulses,
+            self.euclidean_steps.value(),
+            self.euclidean_rotation.value(),
+        )
+        self.steps_edit.setText(", ".join(f"{value:g}" for value in pattern))
 
     def _selection_changed(self, current, _previous) -> None:
         if self._loading:
