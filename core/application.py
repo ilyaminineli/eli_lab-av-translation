@@ -14,6 +14,7 @@ from core.composition import Composition, Layer
 from core.event_bus import EventBus
 from core.layer_manager import LayerManager
 from core.modulation import TARGET_SPECS, ModulationMatrix
+from core.osc_protocol import OSCReceiver
 from core.performance_control import ControlEvent, ControlEventQueue, PerformanceControlState
 from core.performance_manager import PerformanceManager
 from core.performance_transport import InternalTransport, Quantization
@@ -38,6 +39,7 @@ class Application:
     def __init__(self) -> None:
         self.events = EventBus()
         self.control_events = ControlEventQueue()
+        self.osc_receiver = OSCReceiver(self.submit_control_event)
         self.performance_control = PerformanceControlState()
         self.transport = InternalTransport()
         self.scene_profiles = SceneProfileRegistry()
@@ -381,6 +383,19 @@ class Application:
         self.automation.replace_assets(assets)
         self.events.publish("automation.media_pool_changed", count=len(assets))
         return True
+
+    def start_osc_receiver(self, bind_address: str = "127.0.0.1", port: int = 57121) -> int:
+        """Start the versioned Sonic Pi OSC ingress on a dedicated UDP port."""
+        actual_port = self.osc_receiver.start(bind_address, port)
+        self.events.publish("performance.osc.started", bind_address=bind_address, port=actual_port)
+        return actual_port
+
+    def stop_osc_receiver(self) -> bool:
+        """Stop the OSC worker without changing the visual transport state."""
+        stopped = self.osc_receiver.stop()
+        if stopped:
+            self.events.publish("performance.osc.stopped")
+        return stopped
 
     def submit_control_event(self, event: ControlEvent) -> bool:
         """Submit a normalized event from an internal or future external source."""
@@ -910,6 +925,7 @@ class Application:
         self.events.publish("project.loaded", path=self.current_project_path)
 
     def shutdown(self) -> None:
+        self.osc_receiver.stop()
         self.control_events.clear()
         self.audio_capture.shutdown()
         self.transport.stop()
