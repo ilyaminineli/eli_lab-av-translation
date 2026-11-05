@@ -767,6 +767,32 @@ class GeneratorsPanel(QWidget):
         layer = self._selected_layer()
         if layer is None:
             return
+        editable_controls = (
+            self.opacity_slider,
+            self.overlay_speed_spin,
+            self.overlay_frame_hold_spin,
+            self.text_animation_speed_slider,
+            self.text_animation_amount_slider,
+            self.text_size_slider,
+            self.tracking_slider,
+            self.geometry_density_slider,
+            self.amplitude_slider,
+            self.frequency_slider,
+            self.waveform_density_slider,
+            self.particle_density_slider,
+            self.particle_speed_slider,
+            self.particle_size_slider,
+            self.particle_spread_slider,
+            self.particle_trail_slider,
+            self.speed_slider,
+            self.amount_slider,
+        )
+        if any(
+                control.hasFocus()
+                or (isinstance(control, QSlider) and control.isSliderDown())
+                for control in editable_controls
+        ):
+            return
         self.opacity_slider.blockSignals(True)
         self.opacity_slider.setValue(round(layer.opacity * 100))
         self.opacity_slider.blockSignals(False)
