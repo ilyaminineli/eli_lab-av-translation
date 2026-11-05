@@ -158,7 +158,9 @@ DEFAULT_MATRIX_ROUTES: tuple[tuple[str, str, float, float, bool, float], ...] = 
     ("macro.energy", "automation.clip_switch_probability", 0.12, 0.82, False, 0.78),
     ("macro.cutoff", "automation.cut_interval", 24.0, 3.0, False, 0.72),
     ("transport.intensity", "automation.layout_interval", 34.0, 7.0, False, 0.68),
-    ("audio.onset", "automation.generator_interval", 36.0, 9.0, False, 0.55),
+    ("macro.energy", "automation.generator_interval", 36.0, 9.0, False, 0.62),
+    ("macro.cutoff", "automation.effect_interval", 30.0, 8.0, False, 0.58),
+    ("audio.onset", "automation.min_segment_seconds", 18.0, 3.0, False, 0.55),
 )
 
 
