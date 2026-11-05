@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 from core.application import Application
+from core.composition import Composition
 from core.event_bus import EventBus
 from core.performance_control import ControlEvent, ControlEventQueue, PerformanceControlState
+from core.scene_profiles import SceneProfileRegistry
+from effects.settings import EffectSettings
 
 
 def test_application_drains_control_queue_and_publishes_one_snapshot() -> None:
@@ -10,6 +13,9 @@ def test_application_drains_control_queue_and_publishes_one_snapshot() -> None:
     application.events = EventBus()
     application.control_events = ControlEventQueue()
     application.performance_control = PerformanceControlState()
+    application.scene_profiles = SceneProfileRegistry()
+    application.effects = EffectSettings()
+    application.composition = Composition()
     updates = []
     application.events.subscribe(
         "performance.control.updated",
