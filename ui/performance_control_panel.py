@@ -273,7 +273,8 @@ class PerformanceControlPanel(QWidget):
         preset_buttons.addWidget(self.sonic_pi_reactive_button)
         modulation_layout.addLayout(preset_buttons)
         self.modulation_status = QLabel(
-            "Routes can control Auto Performance, selected layers, generators, text and animated overlays."
+            "Routes can control Auto Performance, selected layers, generators, "
+            "text and animated overlays."
         )
         self.modulation_status.setWordWrap(True)
         modulation_layout.addWidget(self.modulation_status)
