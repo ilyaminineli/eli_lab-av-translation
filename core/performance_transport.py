@@ -211,6 +211,7 @@ class InternalTransport:
                         "scene_id": item.scene_id,
                         "intensity": item.intensity,
                         "bar_index": bar_index,
+                    },
                     received_at=beat_time,
                 ))
                 self._pending_scenes.remove(item)
