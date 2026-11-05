@@ -155,8 +155,8 @@ class MainWindow(QMainWindow):
         self._create_actions()
         # Keep a pristine Qt dock-state snapshot for the View → Restore Default Layout action.
         self._default_dock_state = self.saveState(4)
-        saved_geometry = self._ui_settings.value("ui/main_window_geometry")
-        saved_state = self._ui_settings.value("ui/main_window_state_v4")
+        saved_geometry = self._ui_settings.value("ui/main_window_geometry_v2")
+        saved_state = self._ui_settings.value("ui/main_window_state_v5")
         restored = False
         if saved_geometry and saved_state:
             restored = (
@@ -228,7 +228,7 @@ class MainWindow(QMainWindow):
             dock.show()
         self.layer_dock.raise_()
         QTimer.singleShot(0, self._apply_default_dock_sizes)
-        self._ui_settings.setValue("ui/main_window_state_v4", self._default_dock_state)
+        self._ui_settings.setValue("ui/main_window_state_v5", self._default_dock_state)
         self._ui_settings.sync()
         self.statusBar().showMessage("Default workspace layout restored.", 4000)
 
@@ -622,8 +622,8 @@ class MainWindow(QMainWindow):
         )
 
     def closeEvent(self, event) -> None:
-        self._ui_settings.setValue("ui/main_window_geometry", self.saveGeometry())
-        self._ui_settings.setValue("ui/main_window_state_v4", self.saveState(4))
+        self._ui_settings.setValue("ui/main_window_geometry_v2", self.saveGeometry())
+        self._ui_settings.setValue("ui/main_window_state_v5", self.saveState(4))
         self._runtime_timer.stop()
         self._status_timer.stop()
         self.media_browser.shutdown_workers()
