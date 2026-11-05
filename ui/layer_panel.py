@@ -593,7 +593,7 @@ class LayerPanel(QWidget):
             if str(raw.get("modifier_id", "")) == modifier_id:
                 raw["enabled"] = bool(enabled)
                 break
-        self.refresh_performance_modifiers(force=True)
+        self._modifier_signature = ()
 
     def refresh_performance_modifiers(self, force: bool = False) -> None:
         layer = self._selected_layer()
@@ -625,10 +625,14 @@ class LayerPanel(QWidget):
             self._modifier_signature = ()
             self.modifier_remove_button.setEnabled(False)
             return
-        records = [
-            raw for raw in layer.performance_modifiers
-            if isinstance(raw, dict)
-        ]
+        records = []
+        for raw in layer.performance_modifiers:
+            if not isinstance(raw, dict):
+                continue
+            try:
+                records.append(LayerPerformanceModifier.from_dict(raw).to_dict())
+            except (TypeError, ValueError, KeyError):
+                continue
         self.modifier_remove_button.setEnabled(bool(records))
         signature = tuple(
             (
