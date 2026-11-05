@@ -500,7 +500,12 @@ class Application:
         next_id = layer_id or None
         if next_id == self._selected_layer_id:
             return
-        for target_id in ("selected_layer.opacity", "selected_layer.rotation"):
+        for target_id in (
+            "selected_layer.opacity",
+            "selected_layer.rotation",
+            "generator.animation_amount",
+            "generator.density",
+        ):
             base = self._modulation_base_values.pop(target_id, None)
             if base is not None:
                 self._set_modulation_target(target_id, base)
@@ -710,12 +715,13 @@ class Application:
         self.events.publish("performance.modulation.updated")
 
     def tick_performance_control(self) -> int:
-        for event in self.transport.tick():
+        clock_events = self.transport.tick()
+        for event in clock_events:
             self.submit_control_event(event)
-        self.process_control_events()
-        self.process_audio_frames()
+        processed_events = self.process_control_events()
+        processed_audio = self.process_audio_frames()
         self.apply_modulation()
-        return len(self.control_events)
+        return processed_events + processed_audio + len(clock_events)
 
     def tick_automation(self) -> bool:
         changed = self.automation.tick()
@@ -758,6 +764,12 @@ class Application:
         self.control_events.clear()
         self.performance_control.reset()
         self.transport.stop()
+        self.transport.load_settings({
+            "bpm": 120.0,
+            "beats_per_bar": 4,
+            "phrase_bars": 4,
+        })
+        self.audio_capture.update_settings(AudioAnalysisSettings())
         self.scene_profiles = SceneProfileRegistry()
         self.modulation.reset_runtime()
         self._modulation_base_values.clear()
