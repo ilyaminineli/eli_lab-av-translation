@@ -590,7 +590,9 @@ class PerformanceControlPanel(QWidget):
             self.midi_status_label.setText(f"Invalid mapping · {exc}")
             return
         self.refresh_midi_mappings(force=True)
-        self.midi_status_label.setText("MIDI mapping updated · save the performance set to persist it.")
+        self.midi_status_label.setText(
+            "MIDI mapping updated · save the performance set to persist it."
+        )
 
     def _remove_selected_midi_mapping(self) -> None:
         item = self.midi_mapping_list.currentItem()
