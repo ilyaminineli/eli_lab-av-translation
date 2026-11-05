@@ -406,6 +406,15 @@ class Application:
         processed = 0
         for event in self.control_events.drain(max_events):
             try:
+                if event.source == "sonic_pi" and event.kind == "transport.start":
+                    # Sonic Pi is the clock authority while its session is active.
+                    self.transport.stop()
+                    self.transport.set_tempo(float(event.payload["bpm"]))
+                    self.transport.set_meter(int(event.payload["beats_per_bar"]))
+                elif event.source == "sonic_pi" and event.kind == "transport.tempo":
+                    self.transport.set_tempo(float(event.payload["bpm"]))
+                elif event.source == "sonic_pi" and event.kind == "transport.stop":
+                    self.transport.stop()
                 if self.performance_control.apply(event):
                     processed += 1
                     if event.kind == "scene.select":
