@@ -23,6 +23,7 @@ class Layer:
     z_index: int = 0
     generator_type: str | None = None
     generator_settings: dict[str, Any] = field(default_factory=dict)
+    performance_modifiers: list[dict[str, Any]] = field(default_factory=list)
     layer_effects: dict[str, Any] = field(default_factory=dict)
     fx_manual_override_until: float = 0.0
     overlay_manual_override_until: float = 0.0
@@ -47,6 +48,11 @@ class Layer:
         self.overlay_speed = max(0.1, min(4.0, float(self.overlay_speed)))
         self.overlay_frame_hold = max(1, min(24, int(self.overlay_frame_hold)))
         self.overlay_loop = bool(self.overlay_loop)
+        if not isinstance(self.performance_modifiers, list):
+            self.performance_modifiers = []
+        self.performance_modifiers = [
+            dict(item) for item in self.performance_modifiers if isinstance(item, dict)
+        ]
         if self.overlay_mask_mode not in {"none", "alpha", "luma"}:
             self.overlay_mask_mode = "none"
         self.position = tuple(float(v) for v in self.position[:2])
@@ -65,7 +71,8 @@ class Layer:
         allowed = {
             "id", "name", "source_type", "source_id", "visible", "locked",
             "opacity", "blend_mode", "position", "scale", "rotation", "z_index",
-            "generator_type", "generator_settings", "layer_effects", "fx_manual_override_until",
+            "generator_type", "generator_settings", "performance_modifiers",
+            "layer_effects", "fx_manual_override_until",
             "overlay_manual_override_until",
             "overlay_path", "overlay_kind", "overlay_in", "overlay_out",
             "overlay_speed", "overlay_frame_hold", "overlay_loop",
@@ -76,6 +83,8 @@ class Layer:
             values["generator_settings"] = {}
         if not isinstance(values.get("layer_effects", {}), dict):
             values["layer_effects"] = {}
+        if not isinstance(values.get("performance_modifiers", []), list):
+            values["performance_modifiers"] = []
         return cls(**values)
 
 
