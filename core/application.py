@@ -763,7 +763,24 @@ class Application:
         values["transport.beat_pulse"] = beat_pulse
         values["transport.downbeat_pulse"] = downbeat_pulse
         values["transport.phrase_pulse"] = phrase_pulse
+
+        # SONATA sends energy/cutoff once per bar. Keep those controls live
+        # across the bar, but release them after the same bounded freshness
+        # window as the external clock instead of holding a stale macro forever.
+        macro_fresh_for = max(
+            5.0,
+            (60.0 / max(20.0, float(self.performance_control.bpm)))
+            * max(1, beats_per_bar)
+            * 2.0,
+        )
+        now = time.monotonic()
+        macro_timestamps = getattr(
+            self.performance_control, "macro_updated_at", {}
+        )
         for name, value in self.performance_control.macros.items():
+            updated_at = macro_timestamps.get(name)
+            if updated_at is None or now - float(updated_at) > macro_fresh_for:
+                continue
             values[f"macro.{name}"] = value
         return values
 
