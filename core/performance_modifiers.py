@@ -169,40 +169,47 @@ class LayerPerformanceModifierEngine:
             self,
             layer_id: str,
             target_ids: set[str],
+            modifier_records: list[dict[str, object]],
             duration_seconds: float = 3.0,
             now: float | None = None,
     ) -> None:
         stamp = time.monotonic() if now is None else float(now)
+        affected_ids: set[str] = set()
         for target_id in target_ids:
             key = (layer_id, target_id)
             self._manual_until[key] = stamp + max(0.0, float(duration_seconds))
             self._base_values.pop(key, None)
             self._active_targets.discard(key)
-            self._live_values = {
-                live_key: value for live_key, value in self._live_values.items()
-                if not (live_key[0] == layer_id and live_key[1] in target_ids)
-            }
-            for runtime_key in tuple(self._runtime):
-                if runtime_key[0] == layer_id:
-                    self._runtime.pop(runtime_key, None)
+            for raw in modifier_records:
+                if not isinstance(raw, dict) or raw.get("target_id") != target_id:
+                    continue
+                affected_ids.add(str(raw.get("modifier_id", "")))
+        for runtime_key in tuple(self._runtime):
+            if runtime_key[0] == layer_id and runtime_key[1] in affected_ids:
+                self._runtime.pop(runtime_key, None)
+                self._live_values.pop(runtime_key, None)
 
-    def claimed_targets(self, layer_id: str | None, now: float | None = None) -> set[str]:
-        if not layer_id:
+    def claimed_targets(self, layer, now: float | None = None) -> set[str]:
+        if layer is None:
             return set()
+        layer_id = str(layer.id)
         stamp = time.monotonic() if now is None else float(now)
         result: set[str] = set()
-        # Claim a target only while a compatible enabled modifier is configured.
-        # The actual evaluation still decides whether its source is currently present.
-        return {
-            modifier.target_id
-            for modifier in self._configured_modifiers(layer_id)
-            if modifier.enabled
-            and stamp >= self._manual_until.get((layer_id, modifier.target_id), 0.0)
-        }
-
-    def _configured_modifiers(self, layer_id: str) -> list[LayerPerformanceModifier]:
-        # Layer records are supplied to evaluate(); this lookup is populated there.
-        return []
+        for raw in getattr(layer, "performance_modifiers", []):
+            if not isinstance(raw, dict):
+                continue
+            try:
+                modifier = LayerPerformanceModifier.from_dict(raw)
+            except (TypeError, ValueError, KeyError):
+                continue
+            if (
+                    modifier.enabled
+                    and stamp >= self._manual_until.get(
+                        (layer_id, modifier.target_id), 0.0
+                    )
+            ):
+                result.add(modifier.target_id)
+        return result
 
     def reset(self) -> None:
         self._runtime.clear()
@@ -236,7 +243,6 @@ class LayerPerformanceModifierEngine:
         stamp = time.monotonic() if now is None else float(now)
         contributions: dict[tuple[str, str], float] = {}
         current_live: dict[tuple[str, str], float] = {}
-        configured_by_layer: dict[str, list[LayerPerformanceModifier]] = {}
         for layer in layers:
             parsed: list[LayerPerformanceModifier] = []
             for raw in getattr(layer, "performance_modifiers", []):
@@ -246,7 +252,6 @@ class LayerPerformanceModifierEngine:
                     parsed.append(LayerPerformanceModifier.from_dict(raw))
                 except (TypeError, ValueError, KeyError):
                     continue
-            configured_by_layer[str(getattr(layer, "id", ""))] = parsed
             if getattr(layer, "locked", False):
                 continue
             layer_id = str(getattr(layer, "id", ""))
