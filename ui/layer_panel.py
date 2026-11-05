@@ -79,7 +79,7 @@ class LayerPanel(QWidget):
         self.selected_blend_combo.addItems(_BLEND_MODES)
         blend_row.addWidget(self.selected_blend_combo, 1)
         transform_layout.addLayout(blend_row)
-        controls_layout.addWidget(transform_group)
+        controls_layout.addWidget(self.transform_group)
 
         self.layer_fx_group = QGroupBox("SELECTED LAYER EFFECT STACK")
         layer_fx_layout = QVBoxLayout(self.layer_fx_group)
