@@ -215,6 +215,7 @@ def builtin_modulator_presets() -> list[ModulatorPreset]:
             "A transient follower with a punchy attack and release.",
             name="Audio onset",
             kind="envelope",
+            sync_mode="free",
             trigger_source="audio.onset",
             attack=0.01,
             decay=0.1,
