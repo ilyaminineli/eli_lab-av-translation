@@ -2,7 +2,7 @@
 
 A Windows-first live video collage and VJ performance environment. Drop in a footage folder, choose a session rhythm, start automation and send the same GPU composition to a separate fullscreen display or projector.
 
-M0–M2 establish the visual instrument. M3 provides internal transport, optional audio capture/analysis and a visual modulation matrix. M4 adds Sonic Pi as a versioned, timed OSC control source to that shared performance-control layer. Audio playback remains the responsibility of Sonic Pi or another external audio application.
+M0–M2 establish the visual instrument. M3 provides internal transport, optional audio capture/analysis and a visual modulation matrix. M4 adds Sonic Pi as a versioned, timed OSC control source. M5 adds a one-button autonomous show workflow: arm Performance Mode, run SONATA in Sonic Pi, and let musical cues, macros, audio reactivity, modulation curves and AUTO PERFORMANCE run together. Audio playback remains the responsibility of Sonic Pi or another external audio application.
 
 ## Current implementation
 
@@ -37,7 +37,7 @@ M0–M2 establish the visual instrument. M3 provides internal transport, optiona
 
 ## Development roadmap
 
-See [docs/ROADMAP.md](docs/ROADMAP.md) for the M0–M5 plan, implementation status and the Video Mixer Completion Gate. The visual release gate remains open while M3 control/audio foundations proceed.
+See [docs/ROADMAP.md](docs/ROADMAP.md) for the M0–M5 plan, implementation status and the Video Mixer Completion Gate. See [M5 Autonomous Performance](docs/M5_AUTONOMOUS_PERFORMANCE.md) for the one-button Sonic Pi workflow. The visual release gate remains open while M3 control/audio foundations proceed.
 
 ## System requirements
 
@@ -73,18 +73,17 @@ Launch:
 
     python main.py
 
-## First unattended session
+## One-button autonomous performance
 
-1. Drag a folder of videos from Windows Explorer into the Media Library, or select File → Add Media Folder.
-2. Wait for the folder scan to finish.
-3. Open the AUTO PERFORMANCE panel.
-4. Choose the footage pool, session length, cut rhythm, segment length and loop probability.
-5. Leave layout and filter-look automation enabled.
-6. Press START AUTOMATIC SESSION.
-7. Open View → PROJECTOR OUTPUT → Display N to send the same live composition to a second display or projector.
-8. Press Escape on the projector output to close that output window. Stop automation in the main window when finished.
+1. Prepare the composition: import footage, add geometry/text/waveform/particle generators, and place any animated overlays.
+2. In **AUDIO / CONTROL**, choose **System loopback** for FFT-style reactivity to the sound playing on this computer. The selector prefers an available loopback device. Choose **Sonic Pi macros only** when you want SONATA energy/cutoff controls without local audio capture.
+3. In **AUTO PERFORMANCE**, choose Generative or Structured style, Phrase/Hybrid sync, session length and the automation options you want. The default autonomous setup is Generative + Phrase-synchronised, with no automatic time limit.
+4. Press **PERFORMANCE MODE** in the main toolbar. The application opens the `/eli_lab/v1` OSC receiver, starts the selected local audio capture if requested, enables the generated routing curves and arms AUTO PERFORMANCE.
+5. Run **SONATA Expanded** in Sonic Pi. The first transport/start or clock/bar event switches the app to LIVE and starts AUTO PERFORMANCE. SONATA scene changes and phrase cues drive visual variations; energy/cutoff, audio bands and rhythm feed the modulation system.
+6. Open View → PROJECTOR OUTPUT → Display N to send the live composition to a second display or projector.
+7. Stop SONATA to stop AUTO PERFORMANCE at the patch's transport/stop event. Press **STOP PERFORMANCE MODE** when you want to release resources and restore generated modulation baselines.
 
-The deck and layer lock controls are respected by automation. Lock anything that should remain untouched.
+Sonic Pi macros are normalized musical control signals, not raw audio samples. For actual audio-band analysis of Sonic Pi output, select the system-loopback device as well. If loopback is unavailable, Sonic Pi transport, energy and cutoff still drive the show. User-created routes and modifiers are preserved; Performance Mode adds missing defaults and disables its generated defaults again when stopped.
 
 ## Media library cleanup
 
@@ -128,19 +127,18 @@ Sonic Pi remains the audio and musical-clock authority. The receiver validates s
 
 The EFFECTS + OVERLAYS panel controls the master output. Presets are starting looks; every parameter can be adjusted manually. Automated look changes use the same presets and affect the preview and projector output together.
 
-## Test footage and tests
+## Sample footage and developer checks
 
 Generate synthetic sample clips:
 
     python scripts/generate_test_videos.py --output test-footage
 
-Run unit tests and lint:
+Run static checks:
 
     python -m compileall -q .
-    python -m pytest tests/unit -v
     python -m ruff check .
 
-Windows GitHub Actions runs compilation, unit tests and Ruff.
+Windows GitHub Actions runs Python compilation and Ruff. Automated unit-test files and test dependencies have been removed from this repository.
 
 ## Project data
 
@@ -150,7 +148,7 @@ The media index, thumbnails and logs are stored under %LOCALAPPDATA%\eli_lab\AV 
 
 - Per-layer effects currently provide a compact shader stack, not an unlimited node graph.
 - The first projector implementation uses an independent renderer and CPU frame snapshots; each output uploads textures locally.
-- Audio-reactive analysis, visual modulation and the versioned Sonic Pi OSC bridge are implemented; audio playback remains external. Live Sonic Pi rehearsal and Windows audio-device sign-off still require hardware validation.
+- Performance Mode connects Sonic Pi transport, scene and phrase events, energy/cutoff macros, optional loopback audio analysis, Modulator Bank followers/envelopes/LFOs, per-layer curves and phrase-aware AUTO PERFORMANCE. Audio playback remains external. The full 384-bar SONATA rehearsal and Windows loopback/reconnect behaviour still require hardware validation.
 - No reverse playback, variable-speed playback, masks, keying, advanced crossfades or recording yet.
 - Four simultaneous high-bitrate 1080p/4K clips are not guaranteed on every computer; start with H.264 test clips and check the renderer / CPU load.
 - Projects store absolute media paths. Moving source footage requires re-importing the folder.
