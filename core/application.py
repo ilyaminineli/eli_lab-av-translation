@@ -1659,11 +1659,15 @@ class Application:
         # Reuse project snapshot logic so per-layer/global modulation baselines
         # are restored in the package without changing the live performance.
         import tempfile
-        with tempfile.TemporaryDirectory(prefix="eli-m5-set-") as temp_dir:
-            project_path = Path(temp_dir) / "snapshot.eliav"
-            self.save_project(project_path)
-            import json
-            project = json.loads(project_path.read_text(encoding="utf-8"))
+        import json
+        previous_project_path = self.current_project_path
+        try:
+            with tempfile.TemporaryDirectory(prefix="eli-m5-set-") as temp_dir:
+                project_path = Path(temp_dir) / "snapshot.eliav"
+                self.save_project(project_path)
+                project = json.loads(project_path.read_text(encoding="utf-8"))
+        finally:
+            self.current_project_path = previous_project_path
         app_state = project.get("app_state", {})
         payload = PerformanceSetStore.build_payload(
             project.get("composition", {}),
@@ -1705,6 +1709,9 @@ class Application:
             }
             staged_project.write_text(json.dumps(project_payload, ensure_ascii=False, indent=2), encoding="utf-8")
             self.load_project(staged_project)
+        # The staged project file is temporary; do not retain its deleted path or
+        # let a later ordinary project-save action overwrite the .eliset package.
+        self.current_project_path = None
         self.set_midi_mappings(mappings)
         self.performance_scenes = scenes
         self.events.publish("performance.set.loaded", path=Path(path).resolve())
