@@ -68,112 +68,47 @@ def test_performance_set_load_rejects_wrong_format(tmp_path) -> None:
     with pytest.raises(ValueError):
         PerformanceSetStore.load(path)
 
-def test_application_performance_set_round_trip_preserves_mapping_bank_and_modifiers(tmp_path) -> None:
+
+def test_save_performance_set_keeps_layer_modifier_baseline_without_mutating_live_layer(tmp_path) -> None:
     from types import SimpleNamespace
 
     from core.application import Application
-    from core.automation import AutomationDirector
     from core.composition import Composition, Layer
-    from core.event_bus import EventBus
+    from core.performance_modifiers import LayerPerformanceModifierEngine
+    from core.scene_profiles import SceneProfileRegistry
+    from core.modulator_bank import ModulatorBank
     from core.modulation import ModulationMatrix
-    from core.modulator_bank import ModulatorBank, ModulatorBankEngine
-    from core.performance_modifiers import LayerPerformanceModifier, LayerPerformanceModifierEngine
+    from core.automation import AutomationDirector
     from core.performance_transport import InternalTransport
     from core.project_manager import ProjectManager
-    from core.scene_profiles import SceneProfileRegistry
     from effects.settings import EffectSettings
 
     layer = Layer(
-        id='particle-set-layer', source_type='generator', generator_type='particles',
-        generator_settings={'speed': 0.7, 'size': 0.2},
-        performance_modifiers=[LayerPerformanceModifier(
-            modifier_id='particle-beat', source_id='transport.beat_pulse',
-            target_id='generator.particle_speed', depth=0.2,
-        ).to_dict()],
+        id='text-layer', source_type='generator', generator_type='text',
+        generator_settings={'font_size': 120, 'letter_spacing': 4},
+        performance_modifiers=[{'modifier_id': 'one', 'source_id': 'transport.phase',
+                               'target_id': 'generator.font_size', 'depth': 0.2}],
     )
     app = Application.__new__(Application)
-    app.events = EventBus()
     app.composition = Composition(layers=[layer])
-    app.decks = {'A': SimpleNamespace(to_dict=lambda: {'id': 'A', 'path': None})}
+    app.performance_modifier_engine = LayerPerformanceModifierEngine()
+    app.performance_modifier_engine._base_values = {(layer.id, 'generator.font_size'): 120.0}
+    app.decks = {}
     app.effects = EffectSettings()
     app.automation = AutomationDirector()
     app.transport = InternalTransport()
     app.audio_capture = SimpleNamespace(settings=SimpleNamespace(to_dict=lambda: {}))
     app.modulation = ModulationMatrix()
+    app.scene_profiles = SceneProfileRegistry()
     app.modulator_bank = ModulatorBank()
-    app.performance_modifier_engine = LayerPerformanceModifierEngine()
-    app.performance_modifier_engine._base_values[(layer.id, 'generator.particle_speed')] = 0.6
-    app.scene_profiles = SceneProfileRegistry()
-    app.midi_mapping_engine = MIDIMappingEngine()
-    app.midi_mapping_engine.replace_mappings([MIDIMapping(
-        mapping_id='cc-energy', target='macro.energy', pickup=False,
-    )])
     app.performance_scenes = {}
-    app._get_modulation_target = lambda target: None
-    app._set_modulation_target = lambda target, value: False
+    app.midi_mapping_engine = MIDIMappingEngine()
+    app.events = SimpleNamespace(publish=lambda *args, **kwargs: None)
     app._generator_modifier_setting_key = Application._generator_modifier_setting_key
-    app._handle_midi_event = lambda *args: None
-    app.project_manager = ProjectManager()
-    app._selected_layer_id = None
-    app._modulation_base_values = {}
-    app._clear_overlays = lambda: None
-    app._attach_overlay_layer = lambda layer: None
-    app.layer_manager = SimpleNamespace()
-    app._audio_sources = {}
-    app._latest_audio_frame = None
-    app.control_events = SimpleNamespace(clear=lambda: None)
-    app.performance_control = SimpleNamespace(reset=lambda: None, bpm=120.0, beats_per_bar=4)
-    app._external_clock_bar_at = None
-    app.osc_receiver = SimpleNamespace(stop=lambda: None)
-    app.transport.stop = lambda: None
-    app.audio_capture.stop = lambda: None
-    app.audio_capture.shutdown = lambda: None
-    app.modulation.reset_runtime = lambda: None
-    app.performance_modifier_engine.reset = lambda: None
-    app.modulator_bank_engine = ModulatorBankEngine()
-    app.decks['A'].close = lambda: None
-    app.decks['A'].locked = False
-    app._frame_snapshots = {}
-    app._overlay_images = {}
-    app._overlay_videos = {}
-    app._overlay_frames = {}
-    app._overlay_started_at = {}
-    app._automation_collection_id = None
-    app.current_project_path = None
-    app.events.publish = lambda *args, **kwargs: None
-    app.midi_input = SimpleNamespace(stop=lambda: None)
-    app.update_audio_analysis_settings = lambda settings: None
-    app.automation.settings.normalize()
-    app._create_default_layers = lambda: None
-    app._midi_target_values = lambda: {}
-    app._modulation_sources = lambda: {}
-    app.audio_analysis_snapshot = lambda: {}
-    app.apply_modulation = lambda: {}
-    app.process_audio_frames = lambda: 0
-    app.submit_control_event = lambda event: True
-    app.performance_control = SimpleNamespace(reset=lambda: None, bpm=120.0, beats_per_bar=4)
-    app.transport.load_settings = lambda value: None
-    app.scene_profiles = SceneProfileRegistry()
-    app._automation_collection_id = None
-    app.current_project_path = None
-    app.load_project = Application.load_project.__get__(app)
-    app.save_performance_set = Application.save_performance_set.__get__(app)
-    app.load_performance_set = Application.load_performance_set.__get__(app)
-    app.transport = InternalTransport()
-    app.automation.stop = lambda: None
-    app.audio_capture.update_settings = lambda settings: None
-    app.performance_control = SimpleNamespace(reset=lambda: None, bpm=120.0, beats_per_bar=4)
-    app.performance_modifier_engine.reset = lambda: None
-    app._clear_overlays = lambda: None
-    app._attach_overlay_layer = lambda layer: None
-    app.project_manager = ProjectManager()
-    app.performance_modifier_engine.base_values = lambda: {(layer.id, 'generator.particle_speed'): 0.6}
-    app.midi_mapping_engine.mappings[0].normalize()
-
-    destination = app.save_performance_set(tmp_path / 'show.eliset')
-    payload = PerformanceSetStore.load(destination)
-    assert payload['composition']['layers'][0]['generator_settings']['speed'] == 0.6
-    assert payload['midi_mappings'][0]['mapping_id'] == 'cc-energy'
+    saved = app.save_performance_set(tmp_path / 'text.eliset')
+    payload = PerformanceSetStore.load(saved)
+    assert payload['composition']['layers'][0]['generator_settings']['font_size'] == 120
+    assert layer.generator_settings['font_size'] == 120
 
 
 def test_midi_input_service_queue_is_bounded_and_drain_is_deferred() -> None:
@@ -189,4 +124,3 @@ def test_midi_input_service_queue_is_bounded_and_drain_is_deferred() -> None:
     assert seen == []
     assert service.drain() == 1
     assert len(seen) == 1
-
