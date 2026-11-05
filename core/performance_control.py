@@ -13,6 +13,7 @@ CONTROL_EVENT_KINDS = frozenset({
     "transport.stop",
     "transport.pause",
     "transport.tempo",
+    "transport.meter",
     "clock.beat",
     "clock.bar",
     "scene.select",
@@ -210,6 +211,12 @@ class PerformanceControlState:
             updates["transport_paused"] = False
         elif event.kind == "transport.tempo":
             updates["bpm"] = self._number(payload, "bpm", minimum=20.0, maximum=300.0)
+        elif event.kind == "transport.meter":
+            updates["beats_per_bar"] = self._integer(
+                payload, "beats_per_bar", minimum=1, maximum=16
+            )
+            if self.beat_index >= updates["beats_per_bar"]:
+                updates["beat_index"] = 0
         elif event.kind == "clock.beat":
             beat = self._integer(payload, "beat_index", minimum=0, maximum=15)
             if beat >= self.beats_per_bar:
