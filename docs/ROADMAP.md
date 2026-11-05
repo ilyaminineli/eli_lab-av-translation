@@ -336,33 +336,32 @@ See [SONATA Expanded integration notes](SONIC_PI_SONATA_INTEGRATION.md).
 
 ## Status
 
-**Core software groundwork implemented on `m5-performance-environment`; live MIDI and master-output recording remain incomplete validation/implementation gates.**
+**Performance-set, MIDI learn and quantized scene-bank groundwork implemented on `m5-performance-environment`. M5 exit remains open: master-output recording and a dedicated compact Performance Mode surface are not yet delivered.**
 
 ## Implemented
 
-- Unified per-layer modifier semantics across composition transforms, geometry, text, waveform and particles, including audio/transport/Sonic Pi/Modulator Bank sources, per-layer baselines, locks and manual override.
-- Existing AUTO PERFORMANCE controls are addressable from the same global modulation matrix; its generator/text/layout/effect/overlay randomization remains compatible with the shared source model.
-- Optional MIDI input service with device discovery, CC/note/pitch translation, bounded callback queue, controller filters, scaling curves, pickup and application-tick dispatch. MIDI is installed through the optional `.[midi]` extra.
-- MIDI mappings and performance scene snapshots persist in project settings; mapping hardware positions and pickup runtime state remain transient.
-- Versioned `.eliset` performance-set package with atomic file replacement, preflight validation, full composition/deck/effect/automation/performance settings, MIDI mappings and scene bank.
-- Performance scene snapshot capture/recall, retaining layers that are currently locked.
-- File-menu Save/Load Performance Set actions and basic MIDI discovery/connect plus CC 1 → `macro.energy` setup in AUDIO / CONTROL.
-- Unit coverage for MIDI scaling/pickup/queue bounds, morph interpolation, versioned set validation and clean baseline serialization.
+- Shared normalized mapping contract across composition transforms, procedural geometry, text, waveform, particles, animated overlays and AUTO PERFORMANCE targets. Audio bands/onset, transport rhythm/phase, Sonic Pi energy/cutoff and Modulator Bank sources retain shared ownership, baseline, lock and manual-override semantics.
+- Optional MIDI input with device discovery, bounded callback-to-application queue, CC/note/pitch capture, device/channel/number filtering, min/max scaling, linear/smoothstep/exponential curves and pickup.
+- MIDI Learn UI with target selection, mapping list, range/curve/pickup editor and update/remove actions. Target choices include geometry, typography, particles, overlays, master parameters and AUTO PERFORMANCE controls.
+- MIDI definitions and performance-scene snapshots persist with `.eliav` projects. Hardware state and pickup latches remain transient.
+- Versioned `.eliset` performance-set save/load with atomic file replacement, format/schema preflight validation, full composition/deck/effect/automation/performance settings, MIDI maps and scene bank. Existing project restore path is reused after validation.
+- Performance scene capture, removal and immediate/beat/bar/phrase recall using the existing transport scheduler. Numeric-compatible targets support smoothstep morphing; discrete composition/media state changes at the cue. Currently locked layers are retained.
+- File-menu Save/Load Performance Set actions and MIDI/scene-bank controls in AUDIO / CONTROL.
+- Unit coverage for MIDI scaling/pickup/learn/queue bounds, quantized scene scheduling, morph interpolation, set validation and clean baseline serialization.
 
 ## Remaining work and sign-off
 
-- Full MIDI Learn workflow with selectable target, message/channel assignment, per-control scaling editor, pickup state feedback and automatic persistence. Current panel exposes discovery/connect and a basic CC 1 → energy mapping.
-- Quantized performance-scene bank navigation and live smooth morph integration. A tested numeric morph primitive exists; application transport scheduling and discrete/numeric transition orchestration remain to wire.
-- Preset overlays and a macro-focused compact Performance Mode surface. The existing docks remain the detailed editing surface.
-- Master-output recording with bounded immutable frame handoff, dedicated encoder worker, configurable format/fps/destination and optional audio mux. Not claimed implemented.
-- Explicit routing/recording selection for preview/projector outputs. Existing preview/projector rendering paths remain, but capture and A/V synchronization need a target-machine implementation and test.
-- Restore-last-known-good performance set and optional event/performance-session recording.
+- Dedicated compact Performance Mode window/surface that puts transport, scene bank, macros, AUTO PERFORMANCE, MIDI status, output selection and recording status on one low-distraction surface.
+- Master-output video recording with bounded immutable frame handoff, dedicated encoder worker, configurable format/frame rate/destination and audio muxing.
+- Explicit preview/projector/additional-output recording routing and robust recording recovery.
+- Last-known-good set recovery and optional event/performance-session recording.
+- Target-machine validation: physical MIDI hot-plug and pickup, long-duration encoder stability, A/V synchronisation, and preview/projector output consistency.
 
 ## Verification status
 
-Unit tests added for the new pure MIDI/set primitives and save baseline integration. CI execution and full application runtime verification must still be run on the target environment. Hardware validation remains required for controller hot-plug/pickup, long-duration recording, audio/video sync, and preview/projector consistency.
+The MIDI/controller checkpoint at `6cf38d24` passed the complete Windows CI workflow, including Python compile, unit tests and Ruff. Subsequent scene-bank commits exposed one compatibility failure in a minimal `Application` fixture; the latest fix is `6ce189b9` and its CI run is pending. Hardware and long-duration output validation have not been performed.
 
-**M5 exit condition is not yet met.** A complete performance set can be saved and recalled in software, but recording and the compact live surface still require implementation and target-machine sign-off.
+**M5 exit condition is not yet met.** Performance sets, controller mapping and scene recall are in place, but output recording and the compact live surface remain outstanding.
 
 See [M5 Performance Environment](M5_PERFORMANCE_ENVIRONMENT.md), [M5 Unified Mapping Matrix](M5_MAPPING_MATRIX.md), [M5 Performance Modifiers](M5_PERFORMANCE_MODIFIERS.md) and [M5 Modulator Bank](M5_MODULATOR_BANK.md).
 
