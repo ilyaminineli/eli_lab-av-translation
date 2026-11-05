@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -24,7 +24,6 @@ from PySide6.QtWidgets import (
 
 from core.application import Application
 from core.modulator_bank import (
-    MODULATOR_KINDS,
     TRIGGER_SOURCES,
     ModulatorDefinition,
 )
@@ -257,7 +256,6 @@ class ModulatorBankPanel(QWidget):
             lambda value: self.assignment_depth_label.setText(f"{value}%")
         )
         self.assign_button.clicked.connect(self._assign_selected)
-        self.assignment_layer_label.installEventFilter(self)
         self.refresh()
 
     @staticmethod
@@ -699,7 +697,6 @@ class ModulatorBankPanel(QWidget):
         if definition is None:
             self.output_label.setText("OUTPUT · —")
             self.output_meter.setValue(0)
-            self.refresh_assignment_targets()
             return
         value = self.application.modulator_bank_engine.live_values().get(
             f"modulator.{definition.modulator_id}",
@@ -707,4 +704,3 @@ class ModulatorBankPanel(QWidget):
         )
         self.output_label.setText(f"OUTPUT · {value:.3f}  ·  {definition.kind.upper()}")
         self.output_meter.setValue(round(max(0.0, min(1.0, value)) * 100))
-        self.refresh_assignment_targets()
