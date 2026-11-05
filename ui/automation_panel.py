@@ -49,7 +49,23 @@ class AutomationPanel(QWidget):
                 ("Until stopped", None),
         ):
             self.duration_combo.addItem(label, seconds)
+        self.duration_combo.setCurrentIndex(self.duration_combo.count() - 1)
         form.addRow("SESSION LENGTH", self.duration_combo)
+
+        self.performance_style_combo = QComboBox()
+        self.performance_style_combo.addItem("Random", "random")
+        self.performance_style_combo.addItem("Structured", "structured")
+        self.performance_style_combo.addItem("Generative", "generative")
+        self.performance_style_combo.setCurrentIndex(2)
+        form.addRow("PERFORMANCE STYLE", self.performance_style_combo)
+
+        self.musical_sync_combo = QComboBox()
+        self.musical_sync_combo.addItem("Time-based", "time")
+        self.musical_sync_combo.addItem("Bar-synchronised", "bar")
+        self.musical_sync_combo.addItem("Phrase-synchronised", "phrase")
+        self.musical_sync_combo.addItem("Hybrid", "hybrid")
+        self.musical_sync_combo.setCurrentIndex(2)
+        form.addRow("MUSICAL SYNC", self.musical_sync_combo)
 
         self.cut_combo = QComboBox()
         self.cut_combo.addItem("Slow cuts · 18–38 sec", "slow")
@@ -185,6 +201,8 @@ class AutomationPanel(QWidget):
             randomize_palette=self.palette_check.isChecked(),
             min_generator_interval=max(12.0, cut_min * 1.5),
             max_generator_interval=max(24.0, cut_max * 2.0),
+            performance_style=str(self.performance_style_combo.currentData()),
+            musical_sync=str(self.musical_sync_combo.currentData()),
         )
 
     def _start(self) -> None:
