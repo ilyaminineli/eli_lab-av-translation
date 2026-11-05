@@ -25,6 +25,7 @@ class _FakeRecorder:
         self.closed = True
 
     def record(self, numframes: int):
+        time.sleep(0.001)
         return np.full((numframes, self.channels), 0.2, dtype=np.float32)
 
 
