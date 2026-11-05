@@ -205,7 +205,8 @@ class PerformanceControlPanel(QWidget):
         osc_form.addRow(osc_buttons)
         osc_form.addRow(self.osc_copy_button)
         self.osc_status_label = QLabel(
-            "STOPPED · Performance Mode starts the receiver automatically; manual start is also available."
+            "STOPPED · Performance Mode starts the receiver automatically; "
+            "manual start is also available."
         )
         self.osc_status_label.setWordWrap(True)
         osc_form.addRow("CONNECTION", self.osc_status_label)
