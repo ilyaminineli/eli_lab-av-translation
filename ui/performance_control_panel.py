@@ -485,44 +485,42 @@ class PerformanceControlPanel(QWidget):
 
     def _install_route_preset(self, definitions: tuple[tuple, ...], label: str) -> None:
         added = 0
-        updated = 0
+        skipped = 0
         for source_id, target_id, output_min, output_max, inverted in definitions:
+            # Never overwrite an operator-authored route silently. Existing routes
+            # retain their source, curve, ranges and precedence until edited manually.
             existing = next(
                 (route for route in self.application.modulation.routes
                  if route.target_id == target_id),
                 None,
             )
-            changes = {
-                "source_id": source_id,
-                "target_id": target_id,
-                "input_min": 0.0,
-                "input_max": 1.0,
-                "output_min": output_min,
-                "output_max": output_max,
-                "curve": "smoothstep",
-                "inverted": inverted,
-                "smoothing_ms": 110.0,
-                "attack_ms": 25.0,
-                "release_ms": 260.0,
-                "hold_ms": 120.0,
-                "intensity_ceiling": 1.0,
-                "enabled": True,
-            }
-            if existing is None:
-                self.application.add_modulation_route(
-                    ModulationRoute(
-                        route_id=uuid4().hex[:10],
-                        **changes,
-                    )
+            if existing is not None:
+                skipped += 1
+                continue
+            self.application.add_modulation_route(
+                ModulationRoute(
+                    route_id=uuid4().hex[:10],
+                    source_id=source_id,
+                    target_id=target_id,
+                    input_min=0.0,
+                    input_max=1.0,
+                    output_min=output_min,
+                    output_max=output_max,
+                    curve="smoothstep",
+                    inverted=inverted,
+                    smoothing_ms=110.0,
+                    attack_ms=25.0,
+                    release_ms=260.0,
+                    hold_ms=120.0,
+                    intensity_ceiling=1.0,
+                    enabled=True,
                 )
-                added += 1
-            else:
-                self.application.update_modulation_route(existing.route_id, changes)
-                updated += 1
+            )
+            added += 1
         self.refresh_routes()
         self.application.apply_modulation()
         self.modulation_status.setText(
-            f"{label}: {added} route(s) added, {updated} updated. "
+            f"{label}: {added} route(s) added; {skipped} existing custom route(s) preserved. "
             "Generator targets affect the currently selected compatible generator; "
             "Auto targets affect the running Auto Performance session."
         )
