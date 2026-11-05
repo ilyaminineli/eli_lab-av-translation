@@ -1772,10 +1772,10 @@ class Application:
 
         # The global modulation matrix also writes into the live composition.
         # Save its pre-modulation values so a project never opens on a random beat peak.
-        selected_layer = composition_snapshot.get_layer(self._selected_layer_id or "")
+        selected_layer = composition_snapshot.get_layer(getattr(self, "_selected_layer_id", None) or "")
         effect_state = app_state["effects"]
         automation_state = app_state["automation_settings"]
-        for target_id, base_value in self._modulation_base_values.items():
+        for target_id, base_value in getattr(self, "_modulation_base_values", {}).items():
             if target_id.startswith("master."):
                 field = target_id.split(".", 1)[1]
                 if field in effect_state:
