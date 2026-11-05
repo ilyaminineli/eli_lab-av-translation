@@ -75,6 +75,9 @@ def test_performance_panel_surfaces_sonic_pi_and_reactive_route_presets(qtbot) -
         assert panel.osc_port_spin.value() == 57121
         assert panel.source_combo.findData("macro.energy") >= 0
         assert panel.source_combo.findData("macro.cutoff") >= 0
+        assert panel.source_combo.findData("transport.beat_pulse") >= 0
+        assert panel.source_combo.findData("transport.downbeat_pulse") >= 0
+        assert panel.source_combo.findData("transport.phrase_pulse") >= 0
         assert panel.target_combo.findData("generator.text_animation_amount") >= 0
         assert panel.target_combo.findData("automation.clip_switch_probability") >= 0
         assert panel.audio_attack_spin is not panel.attack_spin
