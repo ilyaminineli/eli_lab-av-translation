@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMessageBox,
+    QProgressBar,
     QPushButton,
     QScrollArea,
     QSlider,
@@ -26,6 +27,11 @@ from PySide6.QtWidgets import (
 )
 
 from core.application import Application
+from core.performance_modifiers import (
+    PERFORMANCE_MODIFIER_SOURCES,
+    PERFORMANCE_MODIFIER_TARGETS,
+    LayerPerformanceModifier,
+)
 from effects.layer_settings import (
     EFFECT_STAGE_TYPES,
     LAYER_EFFECT_PRESETS,
@@ -83,6 +89,64 @@ class LayerPanel(QWidget):
         blend_row.addWidget(self.selected_blend_combo, 1)
         transform_layout.addLayout(blend_row)
         controls_layout.addWidget(self.transform_group)
+
+        self.performance_modifiers_group = QGroupBox("PERFORMANCE MODIFIERS · PER LAYER")
+        modifier_layout = QVBoxLayout(self.performance_modifiers_group)
+        self.modifier_help_label = QLabel(
+            "Give this layer its own rhythmic, audio or Sonic Pi movement. "
+            "Modifiers are saved with the layer."
+        )
+        self.modifier_help_label.setWordWrap(True)
+        modifier_layout.addWidget(self.modifier_help_label)
+        self.modifier_rhythm_status = QLabel("BEAT — · DOWNBEAT — · PHRASE —")
+        self.modifier_rhythm_status.setObjectName("mutedLabel")
+        modifier_layout.addWidget(self.modifier_rhythm_status)
+        self.modifier_list = QListWidget()
+        self.modifier_list.setMinimumHeight(82)
+        self.modifier_list.setMaximumHeight(170)
+        modifier_layout.addWidget(self.modifier_list)
+
+        self.modifier_source_combo = QComboBox()
+        for source_id, label in PERFORMANCE_MODIFIER_SOURCES.items():
+            self.modifier_source_combo.addItem(label, source_id)
+        self.modifier_target_combo = QComboBox()
+        self.modifier_curve_combo = QComboBox()
+        self.modifier_curve_combo.addItem("Smoothstep", "smoothstep")
+        self.modifier_curve_combo.addItem("Linear", "linear")
+        self.modifier_curve_combo.addItem("Exponential", "exponential")
+        self.modifier_polarity_combo = QComboBox()
+        self.modifier_polarity_combo.addItem("Positive", "positive")
+        self.modifier_polarity_combo.addItem("Bipolar", "bipolar")
+        modifier_layout.addWidget(QLabel("SOURCE"))
+        modifier_layout.addWidget(self.modifier_source_combo)
+        modifier_layout.addWidget(QLabel("TARGET"))
+        modifier_layout.addWidget(self.modifier_target_combo)
+        modifier_layout.addWidget(QLabel("RESPONSE"))
+        response_row = QHBoxLayout()
+        response_row.addWidget(self.modifier_curve_combo, 1)
+        response_row.addWidget(self.modifier_polarity_combo, 1)
+        modifier_layout.addLayout(response_row)
+        self.modifier_depth = self._add_slider(
+            modifier_layout, "DEPTH · %", 0, 100, 12
+        )
+        modifier_buttons = QHBoxLayout()
+        self.modifier_add_button = QPushButton("ADD MODIFIER")
+        self.modifier_beat_button = QPushButton("BEAT")
+        self.modifier_downbeat_button = QPushButton("DOWNBEAT")
+        self.modifier_phrase_button = QPushButton("PHRASE")
+        for button in (
+                self.modifier_add_button,
+                self.modifier_beat_button,
+                self.modifier_downbeat_button,
+                self.modifier_phrase_button,
+        ):
+            modifier_buttons.addWidget(button)
+        modifier_layout.addLayout(modifier_buttons)
+        self.modifier_remove_button = QPushButton("REMOVE SELECTED MODIFIER")
+        modifier_layout.addWidget(self.modifier_remove_button)
+        controls_layout.addWidget(self.performance_modifiers_group)
+        self._modifier_signature: tuple = ()
+        self._modifier_widgets: dict[str, tuple[QCheckBox, QLabel, QProgressBar]] = {}
 
         self.layer_fx_group = QGroupBox("SELECTED LAYER EFFECT STACK")
         layer_fx_layout = QVBoxLayout(self.layer_fx_group)
@@ -170,6 +234,17 @@ class LayerPanel(QWidget):
         self.selected_blend_combo.currentTextChanged.connect(
             self._selected_blend_changed
         )
+        self.modifier_add_button.clicked.connect(self._add_performance_modifier)
+        self.modifier_beat_button.clicked.connect(
+            lambda: self._add_rhythmic_modifier("transport.beat_pulse", 0.10)
+        )
+        self.modifier_downbeat_button.clicked.connect(
+            lambda: self._add_rhythmic_modifier("transport.downbeat_pulse", 0.22)
+        )
+        self.modifier_phrase_button.clicked.connect(
+            lambda: self._add_rhythmic_modifier("transport.phrase_pulse", 0.34)
+        )
+        self.modifier_remove_button.clicked.connect(self._remove_performance_modifier)
         self.layer_fx_enabled.toggled.connect(self._layer_fx_enabled_changed)
         self.layer_fx_preset.currentTextChanged.connect(self._layer_fx_preset_changed)
         self.fx_stage_list.itemDoubleClicked.connect(self._edit_fx_stage_amount)
@@ -351,13 +426,17 @@ class LayerPanel(QWidget):
         self.selected_blend_combo.blockSignals(False)
         if layer is None:
             self.transform_group.setEnabled(False)
+            self.performance_modifiers_group.setEnabled(False)
             self.layer_fx_group.setEnabled(False)
+            self.modifier_target_combo.clear()
             self.position_x[1].setEnabled(False)
             self.position_y[1].setEnabled(False)
             self.scale[1].setEnabled(False)
             self.rotation[1].setEnabled(False)
         else:
             self.transform_group.setEnabled(not layer.locked)
+            self.performance_modifiers_group.setEnabled(True)
+            self._sync_performance_modifier_targets(layer)
             self.layer_fx_group.setEnabled(not layer.locked)
             self.position_x[1].setEnabled(not layer.locked)
             self.position_y[1].setEnabled(not layer.locked)
@@ -368,10 +447,236 @@ class LayerPanel(QWidget):
             self.scale[1].setValue(round(layer.scale[0] * 100))
             self.rotation[1].setValue(round(layer.rotation))
             self._load_layer_effects(layer)
+            self.refresh_performance_modifiers()
         for slider in sliders:
             slider.blockSignals(False)
         if layer is not None:
             self.selected_layer_changed.emit(layer.id)
+
+    @staticmethod
+    def _modifier_targets_for_layer(layer) -> list[str]:
+        targets = [
+            target_id for target_id, spec in PERFORMANCE_MODIFIER_TARGETS.items()
+            if spec.category == "layer"
+        ]
+        if layer.source_type == "generator":
+            fields = {
+                "geometry": {
+                    "generator.animation_speed", "generator.animation_amount",
+                    "generator.density", "generator.rotation",
+                },
+                "text": {
+                    "generator.animation_speed", "generator.animation_amount",
+                    "generator.text_animation_speed", "generator.text_animation_amount",
+                    "generator.font_size", "generator.letter_spacing",
+                },
+                "waveform": {
+                    "generator.animation_speed", "generator.animation_amount",
+                    "generator.waveform_amplitude", "generator.waveform_frequency",
+                },
+                "particles": {
+                    "generator.animation_speed", "generator.animation_amount",
+                    "generator.density", "generator.particle_speed",
+                    "generator.particle_size", "generator.particle_spread",
+                    "generator.particle_trail",
+                },
+            }
+            targets.extend(sorted(fields.get(layer.generator_type, set())))
+        elif layer.source_type == "overlay":
+            targets.extend(
+                target_id for target_id, spec in PERFORMANCE_MODIFIER_TARGETS.items()
+                if spec.category == "overlay"
+            )
+        return targets
+
+    def _sync_performance_modifier_targets(self, layer) -> None:
+        valid = self._modifier_targets_for_layer(layer)
+        current = self.modifier_target_combo.currentData()
+        self.modifier_target_combo.blockSignals(True)
+        self.modifier_target_combo.clear()
+        for target_id in valid:
+            self.modifier_target_combo.addItem(
+                PERFORMANCE_MODIFIER_TARGETS[target_id].label,
+                target_id,
+            )
+        index = self.modifier_target_combo.findData(current)
+        if index < 0 and self.modifier_target_combo.count():
+            target = self._default_modifier_target(layer)
+            index = self.modifier_target_combo.findData(target)
+        self.modifier_target_combo.setCurrentIndex(max(0, index))
+        self.modifier_target_combo.blockSignals(False)
+        self.modifier_source_combo.setEnabled(not layer.locked)
+        self.modifier_target_combo.setEnabled(not layer.locked)
+        self.modifier_curve_combo.setEnabled(not layer.locked)
+        self.modifier_polarity_combo.setEnabled(not layer.locked)
+        self.modifier_depth[1].setEnabled(not layer.locked)
+        self.modifier_add_button.setEnabled(not layer.locked)
+        for button in (
+                self.modifier_beat_button,
+                self.modifier_downbeat_button,
+                self.modifier_phrase_button,
+        ):
+            button.setEnabled(not layer.locked)
+
+    @staticmethod
+    def _default_modifier_target(layer) -> str:
+        if layer.source_type == "generator":
+            return {
+                "geometry": "generator.animation_amount",
+                "text": "generator.text_animation_amount",
+                "waveform": "generator.waveform_amplitude",
+                "particles": "generator.particle_size",
+            }.get(layer.generator_type, "layer.opacity")
+        if layer.source_type == "overlay":
+            return "overlay.playback_speed"
+        return "layer.scale"
+
+    def _add_performance_modifier(self) -> None:
+        self._create_performance_modifier(
+            str(self.modifier_source_combo.currentData() or "transport.beat_pulse"),
+            str(self.modifier_target_combo.currentData() or ""),
+            self.modifier_depth[1].value() / 100.0,
+        )
+
+    def _add_rhythmic_modifier(self, source_id: str, depth: float) -> None:
+        layer = self._selected_layer()
+        if layer is None or layer.locked:
+            return
+        target_id = self._default_modifier_target(layer)
+        index = self.modifier_target_combo.findData(target_id)
+        if index >= 0:
+            self.modifier_target_combo.setCurrentIndex(index)
+        self._create_performance_modifier(source_id, target_id, depth)
+
+    def _create_performance_modifier(
+            self,
+            source_id: str,
+            target_id: str,
+            depth: float,
+    ) -> None:
+        layer = self._selected_layer()
+        if layer is None or layer.locked or not target_id:
+            return
+        source_label = PERFORMANCE_MODIFIER_SOURCES.get(source_id, source_id)
+        target_label = PERFORMANCE_MODIFIER_TARGETS[target_id].label
+        modifier = LayerPerformanceModifier(
+            name=f"{source_label.split('·')[-1].strip()} → {target_label}",
+            source_id=source_id,
+            target_id=target_id,
+            depth=depth,
+            polarity=str(self.modifier_polarity_combo.currentData() or "positive"),
+            curve=str(self.modifier_curve_combo.currentData() or "smoothstep"),
+        )
+        try:
+            self.application.add_layer_performance_modifier(layer.id, modifier)
+        except (TypeError, ValueError, KeyError) as exc:
+            QMessageBox.warning(self, "Performance modifier", str(exc))
+            return
+        self._modifier_signature = ()
+        self.refresh_performance_modifiers()
+
+    def _remove_performance_modifier(self) -> None:
+        layer = self._selected_layer()
+        item = self.modifier_list.currentItem()
+        modifier_id = item.data(Qt.ItemDataRole.UserRole) if item else None
+        if layer is None or not modifier_id:
+            return
+        self.application.remove_layer_performance_modifier(layer.id, str(modifier_id))
+        self._modifier_signature = ()
+        self.refresh_performance_modifiers()
+
+    def _toggle_performance_modifier(self, layer_id: str, modifier_id: str, enabled: bool) -> None:
+        layer = self.application.composition.get_layer(layer_id)
+        if layer is None:
+            return
+        for raw in layer.performance_modifiers:
+            if str(raw.get("modifier_id", "")) == modifier_id:
+                raw["enabled"] = bool(enabled)
+                break
+        self.refresh_performance_modifiers(force=True)
+
+    def refresh_performance_modifiers(self, force: bool = False) -> None:
+        layer = self._selected_layer()
+        sources = self.application._modulation_sources()
+        self.modifier_rhythm_status.setText(
+            "BEAT {beat:.2f} · DOWNBEAT {downbeat:.2f} · PHRASE {phrase:.2f}".format(
+                beat=sources.get("transport.beat_pulse", 0.0),
+                downbeat=sources.get("transport.downbeat_pulse", 0.0),
+                phrase=sources.get("transport.phrase_pulse", 0.0),
+            )
+        )
+        if layer is None:
+            self.modifier_list.clear()
+            self._modifier_widgets.clear()
+            self._modifier_signature = ()
+            return
+        records = [
+            raw for raw in layer.performance_modifiers
+            if isinstance(raw, dict)
+        ]
+        signature = tuple(
+            (
+                str(raw.get("modifier_id", "")),
+                str(raw.get("name", "")),
+                str(raw.get("source_id", "")),
+                str(raw.get("target_id", "")),
+                round(float(raw.get("depth", 0.0)), 4),
+                bool(raw.get("enabled", True)),
+            )
+            for raw in records
+        )
+        if force or signature != self._modifier_signature:
+            self.modifier_list.clear()
+            self._modifier_widgets.clear()
+            for raw in records:
+                modifier_id = str(raw.get("modifier_id", ""))
+                source_label = PERFORMANCE_MODIFIER_SOURCES.get(
+                    str(raw.get("source_id", "")),
+                    str(raw.get("source_id", "unknown source")),
+                )
+                target_spec = PERFORMANCE_MODIFIER_TARGETS.get(str(raw.get("target_id", "")))
+                target_label = target_spec.label if target_spec else str(raw.get("target_id", ""))
+                depth = float(raw.get("depth", 0.0))
+                item = QListWidgetItem()
+                item.setData(Qt.ItemDataRole.UserRole, modifier_id)
+                item.setSizeHint(item.sizeHint().expandedTo(
+                    self.modifier_list.sizeHintForRow(0)
+                ))
+                self.modifier_list.addItem(item)
+                row = QWidget()
+                row_layout = QVBoxLayout(row)
+                row_layout.setContentsMargins(4, 2, 4, 2)
+                header = QHBoxLayout()
+                enabled = QCheckBox(str(raw.get("name", "Modifier")))
+                enabled.setChecked(bool(raw.get("enabled", True)))
+                enabled.setEnabled(not layer.locked)
+                header.addWidget(enabled)
+                header.addStretch(1)
+                header.addWidget(QLabel(f"{depth * 100:.0f}%"))
+                row_layout.addLayout(header)
+                detail = QLabel(f"{source_label} → {target_label}")
+                detail.setObjectName("mutedLabel")
+                detail.setWordWrap(True)
+                row_layout.addWidget(detail)
+                meter = QProgressBar()
+                meter.setRange(0, 100)
+                meter.setTextVisible(True)
+                meter.setFormat("LIVE %p%")
+                meter.setMaximumHeight(14)
+                row_layout.addWidget(meter)
+                enabled.toggled.connect(
+                    lambda state, owner=layer.id, mid=modifier_id:
+                    self._toggle_performance_modifier(owner, mid, state)
+                )
+                self.modifier_list.setItemWidget(item, row)
+                self._modifier_widgets[modifier_id] = (enabled, detail, meter)
+            self._modifier_signature = signature
+
+        live = self.application.layer_performance_modifier_values(layer.id)
+        for modifier_id, (_enabled, _detail, meter) in self._modifier_widgets.items():
+            value = live.get(modifier_id)
+            meter.setValue(round(max(0.0, min(1.0, value or 0.0)) * 100))
+            meter.setFormat("LIVE %p%" if value is not None else "IDLE")
 
     def _load_layer_effects(self, layer) -> None:
         values = normalize_layer_effects(layer.layer_effects)
