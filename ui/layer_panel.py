@@ -635,7 +635,7 @@ class LayerPanel(QWidget):
                 records.append(LayerPerformanceModifier.from_dict(raw).to_dict())
             except (TypeError, ValueError, KeyError):
                 continue
-        self.modifier_remove_button.setEnabled(bool(records))
+        self.modifier_remove_button.setEnabled(bool(records) and not layer.locked)
         signature = tuple(
             (
                 str(raw.get("modifier_id", "")),
