@@ -517,6 +517,7 @@ class MainWindow(QMainWindow):
         if answer != QMessageBox.StandardButton.Yes:
             return
         self.application.reset_project()
+        self.performance_control_panel.sync_from_application()
         self.deck_panel.refresh()
         self.layer_panel.refresh()
         self.effects_panel.sync_from_settings()
@@ -535,6 +536,7 @@ class MainWindow(QMainWindow):
             return
         try:
             self.application.load_project(path)
+            self.performance_control_panel.sync_from_application()
             self.deck_panel.refresh()
             self.layer_panel.refresh()
             self.effects_panel.sync_from_settings()
