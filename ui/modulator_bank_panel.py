@@ -392,12 +392,15 @@ class ModulatorBankPanel(QWidget):
         self.delete_preset_button.setEnabled(bool(preset and not preset.builtin))
 
     def _sync_timebase_controls(self, *_args) -> None:
+        definition = self._selected_definition()
+        is_follower = definition is not None and definition.kind == "follower"
         transport_sync = self.sync_combo.currentData() == "transport"
-        self.reset_combo.setEnabled(transport_sync)
-        self.lfo_rate_beats.setEnabled(transport_sync)
-        self.lfo_rate_hz.setEnabled(not transport_sync)
-        self.division_spin.setEnabled(transport_sync)
-        self.step_rate_spin.setEnabled(not transport_sync)
+        self.sync_combo.setEnabled(not is_follower)
+        self.reset_combo.setEnabled(transport_sync and not is_follower)
+        self.lfo_rate_beats.setEnabled(transport_sync and not is_follower)
+        self.lfo_rate_hz.setEnabled(not transport_sync and not is_follower)
+        self.division_spin.setEnabled(transport_sync and not is_follower)
+        self.step_rate_spin.setEnabled(not transport_sync and not is_follower)
 
     def _load_selected_editor(self) -> None:
         definition = self._selected_definition()
@@ -550,7 +553,12 @@ class ModulatorBankPanel(QWidget):
 
     def _create_modulator(self, kind: str) -> None:
         definition = ModulatorDefinition(kind=kind)
-        if kind == "envelope":
+        if kind == "follower":
+            definition.name = "Sonic Pi Macro Follower"
+            definition.input_source = "macro.energy"
+            definition.input_attack_ms = 80.0
+            definition.input_release_ms = 600.0
+        elif kind == "envelope":
             definition.name = "New Envelope"
             definition.trigger_source = "transport.beat_pulse"
             definition.attack = 0.02
