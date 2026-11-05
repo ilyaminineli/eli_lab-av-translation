@@ -21,6 +21,10 @@ from core.modulator_bank import (
 )
 from core.osc_protocol import OSCReceiver
 from core.performance_control import ControlEvent, ControlEventQueue, PerformanceControlState
+from core.performance_environment import (
+    MIDIMapping, MIDIMappingEngine, MIDIInputService,
+    PerformanceScene, PerformanceSetStore,
+)
 from core.performance_manager import PerformanceManager
 from core.performance_modifiers import (
     LayerPerformanceModifier,
@@ -74,6 +78,9 @@ class Application:
         self.control_events = ControlEventQueue()
         self.osc_receiver = OSCReceiver(self.submit_control_event)
         self.performance_control = PerformanceControlState()
+        self.midi_mapping_engine = MIDIMappingEngine()
+        self.performance_scenes: dict[str, PerformanceScene] = {}
+        self.midi_input = MIDIInputService(self._handle_midi_event)
         self.transport = InternalTransport()
         self._external_clock_bar_at: float | None = None
         self.scene_profiles = SceneProfileRegistry()
@@ -1470,13 +1477,14 @@ class Application:
         self.events.publish("performance.modulation.updated")
 
     def tick_performance_control(self) -> int:
+        midi_events = self.midi_input.drain(64)
         clock_events = self.transport.tick()
         for event in clock_events:
             self.submit_control_event(event)
         processed_events = self.process_control_events()
         processed_audio = self.process_audio_frames()
         self.apply_modulation()
-        return processed_events + processed_audio + len(clock_events)
+        return processed_events + processed_audio + len(clock_events) + midi_events
 
     def tick_automation(self) -> bool:
         changed = self.automation.tick()
@@ -1486,6 +1494,225 @@ class Application:
                     self._frame_snapshots.pop(deck_id, None)
             self.events.publish("automation.changed", action=self.automation.last_action)
         return changed
+
+
+    # M5 — MIDI controls and complete performance sets.
+    @staticmethod
+    def discover_midi_inputs() -> list[str]:
+        return MIDIInputService.discover()
+
+    def start_midi_input(self, device_name: str) -> bool:
+        started = self.midi_input.start(device_name)
+        self.events.publish(
+            "performance.midi.status", state=self.midi_input.state,
+            device=self.midi_input.device_id, error=self.midi_input.error,
+        )
+        return started
+
+    def stop_midi_input(self) -> None:
+        self.midi_input.stop()
+        self.events.publish("performance.midi.status", state="stopped", device="", error="")
+
+    def set_midi_mappings(self, mappings: list[MIDIMapping | dict[str, Any]]) -> None:
+        self.midi_mapping_engine.replace_mappings(mappings)
+        self.events.publish("performance.midi.mappings.updated", count=len(self.midi_mapping_engine.mappings))
+
+    def _midi_target_values(self) -> dict[str, float]:
+        values: dict[str, float] = {}
+        for layer in self.composition.layers:
+            for target in (
+                "layer.opacity", "layer.rotation", "layer.scale",
+                "layer.position_x", "layer.position_y",
+                "generator.animation_speed", "generator.animation_amount",
+                "generator.density", "generator.rotation",
+                "generator.text_animation_speed", "generator.text_animation_amount",
+                "generator.font_size", "generator.letter_spacing",
+                "generator.waveform_amplitude", "generator.waveform_frequency",
+                "generator.particle_speed", "generator.particle_size",
+                "generator.particle_spread", "generator.particle_trail",
+            ):
+                current = self._get_layer_modifier_target(layer.id, target)
+                if current is not None:
+                    values[f"layer.{layer.id}.{target}"] = current
+        for target in (
+            "master.brightness", "master.exposure", "master.contrast",
+            "master.saturation", "master.grain", "master.glitch", "master.vignette",
+        ):
+            current = self._get_modulation_target(target)
+            if current is not None:
+                values[target] = current
+        values["scene.intensity"] = float(self.performance_control.intensity)
+        values["transport.tempo"] = float(self.transport.bpm)
+        values["automation.loop_probability"] = float(self.automation.settings.loop_probability)
+        values["automation.clip_switch_probability"] = float(self.automation.settings.clip_switch_probability)
+        values["automation.cut_interval"] = float(self.automation.settings.min_cut_interval)
+        values["automation.min_segment_seconds"] = float(self.automation.settings.min_segment_seconds)
+        values["automation.max_segment_seconds"] = float(self.automation.settings.max_segment_seconds)
+        values["automation.layout_interval"] = float(self.automation.settings.min_layout_interval)
+        values["automation.effect_interval"] = float(self.automation.settings.min_effect_interval)
+        values["automation.generator_interval"] = float(self.automation.settings.min_generator_interval)
+        for name, value in self.performance_control.macros.items():
+            values[f"macro.{name}"] = float(value)
+        return values
+
+    def _handle_midi_event(self, device_id: str, message: str, channel: int,
+                           number: int, value: float) -> None:
+        for target, mapped in self.midi_mapping_engine.process(
+            device_id, message, channel, number, value, self._midi_target_values()
+        ):
+            self._apply_midi_target(target, mapped)
+
+    def _apply_midi_target(self, target: str, value: float) -> bool:
+        if target.startswith("macro."):
+            name = target.removeprefix("macro.")
+            if not name or not name.replace("_", "").isalnum():
+                return False
+            return self.submit_control_event(ControlEvent(
+                "macro.set", "midi", {"name": name, "value": max(0.0, min(1.0, value))}
+            ))
+        if target == "transport.tempo":
+            self.set_internal_tempo(max(20.0, min(300.0, value)))
+            return True
+        if target == "scene.intensity":
+            return self.submit_control_event(ControlEvent(
+                "scene.intensity", "midi", {"intensity": max(0.0, min(1.0, value))}
+            ))
+        if target.startswith("layer."):
+            remainder = target.removeprefix("layer.")
+            layer_id, separator, parameter = remainder.partition(".")
+            if not separator:
+                return False
+            layer = self.composition.get_layer(layer_id)
+            if layer is None or layer.locked:
+                return False
+            return self._set_layer_modifier_target(layer_id, parameter, value)
+        if target.startswith(("master.", "automation.")):
+            return self._set_modulation_target(target, value)
+        return False
+
+    def capture_performance_scene(self, scene_id: str, label: str = "") -> PerformanceScene:
+        scene_id = str(scene_id).strip()
+        if not scene_id:
+            raise ValueError("Scene ID cannot be empty.")
+        snapshot = {
+            "composition": self.composition.to_dict(),
+            "effects": self.effects.to_dict(),
+            "automation_settings": self.automation.settings.to_dict(),
+        }
+        scene = PerformanceScene(scene_id, label or scene_id.replace("_", " ").title(), snapshot)
+        scene.normalize()
+        self.performance_scenes[scene.scene_id] = scene
+        self.events.publish("performance.scene_bank.updated", scene_id=scene.scene_id)
+        return scene
+
+    def recall_performance_scene(self, scene_id: str) -> bool:
+        scene = self.performance_scenes.get(str(scene_id))
+        if scene is None:
+            return False
+        composition_data = scene.snapshot.get("composition")
+        if not isinstance(composition_data, dict):
+            return False
+        candidate = Composition.from_dict(composition_data)
+        for current in self.composition.layers:
+            if not current.locked:
+                continue
+            replacement = candidate.get_layer(current.id)
+            if replacement is not None:
+                candidate.layers[candidate.layers.index(replacement)] = current
+            else:
+                candidate.add_layer(current)
+        self.composition = candidate
+        self.layer_manager = LayerManager(self.composition, self.events)
+        self.performance_modifier_engine.reset()
+        self._clear_overlays()
+        for layer in self.composition.layers:
+            if layer.source_type == "overlay":
+                try:
+                    self._attach_overlay_layer(layer)
+                except Exception as exc:
+                    _LOG.warning("Could not restore scene overlay %s: %s", layer.name, exc)
+        if isinstance(scene.snapshot.get("effects"), dict):
+            loaded = EffectSettings.from_dict(scene.snapshot["effects"])
+            for key, value in loaded.to_dict().items():
+                setattr(self.effects, key, value)
+        if isinstance(scene.snapshot.get("automation_settings"), dict):
+            allowed = AutomationSettings.__dataclass_fields__
+            values = {key: value for key, value in scene.snapshot["automation_settings"].items() if key in allowed}
+            settings = AutomationSettings(**values)
+            settings.normalize()
+            self.automation.settings = settings
+        self.events.publish("performance.scene.recalled", scene_id=scene.scene_id)
+        return True
+
+    def save_performance_set(self, path: str | Path) -> Path:
+        composition_snapshot = Composition.from_dict(self.composition.to_dict())
+        for (layer_id, target_id), baseline in self.performance_modifier_engine.base_values().items():
+            layer = composition_snapshot.get_layer(layer_id)
+            if layer is None:
+                continue
+            if target_id.startswith("layer."):
+                field = target_id.split(".", 1)[1]
+                if field in {"opacity", "rotation"}:
+                    setattr(layer, field, float(baseline))
+                elif field == "scale":
+                    layer.scale = (float(baseline), float(baseline))
+                elif field in {"position_x", "position_y"}:
+                    position = list(layer.position)
+                    position[0 if field == "position_x" else 1] = float(baseline)
+                    layer.position = tuple(position)
+            elif target_id.startswith("generator.") and layer.generator_type:
+                key = self._generator_modifier_setting_key(target_id.split(".", 1)[1])
+                if key:
+                    values = normalize_settings(layer.generator_type, layer.generator_settings)
+                    values[key] = int(round(baseline)) if isinstance(values.get(key), int) else float(baseline)
+                    layer.generator_settings = normalize_settings(layer.generator_type, values)
+        performance_settings = {
+            "transport": self.transport.to_dict(),
+            "audio_analysis": self.audio_capture.settings.to_dict(),
+            "modulation_routes": self.modulation.to_dict(),
+            "scene_profiles": self.scene_profiles.to_dict(),
+            "modulator_bank": self.modulator_bank.to_dict(),
+        }
+        payload = PerformanceSetStore.build_payload(
+            composition_snapshot.to_dict(),
+            [deck.to_dict() for deck in self.decks.values()],
+            self.effects.to_dict(),
+            self.automation.settings.to_dict(),
+            performance_settings,
+            list(self.performance_scenes.values()),
+            self.midi_mapping_engine.mappings,
+        )
+        destination = PerformanceSetStore.save(path, payload)
+        self.events.publish("performance.set.saved", path=destination)
+        return destination
+
+    def load_performance_set(self, path: str | Path) -> None:
+        payload = PerformanceSetStore.load(path)
+        temporary = Path(path).expanduser().resolve().with_name(
+            Path(path).name + ".restore.eliav"
+        )
+        composition = Composition.from_dict(payload["composition"])
+        ProjectManager().save(
+            temporary, composition, payload.get("decks", []),
+            app_state={
+                "effects": payload.get("effects", {}),
+                "automation_settings": payload.get("automation_settings", {}),
+                "performance_settings": payload.get("performance_settings", {}),
+            },
+        )
+        try:
+            self.load_project(temporary)
+        finally:
+            if temporary.exists():
+                temporary.unlink()
+        self.midi_mapping_engine.load_dict(payload.get("midi_mappings", []))
+        scenes: dict[str, PerformanceScene] = {}
+        for raw in payload.get("scenes", []):
+            scene = PerformanceScene(**raw)
+            scene.normalize()
+            scenes[scene.scene_id] = scene
+        self.performance_scenes = scenes
+        self.events.publish("performance.set.loaded", path=Path(path).resolve())
 
     def stop_automation(self) -> None:
         self.automation.stop()
@@ -1727,6 +1954,7 @@ class Application:
         self.events.publish("project.loaded", path=self.current_project_path)
 
     def shutdown(self) -> None:
+        self.midi_input.stop()
         self.osc_receiver.stop()
         self.control_events.clear()
         self.audio_capture.shutdown()
