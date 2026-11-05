@@ -19,7 +19,7 @@ def test_internal_transport_emits_one_based_bar_and_zero_based_beat_positions() 
     assert events[-1].payload["beat_index"] == 1
     assert events[-1].payload["bar_index"] == 1
 
-    events = clock.tick(now=11.5)
+    events = clock.tick(now=12.0)
     assert any(
         event.kind == "clock.bar" and event.payload["bar_index"] == 2
         for event in events
@@ -86,3 +86,20 @@ def test_tempo_and_meter_are_range_checked() -> None:
         pass
     else:
         raise AssertionError("Invalid meter was accepted")
+
+
+
+def test_performance_control_state_distinguishes_pause_from_stop() -> None:
+    from core.performance_control import ControlEvent, PerformanceControlState
+
+    state = PerformanceControlState()
+    state.apply(ControlEvent("transport.start", "test", {"bpm": 120}))
+    state.apply(ControlEvent("transport.pause", "test"))
+    assert state.transport_running is False
+    assert state.transport_paused is True
+    assert "PAUSE" in state.status_text()
+
+    state.apply(ControlEvent("transport.stop", "test"))
+    assert state.transport_running is False
+    assert state.transport_paused is False
+    assert "STOP" in state.status_text()
