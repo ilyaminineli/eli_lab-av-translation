@@ -687,6 +687,14 @@ class Application:
             return True
         return False
 
+    def notify_layer_manual_override(
+            self,
+            layer_id: str,
+            duration_seconds: float = 3.0,
+    ) -> None:
+        if layer_id == self._selected_layer_id:
+            self.notify_manual_override("selected_layer.*", duration_seconds)
+
     def notify_manual_override(
             self,
             target_id: str,
