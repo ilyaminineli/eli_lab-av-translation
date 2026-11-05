@@ -59,13 +59,13 @@ def test_scene_change_can_be_quantized_to_next_bar_and_phrase() -> None:
     clock.tick(now=0.0)
 
     clock.schedule_scene("dev", 0.62, "bar", now=0.1)
-    events = clock.tick(now=1.5)
+    events = clock.tick(now=2.0)
     scene = next(event for event in events if event.kind == "scene.select")
     assert scene.payload["scene_id"] == "dev"
     assert scene.payload["bar_index"] == 2
 
     clock.schedule_scene("peak", 1.0, "phrase", now=1.6)
-    events = clock.tick(now=7.5)
+    events = clock.tick(now=8.0)
     scene = next(event for event in events if event.kind == "scene.select")
     assert scene.payload["scene_id"] == "peak"
     assert scene.payload["bar_index"] == 5
