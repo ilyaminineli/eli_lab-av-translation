@@ -452,6 +452,14 @@ class ModulatorBankEngine:
 
     def __init__(self) -> None:
         self._runtime: dict[str, _ModulatorRuntime] = {}
+        self._live_values: dict[str, float] = {}
+
+    def live_values(self) -> dict[str, float]:
+        return dict(self._live_values)
+
+    def reset_modulator(self, modulator_id: str) -> None:
+        self._runtime.pop(str(modulator_id), None)
+        self._live_values.pop(f"modulator.{modulator_id}", None)
 
     @staticmethod
     def _stable_random(modulator_id: str, seed: int, index: int) -> float:
@@ -584,9 +592,26 @@ class ModulatorBankEngine:
             transport_running: bool,
             beat_position: float,
     ) -> float:
+        attack = definition.attack
+        decay = definition.decay
+        gate = max(definition.gate, attack + decay)
+        release = definition.release
+
+        active = False
+        if runtime.trigger_time is not None:
+            if (
+                    definition.sync_mode == "transport"
+                    and transport_running
+                    and runtime.trigger_beat is not None
+            ):
+                previous_age = max(0.0, beat_position - runtime.trigger_beat)
+            else:
+                previous_age = max(0.0, now - runtime.trigger_time)
+            active = previous_age < gate + release
+
         trigger_high = float(sources.get(definition.trigger_source, 0.0)) >= 0.5
         if trigger_high and not runtime.previous_trigger:
-            if definition.retrigger == "restart" or runtime.trigger_time is None:
+            if definition.retrigger == "restart" or not active:
                 runtime.trigger_time = now
                 runtime.trigger_beat = beat_position if transport_running else None
         runtime.previous_trigger = trigger_high
@@ -599,11 +624,6 @@ class ModulatorBankEngine:
             age = max(0.0, beat_position - runtime.trigger_beat)
         else:
             age = max(0.0, now - runtime.trigger_time)
-
-        attack = definition.attack
-        decay = definition.decay
-        gate = max(definition.gate, attack + decay)
-        release = definition.release
         if attack > 0.0 and age < attack:
             return max(0.0, min(1.0, age / attack))
         if decay > 0.0 and age < attack + decay:
@@ -634,7 +654,9 @@ class ModulatorBankEngine:
                 definition.modulator_id, _ModulatorRuntime(started_at=stamp)
             )
             if not definition.enabled:
-                outputs[f"modulator.{definition.modulator_id}"] = 0.5
+                outputs[f"modulator.{definition.modulator_id}"] = (
+                    0.0 if definition.kind == "envelope" else 0.5
+                )
                 continue
             if runtime.started_at is None:
                 runtime.started_at = stamp
@@ -699,8 +721,10 @@ class ModulatorBankEngine:
         for modulator_id in tuple(self._runtime):
             if modulator_id not in configured:
                 self._runtime.pop(modulator_id, None)
+        self._live_values = dict(outputs)
         return outputs
 
     def reset(self) -> None:
         self._runtime.clear()
+        self._live_values.clear()
 
