@@ -222,7 +222,7 @@ def test_sonic_pi_macro_events_feed_existing_m3_modulation_sources() -> None:
     from core.performance_transport import InternalTransport
 
     adapter = OSCProtocolAdapter()
-    adapter.decode("/eli_lab/v1/transport/start", ("macro-session", 1, 92.0, 4))
+    start = adapter.decode("/eli_lab/v1/transport/start", ("macro-session", 1, 92.0, 4))
     energy = adapter.decode(
         "/eli_lab/v1/macro/set",
         ("macro-session", 2, "energy", 0.74),
@@ -232,10 +232,7 @@ def test_sonic_pi_macro_events_feed_existing_m3_modulation_sources() -> None:
         ("macro-session", 3, "cutoff", 0.38),
     )
     state = PerformanceControlState()
-    assert state.apply(adapter.decode(
-        "/eli_lab/v1/transport/start",
-        ("macro-session", 1, 92.0, 4),
-    ))
+    assert state.apply(start)
     assert state.apply(energy)
     assert state.apply(cutoff)
 
