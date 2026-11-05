@@ -406,6 +406,7 @@ class MainWindow(QMainWindow):
                 osc_port=self.performance_control_panel.osc_port_spin.value(),
                 audio_device_id=audio_device_id,
                 audio_test_signal=audio_test_signal,
+                prefer_loopback=False,
                 start_automation=True,
                 automation_duration_seconds=duration,
                 automation_settings=settings.to_dict(),
@@ -474,6 +475,8 @@ class MainWindow(QMainWindow):
         try:
             self.application.load_performance_set(path)
             self._sync_performance_mode_button()
+            self.performance_control_panel.sync_from_application()
+            self.automation_panel.sync_performance_plan(self.application.performance_mode.plan)
         except Exception as exc:
             QMessageBox.critical(self, "Could Not Load Performance Set", str(exc))
             return
@@ -739,6 +742,7 @@ class MainWindow(QMainWindow):
         self.application.reset_project()
         self._sync_performance_mode_button()
         self.performance_control_panel.sync_from_application()
+        self.automation_panel.sync_performance_plan(self.application.performance_mode.plan)
         self.deck_panel.refresh()
         self.layer_panel.refresh()
         self.modulator_bank_panel.refresh()
@@ -764,6 +768,7 @@ class MainWindow(QMainWindow):
             self.application.load_project(path)
             self._sync_performance_mode_button()
             self.performance_control_panel.sync_from_application()
+            self.automation_panel.sync_performance_plan(self.application.performance_mode.plan)
             self.deck_panel.refresh()
             self.layer_panel.refresh()
             self.modulator_bank_panel.refresh()
