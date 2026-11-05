@@ -873,8 +873,6 @@ class Application:
         self.audio_capture.stop()
         self._audio_sources.clear()
         self._latest_audio_frame = None
-        self.performance_control.bpm = self.transport.bpm
-        self.performance_control.beats_per_bar = self.transport.beats_per_bar
         self.modulation.reset_runtime()
         self._modulation_base_values.clear()
         performance_settings = app_state.get("performance_settings", {})
