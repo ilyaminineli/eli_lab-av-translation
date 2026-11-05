@@ -356,7 +356,7 @@ class AudioCaptureService:
             _LOG.exception("Audio capture/analysis worker failed")
             self._set_state(AudioCaptureState.ERROR, str(exc))
         finally:
-            if cancel.is_set():
+            if cancel.is_set() and self.state != AudioCaptureState.DEVICE_LOST:
                 self._set_state(AudioCaptureState.STOPPED, "")
             elif self.state == AudioCaptureState.RUNNING:
                 self._set_state(AudioCaptureState.STOPPED, "")
@@ -400,12 +400,11 @@ class AudioCaptureService:
             return False
         present = any(item.id == self.selected_device_id for item in devices)
         if not present and self.state == AudioCaptureState.RUNNING:
+            self._cancel.set()
             self._set_state(
                 AudioCaptureState.DEVICE_LOST,
-                "Selected audio device disappeared. Refresh devices and select another input.",
+                "Selected audio device was disconnected. Refresh and select another input.",
             )
-            self.stop()
-            self._set_state(AudioCaptureState.DEVICE_LOST, "Selected audio device was disconnected.")
         return present
 
     def update_settings(self, settings: AudioAnalysisSettings) -> None:
