@@ -465,6 +465,8 @@ class Application:
                     self._external_clock_bar_at = None
                 elif event.source == "sonic_pi" and event.kind == "transport.tempo":
                     self.transport.set_tempo(float(event.payload["bpm"]))
+                elif event.source == "midi" and event.kind == "transport.tempo":
+                    self.transport.set_tempo(float(event.payload["bpm"]))
                 elif event.source == "sonic_pi" and event.kind == "clock.bar":
                     # A start datagram can be lost while a later bar still arrives.
                     # Treat the first bar as an authority hand-off too, so the
