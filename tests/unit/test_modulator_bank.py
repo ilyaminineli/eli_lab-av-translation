@@ -306,3 +306,58 @@ def test_modulator_engine_prunes_removed_sources() -> None:
 
     assert engine.live_values() == {}
     assert definition.modulator_id not in engine._runtime
+
+def test_bank_lfo_can_drive_existing_per_layer_modifier_target() -> None:
+    from core.application import Application
+    from core.composition import Composition, Layer
+    from core.modulation import ModulationMatrix
+    from core.performance_modifiers import (
+        LayerPerformanceModifier,
+        LayerPerformanceModifierEngine,
+    )
+
+    definition = ModulatorDefinition(
+        modulator_id="app-lfo",
+        kind="lfo",
+        waveform="sine",
+        rate_beats=4.0,
+        sync_mode="transport",
+    )
+    bank = _bank_with(definition)
+    layer = Layer(
+        id="bank-driven-geometry",
+        source_type="generator",
+        generator_type="geometry",
+        generator_settings={"animation_amount": 12.0},
+        performance_modifiers=[LayerPerformanceModifier(
+            modifier_id="bank-route",
+            source_id="modulator.app-lfo",
+            target_id="generator.animation_amount",
+            depth=0.1,
+            polarity="bipolar",
+            curve="linear",
+        ).to_dict()],
+    )
+    application = Application.__new__(Application)
+    application.composition = Composition(layers=[layer])
+    application._selected_layer_id = layer.id
+    application.modulator_bank = bank
+    application.modulator_bank_engine = ModulatorBankEngine()
+    application.performance_modifier_engine = LayerPerformanceModifierEngine()
+    application.modulation = ModulationMatrix()
+    application._modulation_base_values = {}
+    application._modulation_sources = lambda: _transport_sources(1.0)
+
+    application.apply_modulation()
+
+    assert layer.generator_settings["animation_amount"] == pytest.approx(48.0)
+
+    # Bypassing the bank source drops ownership and restores the pre-modulation base.
+    disabled = bank.get("app-lfo")
+    assert disabled is not None
+    disabled.enabled = False
+    bank.update(disabled)
+    application.apply_modulation()
+
+    assert layer.generator_settings["animation_amount"] == pytest.approx(12.0)
+
