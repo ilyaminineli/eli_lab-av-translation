@@ -12,7 +12,7 @@ The bank is available as a dedicated **MODULATOR BANK** dock, next to **AUDIO / 
 
 A control follower turns an existing continuous control signal into a reusable named source. It can follow SONATA's `macro.energy` or `macro.cutoff`, scene intensity, transport phase/pulses, or the audio RMS, peak, frequency bands and onset.
 
-Each follower provides an input range, linear/smoothstep/exponential response, inversion, and independent attack/release smoothing. Its normalized 0–1 output can be assigned to multiple targets/layers exactly like an LFO or sequence. Followers do not require the transport to run, so audio and macro control remain usable independently.
+Each follower provides an input range, linear/smoothstep/exponential response, inversion, and independent attack/release smoothing. Its normalized 0–1 output can be assigned to multiple targets/layers exactly like an LFO or sequence. Followers do not require the transport to run, so audio and macro control remain usable independently. The live monitor displays both the raw input value (or **NO SIGNAL**) and the smoothed follower output.
 
 SONATA sends its macros once per bar. The application keeps a received macro available for a bounded freshness window (at least five seconds, or two current bars if longer). When that source becomes stale or disappears, the follower stops publishing an output and its assignments release to their baselines. This avoids a disconnected Sonic Pi session leaving a waveform parameter frozen at its last value.
 
