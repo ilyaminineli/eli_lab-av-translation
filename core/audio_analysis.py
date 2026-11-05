@@ -188,7 +188,9 @@ class AudioAnalyzer:
         ):
             if self._last_beat_at is not None:
                 interval = stamp - self._last_beat_at
-                if 60.0 / self.settings.beat_max_bpm <= interval <= 60.0 / self.settings.beat_min_bpm * 2:
+                minimum_interval = 60.0 / self.settings.beat_max_bpm
+                maximum_interval = 60.0 / self.settings.beat_min_bpm * 2.0
+                if minimum_interval <= interval <= maximum_interval:
                     self._beat_intervals.append(interval)
             self._last_beat_at = stamp
             self._last_onset_at = stamp
