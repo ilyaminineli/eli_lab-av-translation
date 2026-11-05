@@ -313,6 +313,13 @@ class MainWindow(QMainWindow):
         save_as_action.triggered.connect(self.save_project_as)
         file_menu.addAction(save_as_action)
 
+        set_save_action = QAction("Save Performance Set…", self)
+        set_save_action.triggered.connect(self.save_performance_set)
+        file_menu.addAction(set_save_action)
+        set_load_action = QAction("Load Performance Set…", self)
+        set_load_action.triggered.connect(self.load_performance_set)
+        file_menu.addAction(set_load_action)
+
         file_menu.addSeparator()
         import_action = QAction("Add Media &Folder…", self)
         import_action.triggered.connect(self.media_browser.choose_folder)
@@ -359,6 +366,42 @@ class MainWindow(QMainWindow):
         about_action = QAction("&About", self)
         about_action.triggered.connect(self.show_about)
         help_menu.addAction(about_action)
+
+    def save_performance_set(self) -> None:
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save Performance Set", "performance.eliset",
+            "eli_lab Performance Set (*.eliset)",
+        )
+        if not path:
+            return
+        if not path.lower().endswith(".eliset"):
+            path += ".eliset"
+        try:
+            saved = self.application.save_performance_set(path)
+        except Exception as exc:
+            QMessageBox.critical(self, "Could Not Save Performance Set", str(exc))
+            return
+        self.statusBar().showMessage(f"Performance set saved · {saved}", 5000)
+
+    def load_performance_set(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Load Performance Set", "",
+            "eli_lab Performance Set (*.eliset)",
+        )
+        if not path:
+            return
+        try:
+            self.application.load_performance_set(path)
+        except Exception as exc:
+            QMessageBox.critical(self, "Could Not Load Performance Set", str(exc))
+            return
+        self.layer_panel.refresh()
+        self.generators_panel.refresh()
+        self.performance_control_panel.sync_from_application()
+        self.performance_control_panel.sync_modulator_sources()
+        self.performance_control_panel.refresh_routes()
+        self.modulator_bank_panel.refresh()
+        self.statusBar().showMessage(f"Performance set loaded · {Path(path).name}", 5000)
 
     def _populate_projector_menu(self, menu) -> None:
         menu.clear()
@@ -606,6 +649,7 @@ class MainWindow(QMainWindow):
         self.layer_panel.sync_performance_modifier_sources()
         self.performance_control_panel.sync_modulator_sources()
         self.performance_control_panel.refresh_routes()
+        self.performance_control_panel.sync_from_application()
         self.effects_panel.sync_from_settings()
         self.generators_panel.refresh()
         self.automation_panel.set_running(False, "Ready · import footage to begin.")
@@ -629,6 +673,7 @@ class MainWindow(QMainWindow):
             self.layer_panel.sync_performance_modifier_sources()
             self.performance_control_panel.sync_modulator_sources()
             self.performance_control_panel.refresh_routes()
+            self.performance_control_panel.sync_from_application()
             self.effects_panel.sync_from_settings()
             self.generators_panel.refresh()
             self.statusBar().showMessage(f"Opened {Path(path).name}", 4000)
