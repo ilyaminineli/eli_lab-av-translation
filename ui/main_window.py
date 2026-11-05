@@ -27,6 +27,7 @@ from ui.effects_panel import EffectsPanel
 from ui.generators_panel import GeneratorsPanel
 from ui.layer_panel import LayerPanel
 from ui.media_browser import MediaBrowser
+from ui.modulator_bank_panel import ModulatorBankPanel
 from ui.output_window import OutputWindowManager
 from ui.performance_control_panel import PerformanceControlPanel
 from ui.performance_view import PerformanceView
@@ -98,6 +99,15 @@ class MainWindow(QMainWindow):
         self.performance_control_dock.setMinimumWidth(300)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.performance_control_dock)
         self.tabifyDockWidget(self.preview_dock, self.performance_control_dock)
+
+        self.modulator_bank_panel = ModulatorBankPanel(application, self)
+        self.modulator_bank_dock = self._make_dock(
+            "MODULATOR BANK",
+            self.modulator_bank_panel,
+        )
+        self.modulator_bank_dock.setMinimumWidth(320)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.modulator_bank_dock)
+        self.tabifyDockWidget(self.performance_control_dock, self.modulator_bank_dock)
         self.layer_dock.raise_()
         self.setCentralWidget(self._build_workspace())
 
@@ -136,6 +146,18 @@ class MainWindow(QMainWindow):
         self.layer_panel.selected_layer_changed.connect(self.generators_panel.select_layer)
         self.generators_panel.selected_layer_changed.connect(self.application.set_selected_layer_id)
         self.layer_panel.selected_layer_changed.connect(self.application.set_selected_layer_id)
+        self.layer_panel.selected_layer_changed.connect(
+            self.modulator_bank_panel.refresh_assignment_targets
+        )
+        self.modulator_bank_panel.bank_changed.connect(
+            self.layer_panel.sync_performance_modifier_sources
+        )
+        self.modulator_bank_panel.bank_changed.connect(
+            self.layer_panel.refresh_performance_modifiers
+        )
+        self.modulator_bank_panel.assignment_created.connect(
+            self.layer_panel.refresh_performance_modifiers
+        )
         self.generators_panel.layer_properties_changed.connect(self.layer_panel.sync_layer_row)
         self.layer_panel.layer_properties_changed.connect(
             self.generators_panel.sync_layer_appearance
@@ -187,6 +209,9 @@ class MainWindow(QMainWindow):
         )
         self._modifier_feedback_timer.timeout.connect(
             self.generators_panel.sync_live_modulation
+        )
+        self._modifier_feedback_timer.timeout.connect(
+            self.modulator_bank_panel.refresh_live
         )
         self._modifier_feedback_timer.start()
 
