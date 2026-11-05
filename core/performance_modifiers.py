@@ -218,9 +218,12 @@ class LayerPerformanceModifierEngine:
                 modifier = LayerPerformanceModifier.from_dict(raw)
             except (TypeError, ValueError, KeyError):
                 continue
+            source_requires_presence = modifier.source_id.startswith(
+                ("modulator.", "macro.")
+            )
             source_available = (
                 available_sources is None
-                or not modifier.source_id.startswith("modulator.")
+                or not source_requires_presence
                 or modifier.source_id in available_sources
             )
             if (
