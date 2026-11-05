@@ -211,7 +211,13 @@ class OSCReceiver:
             from pythonosc.dispatcher import Dispatcher
             from pythonosc.osc_server import BlockingOSCUDPServer
         except ImportError as exc:
+            with self._lock:
+                self._last_error = str(exc)
             raise RuntimeError("python-osc is not installed. Install the runtime requirements.") from exc
+        except (TypeError, ValueError) as exc:
+            with self._lock:
+                self._last_error = str(exc)
+            raise
 
         with self._lock:
             if self._running:
@@ -233,7 +239,11 @@ class OSCReceiver:
                     receiver._record_invalid()
                     _LOG.debug("Discarded malformed OSC datagram from %s", client_address)
 
-            server = RecoverableServer((str(parsed), port), dispatcher)
+            try:
+                server = RecoverableServer((str(parsed), port), dispatcher)
+            except OSError as exc:
+                self._last_error = str(exc)
+                raise
             self._server = server
             self._bind_address = str(parsed)
             self._port = int(server.server_address[1])
