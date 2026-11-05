@@ -88,3 +88,42 @@ def test_target_registry_has_explicit_safe_ranges() -> None:
     assert "master.brightness" in TARGET_SPECS
     assert "generator.density" in TARGET_SPECS
     assert "automation.loop_probability" in TARGET_SPECS
+
+
+
+def test_modulation_matrix_rejects_multiple_routes_for_same_target() -> None:
+    matrix = ModulationMatrix()
+    matrix.add_route(ModulationRoute(
+        "first",
+        "audio.rms",
+        "master.grain",
+    ))
+    with pytest.raises(ValueError):
+        matrix.add_route(ModulationRoute(
+            "second",
+            "audio.low",
+            "master.grain",
+        ))
+
+
+def test_modulation_matrix_edits_route_and_resets_smoothing_state() -> None:
+    matrix = ModulationMatrix()
+    matrix.add_route(ModulationRoute(
+        "edit-me",
+        "audio.rms",
+        "master.grain",
+    ))
+    matrix.evaluate({"audio.rms": 0.5}, now=1.0)
+    matrix.update_route("edit-me", {
+        "source_id": "audio.low",
+        "output_min": 0.2,
+        "output_max": 0.8,
+        "curve": "smoothstep",
+    })
+
+    route = matrix.routes[0]
+    assert route.source_id == "audio.low"
+    assert route.output_min == 0.2
+    assert route.output_max == 0.8
+    assert route.curve == "smoothstep"
+    assert matrix.outputs() == {}
