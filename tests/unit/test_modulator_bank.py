@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import time
 
 import pytest
 
@@ -586,9 +587,7 @@ def test_global_modulation_matrix_can_consume_a_bank_follower() -> None:
         ))
         application._audio_sources = {}
         application.performance_control.macros["energy"] = 0.8
-        application.performance_control.macro_updated_at["energy"] = __import__(
-            "time"
-        ).monotonic()
+        application.performance_control.macro_updated_at["energy"] = time.monotonic()
 
         application.apply_modulation()
 
