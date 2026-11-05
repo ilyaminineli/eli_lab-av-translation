@@ -6,3 +6,5 @@ av>=12.0
 numpy>=1.26
 soundcard>=0.4.6
 python-osc>=1.10.2,<2
+
+# Optional live MIDI input: pip install -e ".[midi]"
