@@ -176,6 +176,25 @@ DEFAULT_MATRIX_ROUTES: tuple[tuple[str, str, float, float, bool, float], ...] = 
     ("audio.onset", "automation.min_segment_seconds", 18.0, 3.0, False, 0.55),
 )
 
+# Earlier autonomous defaults animated these CPU-rasterized properties. Remove only
+# the exact generated defaults and replace them with shader/layer-transform targets.
+LEGACY_CPU_RASTER_MODIFIERS: dict[str, set[tuple[str, str]]] = {
+    "geometry": {
+        ("AUTO · beat rotation", "generator.rotation"),
+        ("AUTO · phrase density", "generator.density"),
+    },
+    "text": {
+        ("AUTO · phrase type scale", "generator.font_size"),
+        ("AUTO · onset tracking", "generator.letter_spacing"),
+    },
+    "waveform": {
+        ("AUTO · bass amplitude", "generator.waveform_amplitude"),
+        ("AUTO · cutoff frequency", "generator.waveform_frequency"),
+        ("AUTO · beat amplitude", "generator.waveform_amplitude"),
+    },
+}
+
+
 DEFAULT_MODULATORS: tuple[tuple[str, str], ...] = (
     ("follower-sonic-pi-energy", "AUTO · Sonic Pi energy"),
     ("follower-sonic-pi-cutoff", "AUTO · Sonic Pi cutoff"),
@@ -268,7 +287,7 @@ def install_default_layer_modifiers(
         layers: list[object],
         modulator_ids: dict[str, str],
 ) -> int:
-    """Register shared Sonic Pi/audio/transport curves on every compatible layer."""
+    """Install GPU-friendly curves and migrate the earlier CPU-raster defaults."""
     energy = f"modulator.{modulator_ids['follower-sonic-pi-energy']}"
     cutoff = f"modulator.{modulator_ids['follower-sonic-pi-cutoff']}"
     beat = f"modulator.{modulator_ids['env-beat-pluck']}"
@@ -282,6 +301,22 @@ def install_default_layer_modifiers(
         configured = getattr(layer, "performance_modifiers", None)
         if not isinstance(configured, list):
             continue
+
+        kind = layer.generator_type if layer.source_type == "generator" else None
+        legacy = LEGACY_CPU_RASTER_MODIFIERS.get(str(kind), set())
+        if legacy:
+            configured[:] = [
+                raw for raw in configured
+                if not (
+                    isinstance(raw, dict)
+                    and str(raw.get("modifier_id", "")).startswith("auto-")
+                    and (
+                        str(raw.get("name", "")),
+                        str(raw.get("target_id", "")),
+                    ) in legacy
+                )
+            ]
+
         existing_records = {
             (str(raw.get("source_id", "")), str(raw.get("target_id", ""))): raw
             for raw in configured if isinstance(raw, dict)
@@ -300,7 +335,6 @@ def install_default_layer_modifiers(
             ))
         elif layer.source_type == "generator" and layer.generator_type:
             settings = normalize_settings(layer.generator_type, layer.generator_settings)
-            kind = layer.generator_type
             if kind == "geometry":
                 candidates.extend((
                     _modifier(
@@ -310,10 +344,10 @@ def install_default_layer_modifiers(
                         "cutoff motion", cutoff, "generator.animation_speed", 0.12
                     ),
                     _modifier(
-                        "beat rotation", beat, "generator.rotation",
+                        "beat rotation", beat, "layer.rotation",
                         0.055, "exponential", 8.0, 220.0,
                     ),
-                    _modifier("phrase density", swell, "generator.density", 0.035),
+                    _modifier("phrase scale", swell, "layer.scale", 0.035),
                 ))
             elif kind == "text":
                 candidates.extend((
@@ -323,29 +357,29 @@ def install_default_layer_modifiers(
                     _modifier(
                         "cutoff type speed", cutoff, "generator.text_animation_speed", 0.16
                     ),
+                    _modifier("phrase type scale", swell, "layer.scale", 0.035),
                     _modifier(
-                        "phrase type scale", swell, "generator.font_size", 0.035
-                    ),
-                    _modifier(
-                        "onset tracking", onset, "generator.letter_spacing",
-                        0.12, "exponential", 5.0, 240.0,
+                        "onset tracking", onset, "layer.rotation",
+                        0.035, "exponential", 5.0, 240.0,
                     ),
                 ))
             elif kind == "waveform":
                 candidates.extend((
                     _modifier(
-                        "bass amplitude", "audio.low", "generator.waveform_amplitude",
-                        0.30, "exponential", 8.0, 220.0,
+                        "bass scale", "audio.low", "layer.scale",
+                        0.18, "exponential", 8.0, 220.0,
                     ),
                     _modifier(
-                        "cutoff frequency", cutoff, "generator.waveform_frequency", 0.18
+                        "cutoff motion", cutoff, "generator.animation_speed", 0.12
                     ),
                     _modifier(
-                        "beat amplitude", beat, "generator.waveform_amplitude",
-                        0.16, "exponential", 5.0, 180.0,
+                        "beat motion", beat, "generator.animation_amount",
+                        0.12, "exponential", 5.0, 180.0,
                     ),
                 ))
             elif kind == "particles":
+                # Particle fields are evaluated directly in the fragment shader;
+                # these targets update uniforms and never invalidate a CPU texture.
                 candidates.extend((
                     _modifier(
                         "energy particle speed", energy, "generator.particle_speed", 0.24
@@ -364,17 +398,12 @@ def install_default_layer_modifiers(
                 ))
             else:
                 settings = {}
+
             available = {
                 "generator.animation_speed": "animation_speed",
                 "generator.animation_amount": "animation_amount",
-                "generator.density": "density",
-                "generator.rotation": "rotation",
                 "generator.text_animation_speed": "text_animation_speed",
                 "generator.text_animation_amount": "text_animation_amount",
-                "generator.font_size": "font_size",
-                "generator.letter_spacing": "letter_spacing",
-                "generator.waveform_amplitude": "amplitude",
-                "generator.waveform_frequency": "frequency",
                 "generator.particle_speed": "speed",
                 "generator.particle_size": "size",
                 "generator.particle_spread": "spread",
@@ -382,7 +411,10 @@ def install_default_layer_modifiers(
             }
             candidates = [
                 item for item in candidates
-                if available.get(item.target_id) in settings
+                if (
+                    item.target_id.startswith("layer.")
+                    or available.get(item.target_id) in settings
+                )
             ]
         elif layer.source_type == "overlay":
             candidates.extend((
