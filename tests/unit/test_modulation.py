@@ -147,7 +147,8 @@ def test_modulation_registry_exposes_visual_and_auto_performance_targets() -> No
         "audio-to-text-motion",
         "audio.high",
         "generator.text_animation_amount",
-    ).normalize()
+    )
+    route.normalize()
     assert route.output_min == pytest.approx(0.0)
     assert route.output_max == pytest.approx(0.18)
 
