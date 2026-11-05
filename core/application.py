@@ -732,6 +732,28 @@ class Application:
         self.modulation.add_route(route)
         self.events.publish("performance.modulation.updated")
 
+    def update_modulation_route(
+            self,
+            route_id: str,
+            changes: dict[str, object],
+    ) -> None:
+        existing = next(
+            (route for route in self.modulation.routes if route.route_id == route_id),
+            None,
+        )
+        if existing is None:
+            raise KeyError(f"Unknown modulation route: {route_id}")
+        previous_target = existing.target_id
+        self.modulation.update_route(route_id, changes)
+        updated = next(
+            route for route in self.modulation.routes if route.route_id == route_id
+        )
+        if previous_target != updated.target_id:
+            base = self._modulation_base_values.pop(previous_target, None)
+            if base is not None:
+                self._set_modulation_target(previous_target, base)
+        self.events.publish("performance.modulation.updated")
+
     def remove_modulation_route(self, route_id: str) -> None:
         self.modulation.remove_route(route_id)
         outputs, released = self.modulation.evaluate(self._modulation_sources())
