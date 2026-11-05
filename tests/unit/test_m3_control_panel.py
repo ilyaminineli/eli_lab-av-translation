@@ -311,3 +311,37 @@ def test_sonic_pi_cutoff_follower_assigns_to_waveform_frequency(qtbot) -> None:
     finally:
         application.shutdown()
 
+def test_performance_matrix_exposes_modulator_bank_sources(qtbot) -> None:
+    from core.modulator_bank import ModulatorDefinition
+
+    application = Application()
+    try:
+        definition = ModulatorDefinition(
+            modulator_id="global-matrix-lfo",
+            name="Global motion LFO",
+            kind="lfo",
+        )
+        application.add_modulator(definition)
+        panel = PerformanceControlPanel(application)
+        qtbot.addWidget(panel)
+
+        panel.sync_modulator_sources()
+
+        source_id = f"modulator.{definition.modulator_id}"
+        assert panel.source_combo.findData(source_id) >= 0
+        panel.source_combo.setCurrentIndex(panel.source_combo.findData(source_id))
+        panel.target_combo.setCurrentIndex(
+            panel.target_combo.findData("master.grain")
+        )
+        panel.add_route_button.click()
+
+        route = next(
+            route for route in application.modulation.routes
+            if route.source_id == source_id
+        )
+        assert route.target_id == "master.grain"
+        assert source_id in panel.route_list.item(0).text()
+        assert "Global motion LFO" in panel.route_list.item(0).text()
+    finally:
+        application.shutdown()
+
