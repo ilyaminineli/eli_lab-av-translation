@@ -126,3 +126,28 @@ def test_modulation_matrix_edits_route_and_resets_smoothing_state() -> None:
     assert route.output_max == 0.8
     assert route.curve == "smoothstep"
     assert matrix.outputs() == {}
+
+def test_modulation_registry_exposes_visual_and_auto_performance_targets() -> None:
+    expected = {
+        "selected_layer.scale",
+        "selected_layer.position_x",
+        "generator.animation_speed",
+        "generator.text_animation_speed",
+        "generator.text_animation_amount",
+        "generator.waveform_frequency",
+        "generator.particle_speed",
+        "overlay.playback_speed",
+        "automation.clip_switch_probability",
+        "automation.layout_interval",
+        "automation.effect_interval",
+        "automation.generator_interval",
+    }
+    assert expected.issubset(TARGET_SPECS)
+    route = ModulationRoute(
+        "audio-to-text-motion",
+        "audio.high",
+        "generator.text_animation_amount",
+    ).normalize()
+    assert route.output_min == pytest.approx(0.0)
+    assert route.output_max == pytest.approx(0.18)
+
