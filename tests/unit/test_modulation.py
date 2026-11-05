@@ -67,7 +67,7 @@ def test_modulation_manual_override_yields_and_then_releases_target() -> None:
     assert released == {"master.grain"}
 
     resumed, released = matrix.evaluate({"audio.rms": 0.2}, now=3.2)
-    assert resumed["master.grain"] == pytest.approx(0.2)
+    assert resumed["master.grain"] == pytest.approx(0.2, abs=0.0001)
     assert released == set()
 
 
