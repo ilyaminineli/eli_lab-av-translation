@@ -307,39 +307,26 @@ See [M3 Audio-Reactive Foundation](M3_AUDIO_REACTIVE_FOUNDATION.md).
 
 # M4 — Sonic Pi Integration
 
-## Objective
+## Status
 
-Make Sonic Pi a first-class, time-aware control source for the visual instrument using a documented, versioned OSC protocol. Sonic Pi remains responsible for audio synthesis and musical structure; AV Translator receives only high-level transport, scene and macro intent.
+**Software implementation complete; full live SONATA rehearsal remains a manual validation step.**
 
-## SONATA patch requirements
+## Delivered
 
-The inspected `SONATA_expanded.rb` patch runs at 92 BPM, uses a four-beat bar clock, progresses through 16 named scenes across 384 bars, and updates energy/cutoff macros once per bar. It contains 93 live loops, but its cues and shared variables are internal to Sonic Pi. No OSC sender is present yet.
+- Dedicated local IPv4 OSC receiver with loopback default and configurable bind address / port.
+- Versioned `/eli_lab/v1` decoder translated into M3 `ControlEvent` events.
+- Strict address, argument-count, type, numeric-range and macro-name validation.
+- Session IDs, monotonically increasing per-session sequence numbers, restart de-duplication and stale-session rejection.
+- Bounded 60-message/second ingress, malformed-packet recovery and diagnostics for last address, freshness, accepted, rejected, rate-limited and dropped messages.
+- A single network worker that only submits validated events to the bounded M3 queue; the application/UI tick owns state changes.
+- AUDIO / CONTROL dock controls and live/stale receiver monitor.
+- Local deterministic OSC sender and UDP/protocol tests that do not require Sonic Pi.
+- SONATA sender helper with explicit host/port, unique session ID, shared sequence counter and no-AV toggle.
+- Patch output at start, bar, scene, per-bar energy/cutoff macro, four-bar phrase, heartbeat and end points. The 93 audio loops remain untouched.
 
-M4 should add a small sender at the existing musical control points—not a packet for every synth/drum loop:
+## Exit condition
 
-- Patch start / stop and tempo.
-- One bar clock event per bar.
-- Scene ID and scene intensity from `sp_scene`.
-- Normalized energy and cutoff macros from the macro-motion loop.
-- Optional phrase/cue events for quantized visual changes.
-
-## Planned implementation
-
-- OSC receiver on a configurable local bind address and dedicated port (loopback by default).
-- Versioned namespace, initially `/eli_lab/v1`.
-- Translator into the M3 `ControlEvent` contract.
-- Transport start/stop/tempo, bar position, scene select/intensity, named macro and cue events.
-- Session IDs and per-session sequence numbers for restart-safe de-duplication.
-- Connection freshness / heartbeat indicator, last-message diagnostics and bounded event ingress.
-- Strict type/range/name validation, rate limits and malformed-packet handling.
-- Local test sender and protocol tests that do not require Sonic Pi.
-- Patch helper for optional OSC output, explicit host/port and a safe no-AV fallback.
-- Quantized scene changes and macro smoothing using the M3 transport state.
-- Manual override, lock, hold and intensity ceiling precedence.
-
-OSC workers only submit normalized events. They must never mutate widgets, composition state or OpenGL resources directly.
-
-**M4 exit condition:** the protocol is documented and versioned; the receiver is testable without Sonic Pi; the SONATA patch sends start/bar/scene/macro/end events aligned to its musical clock; missing or malformed packets are recoverable; and video rendering remains non-blocking.
+The protocol is documented and versioned; CI verifies strict decoding, session restart/de-duplication, local UDP delivery, malformed packet recovery and bounded queue failure. The SONATA source emits the required high-level events from its musical clock. A live 384-bar Sonic Pi rehearsal is still required to sign off exact runtime scheduling on the target machine.
 
 See [SONATA Expanded integration notes](SONIC_PI_SONATA_INTEGRATION.md).
 
@@ -380,10 +367,8 @@ Package the visual, audio and external-control systems into a flexible live perf
 
 ## Immediate next implementation order
 
-1. Perform M3 hardware sign-off on Windows: physical input, system loopback, device unplug/reconnect, source refresh/restart and sustained capture while video is playing.
-2. Begin M4 with the versioned OSC receiver, local test sender, heartbeat/sequence handling and protocol tests.
-3. Add the optional OSC sender to SONATA at its central transport, bar, scene, macro and end control points; do not instrument all 93 live loops.
-4. Rehearse the full 92 BPM / 384-bar form, verify scene/phrase timing and macro ranges, then test lost packets and disconnect recovery.
-5. Continue the Video Mixer Completion Gate as a separate release track; do not infer its hardware sign-off from M3 CI.
+1. Perform the live SONATA 384-bar rehearsal and verify bar/scene/macro timing, session restart and lost-packet recovery.
+2. Perform M3 hardware sign-off on Windows: physical input, system loopback, device unplug/reconnect, source refresh/restart and sustained capture while video is playing.
+3. Continue the Video Mixer Completion Gate as a separate release track; do not infer its hardware sign-off from M3 CI.
 
 M3 is the control foundation and audio-analysis source. M4 is the explicit Sonic Pi integration milestone. The two share the normalized event/state contract; neither needs to change the GPU renderer.
