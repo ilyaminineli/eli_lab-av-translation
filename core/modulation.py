@@ -73,7 +73,7 @@ TARGET_SPECS: dict[str, ModulationTargetSpec] = {
         "generator.animation_speed", "Generator animation speed", 0.0, 8.0, "generator"
     ),
     "generator.animation_amount": ModulationTargetSpec(
-        "generator.animation_amount", "Generator motion amount", 0.0, 0.45, "generator"
+        "generator.animation_amount", "Generator motion amount", 0.0, 360.0, "generator"
     ),
     "generator.density": ModulationTargetSpec(
         "generator.density", "Generator density", 1.0, 120.0, "generator"
