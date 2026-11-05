@@ -132,3 +132,63 @@ def test_midi_input_service_queue_is_bounded_and_drain_is_deferred() -> None:
     assert seen == []
     assert service.drain() == 1
     assert len(seen) == 1
+
+
+def test_midi_learn_captures_the_next_matching_controller_event() -> None:
+    from types import SimpleNamespace
+
+    from core.application import Application
+
+    app = Application.__new__(Application)
+    app._midi_learn_request = {
+        "device_id": "controller",
+        "target": "macro.energy",
+        "minimum": 0.2,
+        "maximum": 0.9,
+        "curve": "smoothstep",
+        "pickup": False,
+    }
+    app._midi_learn_last_event = ""
+    app.midi_mapping_engine = MIDIMappingEngine()
+    app.events = SimpleNamespace(publish=lambda *args, **kwargs: None)
+
+    app._handle_midi_event("controller", "cc", 2, 74, 0.5)
+
+    assert app._midi_learn_request is None
+    assert len(app.midi_mapping_engine.mappings) == 1
+    mapping = app.midi_mapping_engine.mappings[0]
+    assert mapping.message == "cc"
+    assert mapping.channel == 2
+    assert mapping.number == 74
+    assert mapping.target == "macro.energy"
+    assert mapping.minimum == 0.2
+    assert mapping.maximum == 0.9
+    assert mapping.curve == "smoothstep"
+    assert mapping.pickup is False
+
+
+def test_quantized_performance_scene_uses_transport_scheduler() -> None:
+    from types import SimpleNamespace
+
+    from core.application import Application
+
+    scheduled = []
+    app = Application.__new__(Application)
+    app.performance_scenes = {
+        "drop": PerformanceScene(
+            "drop", "Drop", {"composition": {}}, quantization="phrase"
+        )
+    }
+    app._pending_scene_morph_seconds = {}
+    app.transport = SimpleNamespace(
+        running=True,
+        paused=False,
+        schedule_scene=lambda *args, **kwargs: scheduled.append((args, kwargs)),
+    )
+    app.performance_control = SimpleNamespace(intensity=0.75)
+    app.events = SimpleNamespace(publish=lambda *args, **kwargs: None)
+
+    assert app.schedule_performance_scene("drop", morph_seconds=2.5) is True
+    assert app._pending_scene_morph_seconds["drop"] == 2.5
+    assert scheduled[0][0] == ("drop", 0.75)
+    assert scheduled[0][1]["quantization"] == "phrase"
