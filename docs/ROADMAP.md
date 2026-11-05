@@ -345,8 +345,10 @@ Package the visual, audio and external-control systems into a flexible live perf
 - Per-layer mappings from rhythm, audio bands and Sonic Pi energy/cutoff to layer transforms, generator parameters and animated-overlay playback.
 - Live modifier meters and synchronized layer/generator controls, with manual override and lock precedence.
 - Pre-modulation baselines restored when modifiers are released and preserved when saving projects.
+- Dedicated Modulator Bank with ADSR envelopes, transport-synced/free-running LFOs, step sequences, swing, ping-pong/reverse/seeded-random directions and gated rhythmic patterns.
+- Built-in and user presets, cross-project JSON import/export, reusable assignments across layers and project persistence.
 
-See [M5 Performance Modifiers](M5_PERFORMANCE_MODIFIERS.md).
+See [M5 Performance Modifiers](M5_PERFORMANCE_MODIFIERS.md) and [M5 Modulator Bank](M5_MODULATOR_BANK.md).
 
 ## Planned implementation
 
