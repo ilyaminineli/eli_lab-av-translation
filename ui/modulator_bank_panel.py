@@ -70,11 +70,13 @@ class ModulatorBankPanel(QWidget):
         self.new_envelope_button = QPushButton("+ ENVELOPE")
         self.new_steps_button = QPushButton("+ STEPS")
         self.new_rhythm_button = QPushButton("+ RHYTHM")
+        self.new_follower_button = QPushButton("+ FOLLOWER")
         for button in (
                 self.new_lfo_button,
                 self.new_envelope_button,
                 self.new_steps_button,
                 self.new_rhythm_button,
+                self.new_follower_button,
         ):
             create_row.addWidget(button)
         bank_layout.addLayout(create_row)
@@ -150,6 +152,29 @@ class ModulatorBankPanel(QWidget):
         lfo_form.addRow("PULSE WIDTH", self.lfo_pulse_width)
         editor.addWidget(self.lfo_group)
 
+        self.follower_group = QGroupBox("CONTROL FOLLOWER · SONIC PI / AUDIO")
+        follower_form = QFormLayout(self.follower_group)
+        self.input_source_combo = QComboBox()
+        for source_id, label in FOLLOWER_SOURCES.items():
+            self.input_source_combo.addItem(label, source_id)
+        self.input_min_spin = self._double_spin(0.0, 1.0, 0.0, 3)
+        self.input_max_spin = self._double_spin(0.0, 1.0, 1.0, 3)
+        self.input_curve_combo = QComboBox()
+        self.input_curve_combo.addItem("Linear", "linear")
+        self.input_curve_combo.addItem("Smoothstep", "smoothstep")
+        self.input_curve_combo.addItem("Exponential", "exponential")
+        self.input_invert_check = QCheckBox("INVERT INPUT")
+        self.input_attack_spin = self._double_spin(1.0, 5000.0, 80.0, 1)
+        self.input_release_spin = self._double_spin(1.0, 10000.0, 600.0, 1)
+        follower_form.addRow("INPUT SOURCE", self.input_source_combo)
+        follower_form.addRow("INPUT MIN", self.input_min_spin)
+        follower_form.addRow("INPUT MAX", self.input_max_spin)
+        follower_form.addRow("RESPONSE CURVE", self.input_curve_combo)
+        follower_form.addRow(self.input_invert_check)
+        follower_form.addRow("ATTACK · ms", self.input_attack_spin)
+        follower_form.addRow("RELEASE · ms", self.input_release_spin)
+        editor.addWidget(self.follower_group)
+
         self.envelope_group = QGroupBox("ENVELOPE · ADSR")
         envelope_form = QFormLayout(self.envelope_group)
         self.trigger_combo = QComboBox()
@@ -163,7 +188,9 @@ class ModulatorBankPanel(QWidget):
         self.sustain_spin = self._double_spin(0.0, 1.0, 0.2, 3)
         self.gate_spin = self._double_spin(0.0, 256.0, 0.2, 3)
         self.release_spin = self._double_spin(0.0, 64.0, 0.5, 3)
+        self.trigger_threshold_spin = self._double_spin(0.0, 1.0, 0.5, 3)
         envelope_form.addRow("TRIGGER", self.trigger_combo)
+        envelope_form.addRow("TRIGGER THRESHOLD", self.trigger_threshold_spin)
         envelope_form.addRow("RETRIGGER", self.retrigger_combo)
         envelope_form.addRow("ATTACK", self.attack_spin)
         envelope_form.addRow("DECAY", self.decay_spin)
@@ -276,6 +303,9 @@ class ModulatorBankPanel(QWidget):
         self.new_rhythm_button.clicked.connect(
             lambda: self._create_modulator("rhythm")
         )
+        self.new_follower_button.clicked.connect(
+            lambda: self._create_modulator("follower")
+        )
         self.duplicate_button.clicked.connect(self._duplicate_selected)
         self.remove_button.clicked.connect(self._remove_selected)
         self.modulator_list.currentItemChanged.connect(self._selection_changed)
@@ -378,6 +408,7 @@ class ModulatorBankPanel(QWidget):
                 self.sync_combo,
                 self.reset_combo,
                 self.lfo_group,
+                self.follower_group,
                 self.envelope_group,
                 self.sequence_group,
                 self.apply_button,
@@ -395,6 +426,7 @@ class ModulatorBankPanel(QWidget):
             self.output_label.setText("OUTPUT · —")
             self.output_meter.setValue(0)
             self.lfo_group.hide()
+            self.follower_group.hide()
             self.envelope_group.hide()
             self.sequence_group.hide()
             return
@@ -415,6 +447,17 @@ class ModulatorBankPanel(QWidget):
         self.lfo_rate_hz.setValue(definition.rate_hz)
         self.lfo_phase.setValue(definition.phase)
         self.lfo_pulse_width.setValue(definition.pulse_width)
+        self.input_source_combo.setCurrentIndex(
+            max(0, self.input_source_combo.findData(definition.input_source))
+        )
+        self.input_min_spin.setValue(definition.input_min)
+        self.input_max_spin.setValue(definition.input_max)
+        self.input_curve_combo.setCurrentIndex(
+            max(0, self.input_curve_combo.findData(definition.input_curve))
+        )
+        self.input_invert_check.setChecked(definition.input_invert)
+        self.input_attack_spin.setValue(definition.input_attack_ms)
+        self.input_release_spin.setValue(definition.input_release_ms)
         self.trigger_combo.setCurrentIndex(
             max(0, self.trigger_combo.findData(definition.trigger_source))
         )
@@ -426,6 +469,7 @@ class ModulatorBankPanel(QWidget):
         self.sustain_spin.setValue(definition.sustain)
         self.gate_spin.setValue(definition.gate)
         self.release_spin.setValue(definition.release)
+        self.trigger_threshold_spin.setValue(definition.trigger_threshold)
         self.steps_edit.setText(", ".join(
             f"{value:g}" for value in definition.step_values
         ))
@@ -449,9 +493,16 @@ class ModulatorBankPanel(QWidget):
         )
         self.euclidean_group.setVisible(definition.kind == "rhythm")
         self.lfo_group.setVisible(definition.kind == "lfo")
+        self.follower_group.setVisible(definition.kind == "follower")
         self.envelope_group.setVisible(definition.kind == "envelope")
         self.sequence_group.setVisible(definition.kind in {"steps", "rhythm"})
-        if definition.kind == "envelope":
+        if definition.kind == "follower":
+            self.editor_hint.setText(
+                "A reusable follower for Sonic Pi energy/cutoff, scene intensity, transport "
+                "signals or audio bands. SONATA macros update once per bar; stale macro "
+                "inputs disappear after the OSC freshness window so assigned targets release."
+            )
+        elif definition.kind == "envelope":
             self.editor_hint.setText(
                 "ADSR stages use beats when transport-synced and seconds in free-run mode. "
                 "The trigger can be a beat, downbeat, phrase, audio onset or Sonic Pi energy."
@@ -572,7 +623,15 @@ class ModulatorBankPanel(QWidget):
                     if definition.kind == "rhythm"
                     else self.lfo_pulse_width.value()
                 ),
+                "input_source": self.input_source_combo.currentData(),
+                "input_min": self.input_min_spin.value(),
+                "input_max": self.input_max_spin.value(),
+                "input_invert": self.input_invert_check.isChecked(),
+                "input_curve": self.input_curve_combo.currentData(),
+                "input_attack_ms": self.input_attack_spin.value(),
+                "input_release_ms": self.input_release_spin.value(),
                 "trigger_source": self.trigger_combo.currentData(),
+                "trigger_threshold": self.trigger_threshold_spin.value(),
                 "retrigger": self.retrigger_combo.currentData(),
                 "attack": self.attack_spin.value(),
                 "decay": self.decay_spin.value(),
@@ -792,7 +851,11 @@ class ModulatorBankPanel(QWidget):
             return
         polarity = self.assignment_polarity_combo.currentData()
         if polarity == "auto":
-            polarity = "positive" if definition.kind == "envelope" else "bipolar"
+            polarity = (
+                "positive"
+                if definition.kind in {"envelope", "follower"}
+                else "bipolar"
+            )
         target_label = PERFORMANCE_MODIFIER_TARGETS[str(target_id)].label
         modifier = LayerPerformanceModifier(
             name=f"{definition.name} → {target_label}",
@@ -816,11 +879,16 @@ class ModulatorBankPanel(QWidget):
             self.output_meter.setValue(0)
             return
         live_values = self.application.modulator_bank_engine.live_values()
+        source_id = f"modulator.{definition.modulator_id}"
         is_bypassed = not definition.enabled
-        value = live_values.get(
-            f"modulator.{definition.modulator_id}",
-            0.5 if definition.kind != "envelope" else 0.0,
-        )
+        if source_id not in live_values:
+            if definition.kind == "follower" and definition.enabled:
+                self.output_label.setText("OUTPUT · NO INPUT")
+                self.output_meter.setValue(0)
+                return
+            value = 0.5 if definition.kind != "envelope" else 0.0
+        else:
+            value = live_values[source_id]
         status = "BYPASSED" if is_bypassed else definition.kind.upper()
         self.output_label.setText(f"OUTPUT · {value:.3f}  ·  {status}")
         self.output_meter.setValue(round(max(0.0, min(1.0, value)) * 100))
