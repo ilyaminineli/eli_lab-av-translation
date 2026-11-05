@@ -533,3 +533,28 @@ def test_modifier_engine_prunes_removed_runtime_records() -> None:
     assert (layer.id, "temporary") not in engine._runtime
     assert engine.live_values(layer.id) == {}
 
+def test_stale_sonic_pi_macro_does_not_keep_a_layer_target_claimed() -> None:
+    modifier = LayerPerformanceModifier(
+        modifier_id="sonata-cutoff",
+        source_id="macro.cutoff",
+        target_id="generator.waveform_frequency",
+        depth=0.2,
+    )
+    layer = Layer(
+        id="waveform",
+        source_type="generator",
+        generator_type="waveform",
+        generator_settings={"amplitude": 0.22, "frequency": 2.5},
+        performance_modifiers=[modifier.to_dict()],
+    )
+    engine = LayerPerformanceModifierEngine()
+
+    assert engine.claimed_targets(
+        layer,
+        available_sources={"transport.phase"},
+    ) == set()
+    assert engine.claimed_targets(
+        layer,
+        available_sources={"macro.cutoff"},
+    ) == {"generator.waveform_frequency"}
+
