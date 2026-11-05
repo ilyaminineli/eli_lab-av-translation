@@ -61,13 +61,13 @@ Namespace: `/eli_lab/v1`. Every event begins with a string session ID and positi
 | `/transport/stop` | none | `transport.stop` |
 | `/transport/tempo` | BPM (float) | `transport.tempo` |
 | `/clock/bar` | 1-based bar (int), BPM (float), beats/bar (int) | `clock.bar` |
-| `/scene/select` | scene ID (string), intensity (float 0..1), bar (int) | `scene.select` |
+| `/scene/select` | scene ID (string), intensity (float 0..1), bar (int; `0` only for the initial pre-clock scene marker, otherwise 1-based) | `scene.select` |
 | `/scene/intensity` | intensity (float 0..1) | `scene.intensity` |
 | `/macro/set` | name (`energy` or `cutoff`), value (float 0..1) | `macro.set` |
 | `/cue/trigger` | cue name (identifier) | `cue.trigger` |
 | `/source/heartbeat` | none | `source.heartbeat` |
 
-The cutoff normalization is `clamp((sx_m_c - 48.0) / 70.0, 0.0, 1.0)`. Energy is already normalized in the patch. Macro messages are sent once per bar; a phrase cue is sent on four-bar boundaries. Bar messages are emitted once per bar, and a separate heartbeat is sent every four bars. SONATA's form thread changes scenes after `sync :sp_b`; each scene event therefore arrives on the patch's own musical bar boundary and includes that 1-based bar index. The application treats SONATA as clock authority, disables its internal test clock while the external session is running, and derives the M3 `transport.phase` modulation source from the most recent bar clock. Macro values feed the existing M3 modulation matrix, including its smoothing, hold, lock, manual-override and intensity-ceiling behavior.
+The initial `in` scene is announced before the first clock tick and therefore carries `bar_index=0` as a pre-clock marker; the first `/clock/bar` is bar 1. Every subsequent scene event is emitted after the preceding scene's bar-counted form block and carries the current 1-based bar index. The cutoff normalization is `clamp((sx_m_c - 48.0) / 70.0, 0.0, 1.0)`. Energy is already normalized in the patch. Macro messages are sent once per bar; a phrase cue is sent on four-bar boundaries. Bar messages are emitted once per bar, and a separate heartbeat is sent every four bars. The application treats SONATA as clock authority, disables its internal test clock on `transport/start` or, as a packet-loss fallback, the first accepted `clock/bar`, and derives the M3 `transport.phase` modulation source from the most recent bar clock. Macro values feed the existing M3 modulation matrix, including its smoothing, hold, lock, manual-override and intensity-ceiling behavior.
 
 ## Receiver safety and application threading
 
