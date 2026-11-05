@@ -283,6 +283,8 @@ class Application:
 
     def reset_project(self) -> None:
         self.automation.stop()
+        self.midi_mapping_engine.load_dict([])
+        self.performance_scenes.clear()
         self._clear_overlays()
         for deck in self.decks.values():
             deck.close()
@@ -1723,8 +1725,8 @@ class Application:
                 "modulation_routes": self.modulation.to_dict(),
                 "scene_profiles": self.scene_profiles.to_dict(),
                 "modulator_bank": self.modulator_bank.to_dict(),
-                "midi_mappings": self.midi_mapping_engine.to_dict(),
-                "performance_scenes": [scene.to_dict() for scene in self.performance_scenes.values()],
+                "midi_mappings": getattr(getattr(self, "midi_mapping_engine", None), "to_dict", lambda: [])(),
+                "performance_scenes": [scene.to_dict() for scene in getattr(self, "performance_scenes", {}).values()],
             },
         }
         composition_snapshot = Composition.from_dict(self.composition.to_dict())
@@ -1945,9 +1947,9 @@ class Application:
             self.automation.settings = AutomationSettings(**values)
             self.automation.settings.normalize()
 
-        self.midi_mapping_engine.load_dict(app_state.get("midi_mappings", []))
+        self.midi_mapping_engine.load_dict(performance_settings.get("midi_mappings", []))
         scenes = []
-        for raw in app_state.get("performance_scenes", []):
+        for raw in performance_settings.get("performance_scenes", []):
             if isinstance(raw, dict):
                 try:
                     scene = PerformanceScene(**raw)
