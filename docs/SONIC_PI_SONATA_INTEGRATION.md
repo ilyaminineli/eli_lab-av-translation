@@ -49,7 +49,7 @@ At the top of `SONATA_expanded.rb`, the helper exposes three values:
 - `$sp_av_host = "127.0.0.1"` — explicit AV Translator bind address.
 - `$sp_av_port = 57121` — match the UDP port shown in the AUDIO / CONTROL dock.
 
-A unique session identifier is generated at patch start. A shared sequence counter increments for each outgoing message inside a short mutex-protected sender section, so concurrent musical loops cannot reuse or reorder sequence numbers. The helper uses Sonic Pi's `osc_send(host, port, path, *args)` API and does not depend on Sonic Pi's incoming OSC port. If AV Translator is closed, local UDP sends are harmless; the patch's audio structure and cues continue to run.
+A unique session identifier is generated at patch start from a wall-clock timestamp with a microsecond component; it does not depend on the patch's seeded musical random generator, so rapid restarts receive distinct IDs. A shared sequence counter increments for each outgoing message inside a short mutex-protected sender section, so concurrent musical loops cannot reuse or reorder sequence numbers. The helper uses Sonic Pi's `osc_send(host, port, path, *args)` API and does not depend on Sonic Pi's incoming OSC port. If AV Translator is closed, local UDP sends are harmless; the patch's audio structure and cues continue to run.
 
 ## Version 1 wire protocol
 
