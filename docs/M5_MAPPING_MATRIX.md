@@ -17,7 +17,7 @@ Transport beat/downbeat/phrase pulses, beat/bar phase and scene intensity; audio
 | `master.*` | effect parameters exposed by the global Modulation Matrix |
 | `macro.*` | named normalized macro controls |
 
-Local layer targets are saved with composition layers. Global effect and automation targets remain in the Modulation Matrix. MIDI addresses stable target IDs. A target is only implemented when it has a registered range, getter/setter, compatibility filter, UI surface, persistence and tests.
+Local layer targets are saved with composition layers. Global effect and automation targets remain in the Modulation Matrix. MIDI addresses stable target IDs. A target is only implemented when it has a registered range, getter/setter, compatibility filter, UI surface and persistence; verification must be documented separately from static CI checks.
 
 ## Precedence
 
