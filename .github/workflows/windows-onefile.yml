@@ -18,6 +18,8 @@ on:
       - "dictionary/**"
       - "THIRD_PARTY_NOTICES.md"
   push:
+    branches:
+      - "release/windows-onefile-readiness"
     tags:
       - "v*"
 
