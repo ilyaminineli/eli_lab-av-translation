@@ -12,9 +12,22 @@ eli_lab AV Translator is a Windows-first live video collage and VJ performance e
 - Rendering owns OpenGL resources, video textures, layer compositing and post-processing.
 - Effects owns master look parameters and filter presets.
 - Performance control owns normalized transport, scene, intensity, macro and cue state.
-- Future audio-analysis and OSC adapters publish normalized control events; they do not replace the renderer.
+- Audio, OSC and MIDI adapters publish normalized control events; they do not replace or own renderer resources.
 
 Decoder workers must never call OpenGL. They publish timestamped CPU frames to bounded queues. The main application refreshes a shared latest-frame snapshot cache. Each output renderer independently uploads new revisions into its own OpenGL context.
+
+## Runtime resources and packaged deployment
+
+The application has two distinct filesystem domains:
+
+- Read-only application resources are resolved from RESOURCE_DIR, beneath the source tree in development or the Nuitka runtime extraction directory in a one-file build. The same root is used for the bundled dictionary files.
+- Writable per-user state is resolved independently under %LOCALAPPDATA%\eli_lab\AV Translator on Windows. The SQLite media database, thumbnail cache and application logs never live inside the executable or its temporary extraction directory.
+
+Nuitka one-file builds unpack embedded files to a temporary runtime directory when launched. The configuration module uses Nuitka's python_runtime_dir attribute to locate the embedded resources. User footage, .eliav projects and user-added asset folders remain external and are not copied into the executable.
+
+The built-in visual-asset index is not scanned during Application construction. The Asset Library starts its scan when the dock is first shown, using a bounded Qt thread-pool worker. The worker scans a snapshot of registered roots; if roots change during a scan, its stale result is discarded and a fresh scan starts. Only the UI thread installs the final index result and updates widgets.
+
+The Windows release build uses PySide6 deployment (Nuitka onefile) on a native Windows x64 build machine. The target computer does not need Python or build tools, but still needs a working OpenGL 3.3 driver and any external application/device such as Sonic Pi or a projector.
 
 ## Rendering lifecycle
 
