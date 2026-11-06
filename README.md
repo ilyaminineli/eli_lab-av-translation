@@ -1,6 +1,6 @@
 # eli_lab AV Translator
 
-A Windows-first live video collage and VJ performance environment. Drop in a footage folder, choose a session rhythm, start automation and send the same GPU composition to a separate fullscreen display or projector.
+A Windows-first audiovisual performance environment for four-deck video collage, procedural visuals, text art, audio reactivity and Sonic Pi-controlled live shows. Build a single Windows x64 executable for a second performance computer and send the same composition to an HDMI projector.
 
 M0–M2 establish the visual instrument. M3 provides internal transport, optional audio capture/analysis and a visual modulation matrix. M4 adds Sonic Pi as a versioned, timed OSC control source. M5 adds a one-button autonomous show workflow: arm Performance Mode, run SONATA in Sonic Pi, and let musical cues, macros, audio reactivity, modulation curves and AUTO PERFORMANCE run together. Audio playback remains the responsibility of Sonic Pi or another external audio application.
 
@@ -29,49 +29,42 @@ M0–M2 establish the visual instrument. M3 provides internal transport, optiona
 - A separate fullscreen output window selectable by Windows display / projector.
 - Shared decoded-frame snapshots so preview and projector outputs show the same playback without competing for frames.
 - Effect and automation settings saved inside .eliav projects.
-- First-class transparent generator layers: procedural geometry, typographic art and waveform graphics.
+- First-class transparent generator layers: procedural geometry, typographic art, waveform graphics and GPU particle fields.
 - Expanded geometry patterns: spiral, moiré and hex-grid; waveform patterns: radial and rose curves.
 - Text Art alternate line colours with backward-compatible accent-colour defaults.
 - GPU-side pulse, rotation, drift and flicker animation for generator layers.
+- Imported image, animated image and video overlays with independent playback controls.
 - Generator content, font choices, transforms, colour, outline and animation settings saved inside .eliav projects.
 
 ## Development roadmap
 
-See [docs/ROADMAP.md](docs/ROADMAP.md) for the M0–M5 plan, implementation status and the Video Mixer Completion Gate. See [M5 Autonomous Performance](docs/M5_AUTONOMOUS_PERFORMANCE.md) for the one-button Sonic Pi workflow. The visual release gate remains open while M3 control/audio foundations proceed.
+See [docs/ROADMAP.md](docs/ROADMAP.md) for milestone status and the independent Video Mixer Completion Gate. See [M5 Autonomous Performance](docs/M5_AUTONOMOUS_PERFORMANCE.md) for the one-button Sonic Pi workflow and [Windows one-file build guide](docs/BUILD_WINDOWS.md) for packaging.
 
 ## System requirements
 
-- Windows 10/11, 64-bit.
-- Python 3.12, 64-bit.
-- Current GPU driver supporting OpenGL 3.3 Core Profile.
-- Video codecs supported by the FFmpeg build bundled with PyAV.
-- SSD and modern CPU/GPU recommended for four concurrent streams.
+- Windows 11, 64-bit for the packaged performance build.
+- OpenGL 3.3 Core Profile and a current graphics driver.
+- 16 GB RAM minimum for lighter shows; 32 GB recommended for multi-deck work on an integrated GPU.
+- NVMe SSD and H.264 720p/1080p media recommended for the first show test.
+- HDMI or supported USB-C DisplayPort output for the projector.
+- Sonic Pi installed separately for SONATA OSC integration.
 
-See docs/SETUP_WINDOWS.md for installation and troubleshooting.
+The target computer does not need Python, FFmpeg or Visual Studio when using the packaged EXE. The native one-file build requires a Windows x64 build machine with CPython 3.12 and Visual Studio C++ Build Tools. Hardware capability varies by exact laptop SKU; four simultaneous high-bitrate 4K streams are not guaranteed on integrated graphics.
 
-## Quick setup (Windows PowerShell)
+See [Windows build and deployment](docs/BUILD_WINDOWS.md) and [Windows setup](docs/SETUP_WINDOWS.md).
 
-Clone the current main branch:
+## Windows one-file executable
 
-    git clone https://github.com/ilyaminineli/eli_lab-av-translator.git
-    cd eli_lab-av-translator
-    git checkout main
-    git pull
+The release-readiness branch includes a reproducible one-file build. From a Windows x64 build machine with CPython 3.12 and Visual Studio Build Tools 2022 (Desktop development with C++):
 
-Create and activate a Python 3.12 virtual environment:
+    git clone https://github.com/ilyaminineli/eli_lab-av-translation.git
+    cd eli_lab-av-translation
+    git checkout release/windows-onefile-readiness
+    powershell -ExecutionPolicy Bypass -File .\scripts\build_windows.ps1
 
-    py -3.12 -m venv .venv
-    .\.venv\Scripts\Activate.ps1
+The script installs the pinned build profile, checks imports/resources, compiles and lints the Python modules, then uses PySide6 deployment/Nuitka to create one EXE under dist. Copy that EXE to the Lenovo; Python and build tools are not required on the target. Sonic Pi and your video media remain separate.
 
-Install development dependencies and the project:
-
-    python -m pip install --upgrade pip
-    python -m pip install -r requirements-dev.txt
-    python -m pip install -e . --no-deps
-
-Launch:
-
-    python main.py
+The GitHub Actions workflow can also build a Windows x64 EXE manually or on a v* tag. See [BUILD_WINDOWS.md](docs/BUILD_WINDOWS.md) for exact prerequisites, deployment details and target-machine checks.
 
 ## One-button autonomous performance
 
@@ -133,10 +126,10 @@ Generate synthetic sample clips:
 
     python scripts/generate_test_videos.py --output test-footage
 
-Run static checks:
+Run static checks (the old unit-test suite was removed by request):
 
-    python -m compileall -q .
-    python -m ruff check .
+    python -m compileall -q main.py config.py core effects generators media rendering ui
+    python -m ruff check main.py config.py core effects generators media rendering ui
 
 Windows GitHub Actions runs Python compilation and Ruff. Automated unit-test files and test dependencies have been removed from this repository.
 
@@ -150,5 +143,7 @@ The media index, thumbnails and logs are stored under %LOCALAPPDATA%\eli_lab\AV 
 - The first projector implementation uses an independent renderer and CPU frame snapshots; each output uploads textures locally.
 - Performance Mode connects Sonic Pi transport, scene and phrase events, energy/cutoff macros, optional loopback audio analysis, Modulator Bank followers/envelopes/LFOs, per-layer curves and phrase-aware AUTO PERFORMANCE. Audio playback remains external. The full 384-bar SONATA rehearsal and Windows loopback/reconnect behaviour still require hardware validation.
 - No reverse playback, variable-speed playback, masks, keying, advanced crossfades or recording yet.
-- Four simultaneous high-bitrate 1080p/4K clips are not guaranteed on every computer; start with H.264 test clips and check the renderer / CPU load.
+- Four simultaneous high-bitrate 1080p/4K clips are not guaranteed on every computer; start with H.264 test clips and check renderer / CPU load.
+- The one-file build and third-party notices have not yet received a complete public-redistribution licence review. The bundled visual texture packs also need provenance/redistribution clearance before public release.
+- M5 master-output recording and audio/video muxing remain unimplemented; target Lenovo/projector FPS and long-duration rehearsal remain manual validation.
 - Projects store absolute media paths. Moving source footage requires re-importing the folder.
