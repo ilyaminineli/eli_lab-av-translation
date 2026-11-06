@@ -1,0 +1,3 @@
+# Optional native MIDI backend. On CPython 3.14 this is built from source,
+# so Visual Studio 2022 C++ Build Tools + Windows SDK are required.
+python-rtmidi==1.5.8

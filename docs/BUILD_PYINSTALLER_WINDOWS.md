@@ -1,56 +1,56 @@
-# Local Windows one-file build with PyInstaller
+# Windows one-file build with PyInstaller
 
-This build profile replaces the previous PySide6/Nuitka deployment script with a local PyInstaller build. It is intended for native Windows x64 builds.
+## What this build profile does
 
-## One-time setup
+Builds a native Windows x64 one-file executable using the AV Translator repository's own `.venv`. It collects the application's resources, icon, dictionaries, PySide6/Qt, PyAV/FFmpeg, ModernGL/glcontext, SoundCard, OSC and Mido packages.
 
-1. Open the `eli_lab-av-translation` repository root in PyCharm.
-2. Create a project-local environment with 64-bit CPython 3.12 if it does not already exist:
+## Important Python 3.14 note
 
-   ```powershell
-   py -3.12 -m venv .venv
-   ```
+PyInstaller 6.15 and later supports Python 3.14. The current PyAV Windows wheel uses the stable CPython 3.12 ABI (`abi3`) and can be used by CPython 3.14. The `python-rtmidi` project currently publishes a Windows x64 binary wheel for CPython 3.12, not CPython 3.14. Therefore the default Python 3.14 build treats native MIDI hardware input as optional. OSC/Sonic Pi integration and all other bundled features remain independent of this backend.
 
-3. Keep the environment at `.venv` inside this repository. The build script checks for it and automatically re-launches itself with this interpreter even when PyCharm's terminal has another project's environment activated.
+## Install files
+
+Extract/merge this archive into the AV Translator repository root. Do not delete or replace the application's existing folders.
+
+## Apply the one-time self-check compatibility patch
+
+From the repository root:
+
+```powershell
+git apply .\patches\main_optional_rtmidi.patch
+```
+
+This changes only `main.py`'s `--self-check`: `rtmidi` is reported as an optional backend rather than a mandatory import. The runtime MIDI service already catches an unavailable backend and returns no devices; this patch does not fake MIDI support.
+
+If `git apply` says the patch does not apply, do not force it. Compare `patches/main_optional_rtmidi.py` with the current `main.py` and make the same small change manually.
 
 ## Build
 
-From the repository root, run this single command in the PyCharm Terminal:
+Run in the PyCharm terminal from the repository root:
 
 ```powershell
 python .\scripts\build_pyinstaller.py
 ```
 
-The script installs/updates the runtime and packaging requirements in `eli_lab-av-translation\.venv`, checks dependency consistency, compiles the Python sources, builds the one-file executable, runs the packaged `--self-check`, and prints the executable's SHA-256.
+The script redirects to the repository's `.venv` if another project's venv is active. It supports 64-bit CPython 3.12, 3.13 and 3.14, installs required packages and PyInstaller, checks dependencies, compiles source, packages the EXE, runs `--self-check`, and writes a SHA-256 report.
 
-If you want to invoke the project interpreter explicitly:
+Output:
+
+`dist\eli_lab AV Translator.exe`
+
+## Optional: native MIDI hardware input
+
+For a Python 3.14 build with native MIDI input, install Visual Studio 2022 Build Tools with Desktop development with C++ and Windows SDK, then run:
 
 ```powershell
-& ".\.venv\Scripts\python.exe" .\scripts\build_pyinstaller.py
+python .\scripts\build_pyinstaller.py --with-midi
 ```
 
-## Output
-
-```text
-dist\eli_lab AV Translator.exe
-```
-
-The executable embeds the Python runtime, installed Python packages, Qt runtime/plugins, PyAV/FFmpeg wheel DLLs, ModernGL/glcontext, SoundCard, OSC/MIDI packages, application resources, local dictionaries, and `resources\icons\Icon.ico` as the executable icon. The build report is written to `build\pyinstaller-build-report.txt`.
+That option compiles `python-rtmidi` from source. It can fail if the toolchain or Python 3.14 source compatibility is incomplete. The normal build deliberately does not require it.
 
 ## Target computer
 
-The target is Windows 11 x64 and does not need Python, pip, PyInstaller, FFmpeg or Visual Studio. It does still need:
+The target computer does not need Python, pip, FFmpeg, PyInstaller or Visual Studio. It does need Windows 11 x64 and a graphics driver supporting OpenGL 3.3 Core. Sonic Pi remains a separate installation for SONATA OSC integration. Video footage, project files, and user-added media also remain separate and must be copied/relinked.
 
-- a current graphics driver with OpenGL 3.3 Core Profile support;
-- Sonic Pi installed separately for the SONATA OSC workflow;
-- any user media/footage and user-added asset folders copied separately.
+The self-check verifies imports and bundled data, not a real OpenGL context, audio loopback, projector output, MIDI device enumeration, multi-deck performance or long-duration stability. Test those on the actual performance laptop.
 
-Project files store media paths; the media itself is not embedded in the EXE. If footage paths differ on the target computer, re-import the copied media folder and relink the decks.
-
-## Notes
-
-- Build on Windows x64; PyInstaller is not a cross-compiler.
-- The first one-file launch is slower because PyInstaller extracts the bundled runtime to a temporary directory.
-- Keep several GB free on the system drive for build intermediates and one-file extraction.
-- A successful packaged self-check validates imports, the H.264 decoder and bundled resources. It does not validate OpenGL context creation, audio-device loopback, projector output, sustained FPS or the full SONATA rehearsal; those still require a real test on the target laptop.
-- The application writes logs and its local database under `%LOCALAPPDATA%\eli_lab\AV Translator\`.

@@ -1,7 +1,8 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""Windows x64 one-file build for eli_lab AV Translator."""
+"""Windows x64 one-file build for eli_lab AV Translator (CPython 3.12-3.14)."""
 
 from pathlib import Path
+import importlib.util
 import sysconfig
 
 from PyInstaller.utils.hooks import collect_all
@@ -21,7 +22,6 @@ missing = [str(path) for path in required_paths if not path.exists()]
 if missing:
     raise FileNotFoundError("Required AV Translator build inputs are missing:\n" + "\n".join(missing))
 
-# Ship application-owned read-only assets at the paths expected by config.py.
 datas = [
     (str(ROOT / "resources"), "resources"),
     (str(ROOT / "dictionary"), "dictionary"),
@@ -36,31 +36,33 @@ hiddenimports = [
     "PySide6.QtOpenGLWidgets",
 ]
 
-# These modules are partly loaded dynamically or ship package-local DLLs.
-# collect_all() gathers package data, extension binaries and submodules.
 for package in (
-    "av",          # PyAV + FFmpeg Python bindings
+    "av",          # PyAV; wheel contains the FFmpeg runtime DLLs
     "moderngl",    # ModernGL renderer
     "glcontext",   # OpenGL context providers
     "soundcard",   # Windows audio loopback/input
     "pythonosc",   # Sonic Pi OSC receiver
-    "mido",        # MIDI abstraction layer
-    "rtmidi",      # Native MIDI backend (python-rtmidi distribution)
+    "mido",        # MIDI abstraction; backend is optional
 ):
     package_datas, package_binaries, package_hiddenimports = collect_all(package)
     datas.extend(package_datas)
     binaries.extend(package_binaries)
     hiddenimports.extend(package_hiddenimports)
 
-# Some PyAV Windows wheels place FFmpeg DLLs beside the av package in an
-# "av.libs" directory. Keep those DLLs at the bundle root so Windows' DLL
-# search path can resolve them after one-file extraction.
+# python-rtmidi currently has no CPython 3.14 Windows wheel. If the builder
+# compiled/installed it from source via --with-midi, include its package too.
+if importlib.util.find_spec("rtmidi") is not None:
+    package_datas, package_binaries, package_hiddenimports = collect_all("rtmidi")
+    datas.extend(package_datas)
+    binaries.extend(package_binaries)
+    hiddenimports.extend(package_hiddenimports)
+
+# Keep any PyAV wheel auxiliary DLL directory, if the installed wheel uses one.
 site_packages = Path(sysconfig.get_paths()["purelib"])
 for libs_dir in site_packages.glob("av.libs"):
     binaries.extend((str(dll), ".") for dll in libs_dir.rglob("*.dll"))
 
-# Stable de-duplication avoids duplicate TOC warnings when hooks collect the
-# same Qt/FFmpeg dependency through more than one package.
+
 def deduplicate(items):
     seen = set()
     result = []

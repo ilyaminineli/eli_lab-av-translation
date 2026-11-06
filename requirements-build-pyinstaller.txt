@@ -1,10 +1,9 @@
-# Runtime and packaging dependencies for the Windows x64 PyInstaller build.
+# Runtime dependencies plus PyInstaller. This profile targets CPython 3.12-3.14 x64.
 -r requirements.txt
 
-# Optional in the development metadata, but included in the distributable build
-# because AV Translator's performance environment supports physical MIDI input.
+# Mido's pure-Python layer is included. The native python-rtmidi backend is optional
+# because PyPI currently publishes its Windows binary wheel for CPython 3.12 only.
 mido>=1.3,<2
-python-rtmidi==1.5.8
 
-# Reproducible PyInstaller toolchain.
+# PyInstaller 6.15+ supports Python 3.14; this build pins a tested current release.
 PyInstaller==6.22.3

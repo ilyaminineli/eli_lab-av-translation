@@ -1,0 +1,12 @@
+AV Translator PyInstaller Python 3.14 compatibility kit
+
+Files:
+- AVTranslator.spec
+- requirements-build-pyinstaller.txt
+- requirements-build-pyinstaller-midi.txt (optional native MIDI build)
+- scripts/build_pyinstaller.py
+- scripts/pyinstaller_runtime.py (retained, unchanged)
+- patches/main_optional_rtmidi.patch
+- patches/main_optional_rtmidi.py (reference patched main.py)
+- docs/BUILD_PYINSTALLER_WINDOWS.md
+- README.txt
