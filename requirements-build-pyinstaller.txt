@@ -1,0 +1,10 @@
+# Runtime and packaging dependencies for the Windows x64 PyInstaller build.
+-r requirements.txt
+
+# Optional in the development metadata, but included in the distributable build
+# because AV Translator's performance environment supports physical MIDI input.
+mido>=1.3,<2
+python-rtmidi==1.5.8
+
+# Reproducible PyInstaller toolchain.
+PyInstaller==6.22.3
