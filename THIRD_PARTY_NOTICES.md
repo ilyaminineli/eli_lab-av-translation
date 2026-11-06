@@ -1,6 +1,6 @@
 # Third-party notices and release audit
 
-This file records the direct runtime/build components used by the Windows x64 release profile. It is a notice index, not a substitute for the full licence texts that accompany each wheel or native library. The build packages the licence files supplied by the upstream distributions where present, and this project retains this notice with the executable.
+This file records the direct runtime/build components used by the Windows x64 release profile. It is a notice index, not a substitute for the full licence texts that accompany each wheel or native library. The current one-file build explicitly includes this notice; it does not yet prove that every full upstream licence text is copied into the EXE. Retain the upstream licence files for the exact wheel/native-library set used to build a release.
 
 ## Direct runtime dependencies
 
