@@ -53,6 +53,6 @@ The main toolbar now has a one-button Performance Mode control and the AUDIO / C
 
 ## Verification
 
-Unit tests cover mapping normalization/scaling/pickup, morph interpolation and versioned atomic performance-set persistence. Manual target-hardware checks remain required for MIDI hot-plug, physical fader pickup, sustained recording and preview/projector synchronization.
+The unit-test suite and pytest dependencies were removed at the user's request. CI now performs Python compilation and Ruff checks only; it does not execute runtime or hardware tests. Manual target-machine checks remain required for MIDI hot-plug, physical fader pickup, sustained recording and preview/projector synchronization.
 
 M5 is complete only when a prepared set can be recalled and performed from a compact surface with stable recording and output behaviour on the target machine.
