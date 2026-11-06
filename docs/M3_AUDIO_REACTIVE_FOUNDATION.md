@@ -111,22 +111,19 @@ Generator targets act on the currently selected, unlocked, compatible generator.
 
 ## Verification
 
-The Windows CI suite covers:
+The former unit-test suite was removed at the user's request. The current Windows quality workflow performs Python compilation and Ruff checks only. It does not run the previous fake-device, FFT, transport or Qt-panel tests.
 
-- Internal clock beat/bar timing, start/pause/resume/stop and quantized scene boundaries.
-- FFT band analysis, multichannel handling, sanitization, onset/tempo estimation and analysis setting ranges.
-- Fake physical-input and loopback backends, recorder ownership/close, source switching, disconnected-device handling, fixture replay and bounded queues.
-- Modulation target safety, curves, inversion, hold, bypass, manual override and unique target ownership.
-- Application project round-trip for scene profiles, transport, audio analysis settings and modulation routes.
-- Layer-lock precedence and the Audio / Control and selected-layer lock Qt panels.
-
-CI cannot prove a specific Windows machine's physical microphone, WASAPI loopback, driver reconnect or a long unattended audio session. Those remain manual hardware sign-off items.
+Manual hardware sign-off is still required for:
+- Physical microphone and system-loopback device discovery.
+- Device loss, reconnect and switching while video is playing.
+- Stable sustained capture and bounded-queue behaviour during a long session.
+- A/V timing and preview/projector consistency on the target hardware.
 
 ## M3 exit status
 
-<badge color="success">Software implementation complete</badge>
+<badge color="warning">Software implemented; hardware sign-off pending</badge>
 
-The internal transport/test clock, audio source and analysis bus, normalized control state, scene profiles, modulation matrix, UI, persistence and regression tests are implemented. Before declaring hardware validation complete, exercise the physical input and loopback devices on the performance PC, unplug/reconnect the active device, and run a sustained session while video is playing.
+The internal transport/test clock, audio source and analysis bus, normalized control state, scene profiles, modulation matrix, UI and persistence are implemented. Automated regression coverage is not currently present in this repository. Before declaring hardware validation complete, exercise physical input and loopback devices on the performance PC, unplug/reconnect the active device, and run a sustained session while video is playing.
 
 The transport/scene/macro contract is ready for M4. M3 does not include an OSC receiver or changes to the SONATA patch.
 
