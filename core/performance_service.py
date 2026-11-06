@@ -194,7 +194,6 @@ LEGACY_CPU_RASTER_MODIFIERS: dict[str, set[tuple[str, str]]] = {
     },
 }
 
-
 DEFAULT_MODULATORS: tuple[tuple[str, str], ...] = (
     ("follower-sonic-pi-energy", "AUTO · Sonic Pi energy"),
     ("follower-sonic-pi-cutoff", "AUTO · Sonic Pi cutoff"),
@@ -306,12 +305,12 @@ def install_default_layer_modifiers(
             configured[:] = [
                 raw for raw in configured
                 if not (
-                    isinstance(raw, dict)
-                    and str(raw.get("modifier_id", "")).startswith("auto-")
-                    and (
-                        str(raw.get("name", "")),
-                        str(raw.get("target_id", "")),
-                    ) in legacy
+                        isinstance(raw, dict)
+                        and str(raw.get("modifier_id", "")).startswith("auto-")
+                        and (
+                            str(raw.get("name", "")),
+                            str(raw.get("target_id", "")),
+                        ) in legacy
                 )
             ]
         # Migrate prior AUTO curves even on currently locked layers; do not
@@ -414,8 +413,8 @@ def install_default_layer_modifiers(
             candidates = [
                 item for item in candidates
                 if (
-                    item.target_id.startswith("layer.")
-                    or available.get(item.target_id) in settings
+                        item.target_id.startswith("layer.")
+                        or available.get(item.target_id) in settings
                 )
             ]
         elif layer.source_type == "overlay":
