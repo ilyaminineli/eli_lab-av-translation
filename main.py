@@ -44,7 +44,6 @@ def self_check() -> int:
         "soundcard",
         "pythonosc",
         "mido",
-        "rtmidi",
     )
     for module_name in modules:
         try:
@@ -53,6 +52,14 @@ def self_check() -> int:
         except Exception as exc:
             checks[module_name] = f"ERROR: {type(exc).__name__}: {exc}"
             errors.append(f"{module_name}: {exc}")
+
+    # Native MIDI is an optional project extra. Keep the application usable on
+    # Python versions without a matching python-rtmidi wheel/build.
+    try:
+        importlib.import_module("rtmidi")
+        checks["midi_backend"] = "available"
+    except Exception as exc:
+        checks["midi_backend"] = f"optional unavailable: {type(exc).__name__}: {exc}"
 
     try:
         import av
