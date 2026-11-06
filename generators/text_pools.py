@@ -5,6 +5,8 @@ import re
 from functools import lru_cache
 from pathlib import Path
 
+from config import PROJECT_ROOT
+
 # Curated phrases are retained as a reliable fallback and for short-form collage text.
 TEXT_POOLS: dict[str, dict[str, tuple[str, ...]]] = {
     "memory": {
@@ -186,7 +188,7 @@ def random_text_sample(
     english = list(pool["en"])
     japanese = list(pool["ja"])
     if use_dictionary:
-        root = Path(dictionary_path) if dictionary_path else Path(__file__).resolve().parents[1]
+        root = Path(dictionary_path) if dictionary_path else PROJECT_ROOT
         if language in {"english", "bilingual"}:
             english.extend(_dictionary_candidates(root, "english", theme))
         if language in {"japanese", "bilingual"}:

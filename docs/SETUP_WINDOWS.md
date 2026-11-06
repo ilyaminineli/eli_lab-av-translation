@@ -1,154 +1,145 @@
-# Windows setup guide
+# Windows setup and operation
 
-This guide covers a clean installation of eli_lab AV Translator on Windows 10/11.
+There are two ways to use AV Translator:
 
-## 1. System requirements
+- **Performance machine:** copy and run the single Windows x64 executable. Python and development tools are not required.
+- **Development/build machine:** install CPython 3.12 x64 and Visual Studio Build Tools, then run the source or build the one-file executable.
 
-- Windows 10/11, 64-bit.
-- Python 3.12, 64-bit.
-- Current GPU driver supporting OpenGL 3.3 Core Profile.
-- Video codecs supported by the FFmpeg build bundled with PyAV.
-- SSD and modern CPU/GPU recommended for four concurrent streams.
-- A second display or projector is optional but recommended for output testing.
+For the native Windows one-file build, follow [BUILD_WINDOWS.md](BUILD_WINDOWS.md). This document covers daily use and troubleshooting.
 
-Four concurrent high-bitrate streams are not guaranteed on every computer. Begin with short 720p or 1080p H.264 clips.
+## 1. Target system requirements
 
-## 2. Install Python 3.12
+- Windows 11 64-bit.
+- GPU driver with OpenGL 3.3 Core Profile support.
+- SSD storage.
+- HDMI or supported USB-C DisplayPort output for a projector.
+- Sonic Pi installed separately when using SONATA Expanded.
+- H.264 MP4 footage is recommended for the first test.
 
-Install 64-bit Python 3.12 from https://www.python.org/downloads/ and enable the Python launcher.
+For the Lenovo IdeaPad Slim 5 Gen 10 16-inch AMD family, 32 GB RAM is the preferred configuration for multi-deck performances. A 16 GB model can be used for lighter shows, but integrated Radeon graphics share system memory with the CPU. Check the exact Lenovo MTM/SKU for the supported HDMI resolution and refresh rate. Four simultaneous high-bitrate 4K streams are not guaranteed on an integrated GPU.
 
-Check in PowerShell:
+## 2. Install the one-file executable
 
-    py -3.12 --version
+1. Obtain the Windows x64 EXE from the release artifact or from the build output described in [BUILD_WINDOWS.md](BUILD_WINDOWS.md).
+2. Copy the EXE to a local folder on the performance computer.
+3. Double-click to start it.
+4. On the first launch, allow time for one-file extraction and Windows Defender scanning.
+5. The writable application database, thumbnails and logs are created under:
 
-## 3. Get the repository
+    %LOCALAPPDATA%\eli_lab\AV Translator\
 
-    git clone https://github.com/ilyaminineli/eli_lab-av-translator.git
-    cd eli_lab-av-translator
-    git checkout main
-    git pull
+The target computer does not need Python, pip, FFmpeg, Visual Studio or Nuitka. The executable bundles the Python application/runtime, Qt/PySide6, rendering/media/audio/OSC/MIDI dependencies and the repository's bundled visual resources and dictionaries.
 
-## 4. Create a virtual environment
+Sonic Pi, GPU drivers, Windows audio devices and your own video files are not part of the EXE.
 
+## 3. Prepare footage and projects
+
+A .eliav project and an .eliset performance set store composition state and source paths; they do not contain the original video files.
+
+When moving a project to a different computer:
+1. Copy the video and user asset folders to the new computer.
+2. Keep the folder structure the same where practical.
+3. Import those folders into the Media Library on the new computer.
+4. Reassign/relink the four decks and any media overlays if their absolute paths changed.
+5. Save a fresh project/performance set on that computer.
+
+Do not expect a project JSON file alone to transfer the video media.
+
+## 4. Connect the projector
+
+1. Connect HDMI before opening the fullscreen output.
+2. In Windows Display Settings, choose **Extend these displays**.
+3. Start AV Translator.
+4. Set the projector to 1920×1080 at 60 Hz for the first validation. Test higher resolutions only after checking the actual projector and laptop SKU.
+5. Select View → PROJECTOR OUTPUT → Display N.
+6. Confirm the status bar reports the active projector renderer and FPS.
+7. Press Escape on the projector output to close it. The main application remains open.
+
+The preview and projector have separate OpenGL contexts but share the same application composition and CPU frame snapshots.
+
+## 5. Run an autonomous Sonic Pi performance
+
+1. Prepare a composition with video decks and/or generator layers.
+2. In AUDIO / CONTROL, choose System Loopback for actual audio-band/onset analysis, or Sonic Pi macros only when local capture is unavailable or not needed.
+3. In AUTO PERFORMANCE, choose Generative or Structured style, musical sync and duration.
+4. Press PERFORMANCE MODE.
+5. Run SONATA Expanded in Sonic Pi.
+6. Confirm the application moves from ARMED to LIVE and the audio/OSC status is healthy.
+7. Open the projector output.
+8. Stop SONATA to end the current AUTO pass. Performance Mode re-arms for a subsequent patch run. Press STOP PERFORMANCE MODE when the show is finished.
+
+Sonic Pi energy/cutoff macros are normalized musical control signals, not raw audio samples. System loopback is required for the actual low/mid/high audio analysis.
+
+See [SONATA integration notes](SONIC_PI_SONATA_INTEGRATION.md) for remote-computer OSC addressing and the exact protocol.
+
+## 6. Developer setup (source run)
+
+Only use these steps on the development/build computer.
+
+Install 64-bit CPython 3.12, clone the repository, and prepare an environment:
+
+    git clone https://github.com/ilyaminineli/eli_lab-av-translation.git
+    cd eli_lab-av-translation
     py -3.12 -m venv .venv
     .\.venv\Scripts\Activate.ps1
-
-Upgrade pip:
-
     python -m pip install --upgrade pip
-
-If PowerShell blocks activation, use the environment interpreter directly rather than changing the machine-wide execution policy:
-
-    .\.venv\Scripts\python.exe -m pip install --upgrade pip
-
-Continue using .\.venv\Scripts\python.exe instead of python in that terminal.
-
-## 5. Install dependencies
-
-For development and automated tests:
-
     python -m pip install -r requirements-dev.txt
     python -m pip install -e . --no-deps
-
-For an application-only environment:
-
-    python -m pip install -r requirements.txt
-    python -m pip install -e . --no-deps
-
-Dependency metadata is also declared in pyproject.toml. Keep all three files aligned when changing dependencies.
-
-## 6. Launch the application
-
     python main.py
 
-On first launch the application creates local data folders under:
+If PowerShell blocks activation, use .venv\Scripts\python.exe directly. The source-run application uses the same writable LOCALAPPDATA location as the one-file executable.
 
-    %LOCALAPPDATA%\eli_lab\AV Translator\
+## 7. Developer quality checks
 
-The media database, thumbnails and logs are kept outside the repository.
+The historical unit-test suite and pytest dependency were removed at the user's request. Current CI performs Python compilation and Ruff only:
 
-## 7. First video test
+    python -m compileall -q main.py config.py core effects generators media rendering ui
+    python -m ruff check main.py config.py core effects generators media rendering ui
 
-Generate sample clips:
+Do not describe a green compile/Ruff workflow as a passing runtime or hardware test.
 
-    python scripts/generate_test_videos.py --output test-footage
+## 8. Diagnostics
 
-Then launch the app, drag test-footage from Windows Explorer into the Media Library panel, or select File → Add Media Folder. Assign the clips to the four decks and test playback, layer blending and transforms.
+The one-file build supports:
 
-## 8. Run an unattended collage
+    "eli_lab AV Translator.exe" --self-check
 
-1. Import one or more footage folders into the Media Library.
-2. Open the AUTO PERFORMANCE panel.
-3. Choose one footage folder or All imported footage.
-4. Choose a session length: 30, 45, 60, 90 or 120 minutes, or Until stopped.
-5. Choose cut rhythm, fragment length and loop probability.
-6. Keep automatic layout and filter-look changes enabled for a fully changing set.
-7. Press START AUTOMATIC SESSION.
-8. Use deck or layer Lock controls to keep selected sources or visual layers fixed.
-9. Press STOP AUTOMATION when the session is finished. Current deck playback is left running.
+It reports whether the Python packages import, which FFmpeg libraries are present, whether the H.264 decoder is available, and whether the packaged icon/textures/sketches/dictionaries are present. It does not initialise an OpenGL context or test the HDMI/projector.
 
-The director selects randomized in/out points and independently schedules cuts for each unlocked deck. A segment can loop or play once before its next scheduled cut.
+The normal application log is:
 
-## 9. Effects and overlays
+    %LOCALAPPDATA%\eli_lab\AV Translator\logs\av-translator.log
 
-Open EFFECTS + OVERLAYS to select a look and adjust:
+## 9. Troubleshooting
 
-- Brightness, contrast, saturation and gamma.
-- Vignette and grain.
-- Scanlines and RGB split.
-- Signal glitch, pixelation, posterize and invert.
-
-Looks are applied to the master composition and shared by the preview and projector output.
-
-## 10. Fullscreen projector output
-
-1. Connect and enable the second display or projector in Windows Display Settings.
-2. Set the displays to Extend rather than Duplicate.
-3. In AV Translator, select View → PROJECTOR OUTPUT → Display N.
-4. The selected display opens a fullscreen live output.
-5. Press Escape on that output display to close it. The main application remains open.
-
-The projector window has its own GPU renderer. Both windows display the same video snapshots and effects; they do not create additional video decoder workers.
-
-## 11. Tests and troubleshooting
-
-Run:
-
-    python -m compileall -q .
-    python -m pytest tests/unit -v
-    python -m ruff check .
-
-### OpenGL initialization fails
-
-- Update the Intel, AMD or NVIDIA graphics driver.
+### OpenGL initialisation fails
+- Update the AMD Radeon graphics driver.
 - Confirm OpenGL 3.3 Core Profile support.
-- On laptops, set Python to use the high-performance GPU in Windows Graphics settings.
-- Check %LOCALAPPDATA%\eli_lab\AV Translator\logs.
-
-### A video appears in the library but does not play
-
-The scanner indexes supported file extensions, but actual playback needs a decodable video stream and a supported codec. Try a short H.264 MP4 file first.
+- Check the status bar for the active renderer's actual error.
+- LOCAL PREVIEW IDLE means the local preview tab is hidden; it does not mean that the projector renderer failed.
+- The projector renderer reports its own initialisation result and FPS.
 
 ### Playback is slow or drops frames
+- Connect AC power and use Windows Best performance mode.
+- Begin with one or two 1080p H.264 clips, then add decks.
+- Use the local NVMe SSD rather than a slow external drive.
+- Close browser tabs, games and other GPU-heavy software.
+- Reduce source resolution/bitrate before simplifying the visual composition.
+- Compare renderer FPS, decode time, conversion time and dropped-frame counters.
 
-- Start with four 720p or 1080p H.264 clips.
-- Avoid high-bitrate 4K footage during initial tests.
-- Use an SSD and close other GPU-heavy programs.
-- Reduce heavy looks such as glitch and pixelation if the GPU is struggling.
-- Compare decoder and renderer performance separately.
+### Audio loopback is unavailable
+- Check Windows playback and recording devices.
+- Refresh the device list in AUDIO / CONTROL.
+- Sonic Pi transport and energy/cutoff macros can still operate without local audio capture.
+- Actual low/mid/high bands and onset analysis require a supported loopback source.
 
-### Projector output opens on the wrong display
+### Projector appears on the wrong display
+- Confirm Windows is set to Extend.
+- Close the output window and reopen View → PROJECTOR OUTPUT after changing display topology.
+- Verify the target HDMI mode and refresh rate are supported by the exact laptop and projector models.
 
-Use Windows Display Settings to confirm the projector is connected and set to Extend. Reopen View → PROJECTOR OUTPUT after the display topology changes.
+### Media is missing after moving the project
+The project stores source paths, not copies of the video files. Copy the original folders and import/reassign them on the target computer.
 
-### Thumbnails are missing
-
-Thumbnail generation runs in a background worker. Check PyAV and PySide6 installation and inspect the application log. The media list remains usable without thumbnails.
-
-## 12. Data and project files
-
-The application stores media indexing, thumbnails and logs under:
-
-    %LOCALAPPDATA%\eli_lab\AV Translator\
-
-A .eliav project stores composition, source paths, segment settings, master effect settings and automation settings. It does not copy source video files.
+### Windows Defender/SmartScreen warns about the EXE
+One-file applications extract their payload to a temporary directory and may trigger an unfamiliar-app scan. Obtain the EXE from the trusted build workflow, compare its SHA-256 value and allow Windows to finish scanning. Do not disable Defender globally to run an unverified executable.

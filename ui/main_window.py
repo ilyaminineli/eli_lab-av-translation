@@ -18,7 +18,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from config import APP_VERSION
+from config import (
+    APP_AUTHOR,
+    APP_COPYRIGHT,
+    APP_NAME,
+    APP_REPOSITORY_URL,
+    APP_STUDIO,
+    APP_VERSION,
+)
 from core.application import Application
 from core.performance_service import PerformanceModePlan
 from ui.asset_library_panel import AssetLibraryPanel
@@ -861,11 +868,20 @@ class MainWindow(QMainWindow):
     def show_about(self) -> None:
         QMessageBox.about(
             self,
-            "About eli_lab AV Translator",
-            f"eli_lab AV Translator {APP_VERSION}\n"
-            "Video collage, generative visuals, text art and projector output.\n"
-            "M3: internal transport, audio analysis and visual modulation.\n"
-            "M4: external Sonic Pi OSC integration.",
+            f"About {APP_NAME}",
+            (
+                f"<h2>{APP_NAME} {APP_VERSION}</h2>"
+                "<p>Live audiovisual performance environment.</p>"
+                "<p>Video collage · procedural geometry · text art · particles<br>"
+                "GPU effects · audio reactivity · Sonic Pi OSC · projector output</p>"
+                "<p><b>Built with</b><br>"
+                "Python · PySide6 / Qt · ModernGL / OpenGL · PyAV / FFmpeg<br>"
+                "NumPy · SoundCard · python-osc · MIDI</p>"
+                f"<p><b>Created by</b><br>{APP_AUTHOR}<br>"
+                f"{APP_STUDIO} · 2026</p>"
+                f"<p>{APP_COPYRIGHT}<br>"
+                f'<a href="{APP_REPOSITORY_URL}">Project source</a></p>'
+            ),
         )
 
     def closeEvent(self, event) -> None:

@@ -6,3 +6,12 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 test-footage/
+
+/build/
+/dist/
+*.build/
+*.dist/
+*.onefile-build/
+pysidedeploy.spec
+
+.venv-release/

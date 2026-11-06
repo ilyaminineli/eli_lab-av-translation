@@ -17,4 +17,4 @@
 - Preview resizes with the window.
 - Composition/layers serialize and deserialize.
 - Project save uses an atomic temporary-file replacement.
-- Unit tests run without opening a GUI.
+- The former unit-test suite has been removed at the user's request. Current CI runs Python compilation and Ruff; renderer/GPU behaviour requires a live Windows hardware check.

@@ -1,7 +1,7 @@
 # eli_lab AV Translator — Product Roadmap
 
-**Roadmap snapshot:** 5 November 2026  
-**Current priority:** complete the live SONATA 384-bar rehearsal and M3 Windows audio/loopback sign-off. M4 software implementation is complete; the Video Mixer hardware release gate remains a separate open track.
+**Roadmap snapshot:** 6 November 2026  
+**Current priority:** release packaging, Lenovo/HDMI projector validation, Windows loopback reconnect and the live SONATA 384-bar rehearsal. M4 software and M5 autonomous orchestration are implemented; the Video Mixer hardware release gate remains separate and open.
 
 ## Product goal
 
@@ -19,10 +19,10 @@ The roadmap is deliberately staged. M0–M2 establish the visual instrument. M3 
 |---|---|---|
 | M0 — Rendering Core | Core implemented; hardware hardening remains | PySide6 shell, OpenGL/ModernGL render contexts, canvas/layers, project persistence and fullscreen external output are present. |
 | M1 — Video Collage | Core implemented; reliability pass in progress | Folder indexing, four decoder decks, transforms, blending and random collage behaviour are present. Safe library cleanup, bounded import workers, decoder retirement and preview output limits are now implemented in the hardening branch. |
-| M2 — Generative Visuals | Initial generator layers implemented | GPU master looks plus first-class geometry, text-art and waveform layers with cached RGBA content, shader animation and project persistence. Particle simulation, imported image/animated overlays, vector paths and richer text motion remain. |
-| M3 — Audio-Reactive Engine & Control Foundation | Software implementation complete; Windows hardware sign-off pending | Internal transport and quantization, SoundCard input/loopback capture, FFT/onset/tempo analysis, scene profiles, editable modulation matrix, lock/manual-override precedence, persistence and regression coverage are implemented. Physical device/reconnect and sustained-session checks remain on the performance PC. |
+| M2 — Generative Visuals | Core generator and overlay workflow implemented; advanced extensions remain | Geometry, Text Art, waveform and GPU particle fields are available. Still/animated-image/video overlays, layer effects, shader animation and project persistence are implemented. Vector paths, shape groups and a full particle simulation with lifetime/velocity/acceleration remain future extensions. |
+| M3 — Audio-Reactive Engine & Control Foundation | Software implementation complete; Windows hardware sign-off pending | Internal transport and quantization, SoundCard input/loopback capture, FFT/onset/tempo analysis, scene profiles, editable modulation matrix, lock/manual-override precedence and persistence are implemented. Physical device/reconnect and sustained-session checks remain on the performance PC. The repository unit-test suite was removed at the user's request; current CI performs static checks only. |
 | M4 — Sonic Pi Integration | Software complete; live rehearsal pending | Versioned `/eli_lab/v1` receiver, test sender, diagnostics, bounded validation, M3 clock/modulation bridge and optional SONATA sender are implemented. Verify the complete 384-bar performance on the target machine. |
-| M5 — Performance Environment | Planned / foundations only | Full MIDI mapping, preset/scene banks, recording and advanced output routing remain future work. |
+| M5 — Performance Environment | Autonomous Performance Mode implemented; release gates remain | One-button Sonic Pi orchestration, default reactive mappings, Modulator Bank/per-layer curves and phrase-aware AUTO PERFORMANCE are implemented. Master-output recording/audio muxing, target-machine rehearsal and output validation remain open. |
 
 ### Observed machine test
 
@@ -336,7 +336,7 @@ See [SONATA Expanded integration notes](SONIC_PI_SONATA_INTEGRATION.md).
 
 ## Status
 
-**Autonomous Performance Mode and Sonic Pi orchestration implemented on `m5-autonomous-performance`. M5 exit remains open for master-output recording and target-machine rehearsal.**
+**Autonomous Performance Mode and Sonic Pi orchestration are merged to main. A Windows x64 one-file release build is configured on `release/windows-onefile-readiness`; its native Windows build and Lenovo/projector acceptance tests remain pending. M5 exit remains open for master-output recording and target-machine rehearsal.**
 
 ## Implemented
 

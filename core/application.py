@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from config import VIDEO_DECK_IDS
+from config import RESOURCE_DIR, VIDEO_DECK_IDS
 from core.audio_analysis import AudioAnalysisFrame, AudioAnalysisSettings
 from core.audio_capture import AudioCaptureService
 from core.automation import AutomationDirector, AutomationSettings
@@ -120,11 +120,10 @@ class Application:
         self._animation_started_at = time.perf_counter()
         self.project_manager = ProjectManager()
         self.media_library = MediaLibrary()
-        resource_root = Path(__file__).resolve().parents[1] / "resources"
-        texture_root = resource_root / "textures"
-        sketch_root = resource_root / "sketches_and_strokes"
+        texture_root = RESOURCE_DIR / "textures"
+        sketch_root = RESOURCE_DIR / "sketches_and_strokes"
         self.visual_asset_index = VisualAssetIndex([texture_root, sketch_root])
-        self.visual_asset_index.scan()
+        # Built-in and user assets are indexed lazily when the asset-library dock opens.
         self.performance_manager = PerformanceManager()
         self.automation = AutomationDirector()
         self.effects = EffectSettings()
@@ -203,7 +202,7 @@ class Application:
             raise NotADirectoryError(root)
         if root not in self.visual_asset_index.roots:
             self.visual_asset_index.roots.append(root)
-        return len(self.visual_asset_index.scan())
+        return len(self.visual_asset_index.roots)
 
     def search_visual_assets(self, query: str = "", purpose: str | None = None,
                              kind: str | None = None, category: str | None = None):
