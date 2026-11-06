@@ -82,7 +82,7 @@ The project loader still accepts schema version 1 projects; their missing M2 set
 
 ## Validation
 
-Unit tests cover random segment bounds, locked deck behavior, scheduled cuts, session expiry, effect preset reset and M2 project-state persistence.
+The former unit-test suite was removed at the user's request. Current CI checks Python compilation and Ruff only; random scheduling, media playback and projector behaviour require runtime validation on Windows.
 
 A physical Windows multi-display test is still required to validate monitor placement, GPU driver behavior and four-stream playback on the target performance computer.
 
