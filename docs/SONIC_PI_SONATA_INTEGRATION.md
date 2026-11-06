@@ -103,7 +103,7 @@ The 93 SONATA audio loops remain untouched. OSC still carries only the transport
 - The main application tick drains a bounded number of events, updates performance-control state and applies modulation. Qt widgets, composition state and OpenGL resources are never touched by the OSC worker.
 - The AUDIO / CONTROL dock shows listening/live/stale status, last address, active session, accepted/rejected/dropped counts and last packet age.
 
-A lost packet does not block the clock: the next bar or macro packet is handled independently. Malformed datagrams are discarded and counted; the receiver remains available. A stale sender is recovered by restarting SONATA with a fresh session ID. If the receiver itself was stopped, restart it before restarting the patch.
+A lost packet does not block the clock: the next bar or macro packet is handled independently. Malformed datagrams are discarded and counted; the receiver remains available. A stale sender is recovered by restarting SONATA with a fresh session ID. If STOP PERFORMANCE MODE was pressed, arm Performance Mode again before restarting the patch; the mode starts or reuses the receiver automatically.
 
 ## Test without Sonic Pi
 
@@ -111,14 +111,14 @@ With AV Translator running and OSC started on loopback port 57121:
 
     python scripts/osc_test_sender.py --host 127.0.0.1 --port 57121
 
-The script sends start, bar, scene, energy/cutoff, heartbeat, phrase and end events. Protocol and local UDP receiver tests run in CI without Sonic Pi or audio hardware.
+The script sends start, bar, scene, energy/cutoff, heartbeat, phrase and end events. It is a manual diagnostic sender. The repository's former unit-test suite was removed at the user's request; current CI performs compilation and Ruff checks only.
 
 ## Live rehearsal checklist
 
-1. Start AV Translator and enable the OSC receiver on `127.0.0.1:57121`.
-2. In Sonic Pi, leave `$sp_av_enabled = true`, verify host and port, then run SONATA.
+1. Start AV Translator and press PERFORMANCE MODE. Confirm the receiver is listening on `127.0.0.1:57121` and the mode is ARMED.
+2. In Sonic Pi, leave `$sp_av_enabled = true`, verify host and port, then run SONATA. Confirm the mode moves to LIVE.
 3. Confirm BPM 92, bar positions 1 through 384, all 16 scene IDs, energy/cutoff movement, four-bar phrase cues and final stop.
 4. Stop/restart the patch and confirm the new session is accepted while delayed packets from the prior session are rejected.
-5. Stop AV Translator's receiver, confirm SONATA audio continues, then restart the receiver and restart SONATA.
+5. Press STOP PERFORMANCE MODE and confirm SONATA audio continues. Re-arm Performance Mode, restart SONATA and confirm a fresh OSC session becomes LIVE.
 
 **Validation boundary:** the OSC protocol and sender insertion are implemented. The complete 384-bar performance has not been executed inside Sonic Pi by the current quality workflow; timing and machine-specific rehearsal remain a manual sign-off.
