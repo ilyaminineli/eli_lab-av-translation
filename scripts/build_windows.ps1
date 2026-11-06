@@ -101,6 +101,22 @@ if ($LASTEXITCODE -ne 0 -or -not (Test-Path $SpecPath)) {
     throw "pyside6-deploy could not generate pysidedeploy.spec."
 }
 
+# PySide6 6.12's default spec pins an older Nuitka. Override it so the version
+# used by the compiler matches the version installed from our build profile.
+$SpecContent = Get-Content $SpecPath -Raw
+if ($SpecContent -notmatch "(?m)^\[python\]\s*$") {
+    throw "Unexpected pysidedeploy.spec format: [python] section not found."
+}
+if ($SpecContent -notmatch "(?m)^packages\s*=") {
+    throw "Unexpected pysidedeploy.spec format: [python] packages entry not found."
+}
+$SpecContent = [regex]::Replace(
+    $SpecContent,
+    "(?m)^packages\s*=.*$",
+    "packages = Nuitka==4.3.4,ordered-set,zstandard"
+)
+Set-Content -Path $SpecPath -Value $SpecContent -Encoding utf8
+
 Write-Host "Building the one-file Windows executable…" -ForegroundColor Cyan
 & $Deploy -c $SpecPath --mode onefile --no-install --force
 if ($LASTEXITCODE -ne 0) {
