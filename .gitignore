@@ -13,3 +13,5 @@ test-footage/
 *.dist/
 *.onefile-build/
 pysidedeploy.spec
+
+.venv-release/
