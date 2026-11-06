@@ -15,13 +15,13 @@ The target computer still needs:
 
 ## Recommended target configuration
 
-The linked Lenovo product page describes a configurable IdeaPad Slim 5 Gen 10 16-inch AMD family rather than one unique hardware SKU. Lenovo lists Ryzen 5 8645HS / Ryzen 7 8845HS variants, Radeon 760M / 780M integrated graphics, 16 GB or 32 GB memory configurations and an HDMI port. Check the machine's exact MTM/model number before assuming its RAM, panel or HDMI refresh-rate limit.
+The linked Lenovo page describes the configurable IdeaPad Slim 5 Gen 10 16-inch AMD family rather than one unique SKU. Lenovo's PSREF for the IdeaPad Slim 5 16AHP10 lists Ryzen 5 8645HS / Ryzen 7 8845HS, Radeon 760M / 780M integrated graphics, shared graphics memory, up to 32 GB DDR5 RAM and HDMI output up to 4K@60Hz. Check the laptop's exact MTM/model number against that PSREF before relying on those exact options or display limits: [Lenovo PSREF — IdeaPad Slim 5 16AHP10](https://psref.lenovo.com/syspool/Sys/PDF/IdeaPad/IdeaPad_Slim_5_16AHP10/IdeaPad_Slim_5_16AHP10_Spec.PDF).
 
 For AV Translator, prefer:
 - 32 GB RAM, especially for multiple decks and the bundled visual library. 16 GB is a workable lighter-use configuration, but gives less headroom because the integrated Radeon GPU shares system memory.
 - NVMe SSD with at least 5 GB free for the application data and one-file extraction; more is needed for video libraries and caches.
 - 1080p H.264 sources for the first show test. Four high-bitrate 4K streams are not guaranteed on an integrated GPU.
-- HDMI output set to Extend in Windows Display Settings. Start with 1920×1080 at 60 Hz, then test the projector's native mode and refresh rate.
+- HDMI output set to Extend in Windows Display Settings. Start with 1920×1080 at 60 Hz for the first show validation. If the exact laptop MTM and projector both support it, the 16AHP10 PSREF documents HDMI up to 4K@60Hz.
 - AC power and Windows Best performance power mode during a show.
 
 The Lenovo family page confirms an HDMI connector, but the HDMI mode/refresh capability depends on the exact SKU and display configuration. Verify this against the model's Lenovo PSREF before setting a 4K or high-refresh projector mode.
